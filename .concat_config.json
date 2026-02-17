@@ -1,0 +1,25 @@
+{
+    "exclude_tree_dirs": [
+        ".git",
+        "docs_ancien",
+        "ui",
+        "autre"
+    ],
+    "exclude_tree_files": [
+        "gentxt.txt",
+        ".concat_config.json"
+    ],
+    "exclude_tree_extensions": [],
+    "exclude_content_dirs": [
+        ".git",
+        "docs_ancien",
+        "ui",
+        "autre"
+    ],
+    "exclude_content_files": [
+        "gentxt.txt",
+        ".concat_config.json"
+    ],
+    "exclude_content_extensions": [
+    ]
+}

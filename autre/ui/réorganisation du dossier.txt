@@ -1,0 +1,27 @@
+
+
+il faut calculer des bases, tout simple : trivial en ligne de commande, très peu de ressource, génère un fichier .b3 
+question : ok si très peu de ressources ???? 
+
+ensuite un utilitaire pour comparer les hash et en générer un rapport 
+mais pas obligé de lancer ce programme sur le serveur
+
+
++ j'ai essayé de modifier l'UI de l'outil au début, dans une première approche, puis je me suis confronté à linux et Gnome qui est vraiment innadapté pour les GUI, surtout avec la barre de navigation qui est pas éditable. J'ai essayé de régler ça avec du code avec Claude mais il réussisait pas. J'ai un peu perdu patience, donc je suis revenu à la base de ce que j'essaie de faire, et en fait je me rend compte que je faisais fausse route avec la GUI, pas besoin de GUI, c'est pas pertinent. 
+Enfin jsp, à la fois j'aime bien l'UI. J'aurai besoin d'un programme qui me permettra de générer un rapport de différence entre deux bases de hash, c'est important, mais possible de le créer en ligne de commande, en ligne de commande c'est beaucoup plus simple. 
+Mais oui il faudra créer un outil qui prend deux bases et crée le rapport. 
+
+Mais en fait ça c'est de l'ordre de l'exploitation du résultat et de la gouvernance et de l'intégration de l'outil de calcul de la base dans un workflow 
+
+Mais c'est pas crucial en fait 
+
+Possible de juste avoir une procédure... 
+Copier coller la 
+
+==
+
+garde fou , base vide 
+
+
+
+

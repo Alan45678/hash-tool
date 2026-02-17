@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Rapport de comparaison</title>
+<style>
+body { font-family: Arial, sans-serif; background:#f0f0f0; }
+.section { background:white; margin:20px; padding:20px; border-radius:8px; }
+ul { font-family: Consolas; }
+</style>
+</head>
+<body>
+
+<div class="section">
+<h1>Rapport de comparaison</h1>
+<p><b>Base 1 :</b> hash_source.db</p>
+<p><b>Base 2 :</b> hash_destination.db</p>
+</div>
+
+<div class="section">
+<p>Fichiers identiques : 3</p>
+<p>Fichiers corrompus : 1</p>
+<p>Fichiers manquants : 0</p>
+<p>Fichiers en trop : 0</p>
+</div>
+
+<div class="section">
+<h2>Fichiers corrompus</h2>
+<ul>
+<li>fichier (1).txt</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>Journal d'execution</h2>
+<pre>COMPARAISON DE BASES DE HASH
+============================================================
+Base #1: hash_source.db
+Base #2: hash_destination.db
+
+Chargement de la base #1...
+  > 4 fichiers
+Chargement de la base #2...
+  > 4 fichiers
+
+Comparaison en cours...
+Génération du rapport HTML...
+</pre>
+</div>
+
+</body>
+</html>

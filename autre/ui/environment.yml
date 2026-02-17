@@ -1,0 +1,11 @@
+name: conda_env_hash_tool
+channels:
+  - conda-forge
+dependencies:
+  - blake3>=0.3.0
+  - pytest
+  - PySide6>=6.6.0
+
+
+
+
