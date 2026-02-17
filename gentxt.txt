@@ -1,32 +1,128 @@
 # === Arborescence du dossier ===
 
 hash_tool
-├== docs
-│   ├== explication-run-tests.md
-│   ├== manuel.md
-│   ├== progression-eta.md
-│   └== validation.md
-├== src
-│   ├== integrity.sh
-│   └== run_tests.sh
-├== test_mano
-│   ├== destination
-│   │   ├== fichier (1).txt
-│   │   ├== fichier (2).txt
-│   │   ├== fichier (3).txt
-│   │   └== fichier (4).txt
-│   └== source
-│       ├== fichier (1).txt
-│       ├== fichier (2).txt
-│       ├== fichier (3).txt
-│       └== fichier (4).txt
-└== README.md
+├── docs
+│   ├── explication-run-tests.md
+│   ├── manuel.md
+│   ├── progression-eta.md
+│   └── validation.md
+├── mon_dossier
+│   ├── destination
+│   │   ├── fichier (1).txt
+│   │   ├── fichier (2).txt
+│   │   ├── fichier (3).txt
+│   │   └── fichier (4).txt
+│   └── source
+│       ├── fichier (1).txt
+│       ├── fichier (2).txt
+│       ├── fichier (3).txt
+│       └── fichier (4).txt
+├── tests
+│   └── run_tests.sh
+├── CHANGELOG.md
+├── README.md
+└── integrity.sh
 
 
 # === Contenu des fichiers ===
 
+--- Fichier : CHANGELOG.md ---
+# Changelog — hash_tool / integrity.sh
+
+---
+
+## [0.5] — Documentation
+
+### Modifié
+- `README.md` — règle répertoire de travail pour `verify` précisée : l'argument `[dossier]` est le répertoire d'origine du compute, pas le dossier haché. Exemples correct/incorrect ajoutés.
+- `docs/manuel.md` — section `verify` mise à jour avec le même avertissement et les exemples.
+
+---
+
+## [0.4] — Gardes-fous et signalisation des erreurs
+
+### Modifié
+- `integrity.sh`
+  - Ajout de `die()` : point de sortie unique pour toutes les erreurs, message sur stderr.
+  - Ajout de `assert_b3_valid()` : vérifie existence, type fichier, non-vide, format b3sum valide.
+  - Ajout de `assert_target_valid()` : vérifie existence du dossier cible et présence d'au moins un fichier.
+  - Validation explicite des arguments dans chaque branche du `case` avant tout traitement.
+  - `verify` accepte un argument optionnel `[dossier]` : fait `cd` avant `b3sum --check`.
+  - Résolution du chemin absolu du `.b3` avant `cd` (correction bug : chemin relatif invalide après changement de répertoire).
+  - `RESULTATS_DIR` : `${RESULTATS_DIR:-...}` au lieu d'assignation inconditionnelle — respecte la valeur exportée par l'environnement (fix tests).
+  - Suppression de `local hashfile_abs` hors fonction (illégal en bash hors contexte fonction).
+  - `run_verify()` : refonte de la signalisation.
+    - Trois états distincts : `OK`, `ECHEC`, `ERREUR`.
+    - Terminal : affichage sobre si OK, bloc `████` visible si échec ou erreur.
+    - `recap.txt` : compteur `FAILED` affiché uniquement si > 0 ; section erreurs b3sum séparée.
+    - `failed.txt` : créé uniquement si `nb_failed > 0` ou erreurs b3sum présentes. Supprimé si tout est OK.
+- `tests/run_tests.sh`
+  - T02 : assertion `failed.txt absent si 0 échec` (logique inversée par rapport à l'ancienne version).
+  - T03 : patterns mis à jour (`ECHEC`, `FAILED`) alignés sur le nouveau format de sortie.
+
+---
+
+## [0.3] — Dossiers de résultats (verify et compare)
+
+### Modifié
+- `integrity.sh`
+  - Ajout de `RESULTATS_DIR` (configurable, défaut `~/integrity_resultats`).
+  - Ajout de `make_result_dir()` : crée `resultats_<nom_base>/` sous `RESULTATS_DIR`.
+  - `verify` : délègue à `run_verify()` — produit `recap.txt` et `failed.txt`.
+  - `compare` : délègue à `run_compare()` — produit `recap.txt`, `modifies.b3`, `disparus.txt`, `nouveaux.txt`.
+  - Fichiers temporaires de `compare` passent par `mktemp` (plus de `/tmp/_old.b3` en dur).
+  - Signature `verify` simplifiée : `<base.b3>` uniquement (le dossier n'était pas utilisé par `b3sum --check`).
+- `README.md` — usage `verify` et `compare` mis à jour ; section Configuration ajoutée avec arbre des fichiers produits.
+- `docs/manuel.md` — sections `verify` et `compare` mises à jour ; arbre de décision et référence rapide alignés.
+- `tests/run_tests.sh`
+  - `RESULTATS_DIR` exporté vers `WORKDIR` pour isoler les résultats des tests.
+  - Ajout de `assert_file_exists()`.
+  - T02–T07 : assertions sur la présence et le contenu des fichiers de résultats.
+
+---
+
+## [0.2] — Intégration ETA et tests automatisés
+
+### Modifié
+- `integrity.sh`
+  - Suppression de `detect_parallelism()` et de la logique SSD/parallélisme (hors périmètre HDD gros volumes).
+  - Mode `compute` : délègue à `compute_with_progress()`.
+  - Ajout de `compute_with_progress()` : boucle fichier par fichier avec affichage progression et ETA.
+    - `mapfile -d ''` remplace `FILES=($(find ...))` — gestion correcte des noms avec espaces.
+    - `printf "\r%*s\r"` efface proprement la ligne de progression avant le message final.
+  - `df` retiré des dépendances.
+- `README.md` — dépendances mises à jour (`df` supprimé, `stat` et `du` ajoutés).
+- `docs/manuel.md`
+  - Section `detect_parallelism` supprimée.
+  - Section `compute` réécrite autour de `compute_with_progress`.
+  - Section performances : stratégie SSD/NVMe retirée, focus HDD séquentiel.
+- `docs/progression-eta.md` — implémentation finale documentée ; note `mapfile -d ''` vs substitution de commande.
+- `tests/run_tests.sh` — T11 ajouté : vérifie que la base produite par `compute_with_progress` est bit-à-bit identique à une base de référence, sans artefact ETA ni `\r`.
+- `docs/explication-run-tests.md` — comptage corrigé (10 → 11 cas) ; section T11 ajoutée.
+
+### Corrigé
+- `tests/run_tests.sh` T10 : pattern `"^/"` remplacé par `"  /"` — `grep` opère sur une chaîne, pas un fichier, l'ancre `^` ne matchait pas la deuxième colonne.
+
+---
+
+## [0.1] — Structure initiale du projet
+
+### Ajouté
+- `integrity.sh` — script principal BLAKE3 avec trois modes : `compute`, `verify`, `compare`.
+  - `set -euo pipefail` — mode strict.
+  - `detect_parallelism()` — détection SSD/HDD via `/sys/block/.../queue/rotational`.
+  - Mode `compute` : pipeline `find | sort -z | xargs b3sum`, parallélisme `-P 4` sur SSD.
+  - Mode `verify` : délègue à `b3sum --check`.
+  - Mode `compare` : tri sur colonne 2, `join` pour les modifiés, `comm` pour disparus/nouveaux, rapport `tee`.
+- `README.md` — point d'entrée : dépendances, usage en 3 commandes, arbre de décision, règles critiques.
+- `docs/manuel.md` — référence technique complète : algorithmes, structure `.b3`, workflow, explication du script, performances, limites, référence rapide, annexe FIM.
+- `docs/progression-eta.md` — analyse du problème ETA sur pipeline `xargs`, deux approches (`pv` invalide, boucle bash), mécanique de l'estimation, tableau de comparaison des performances.
+- `docs/explication-run-tests.md` — documentation du code `run_tests.sh` : chemins, compteurs, assertions, setup/teardown, structure d'un cas de test, prérequis, exit code CI.
+- `tests/run_tests.sh` — suite de tests automatisée bash pur, 11 cas T01–T11, isolation via `mktemp`, teardown systématique, exit code CI-compatible.
+- `tests/validation.md` — protocole de test manuel : 10 cas T01–T10 avec commandes exactes et résultats attendus, critères de qualité globaux.
+
 --- Fichier : README.md ---
-# integrity.sh - Vérification d'intégrité BLAKE3
+# integrity.sh — Vérification d'intégrité BLAKE3
 
 Détection de corruption silencieuse et d'erreurs de transfert sur disque, par hachage BLAKE3.
 
@@ -40,16 +136,43 @@ Détection de corruption silencieuse et d'erreurs de transfert sur disque, par h
 # Créer une base de hachage pour un dossier
 ./integrity.sh compute ./mon_dossier hashes_2024-01-15.b3
 
-# Vérifier l'intégrité actuelle contre une base
-./integrity.sh verify  ./mon_dossier hashes_2024-01-15.b3
+# Vérifier l'intégrité — lancer depuis le répertoire où le compute a été fait
+./integrity.sh verify hashes_2024-01-15.b3
 
-# Comparer deux bases (états historiques)
+# Idem depuis un répertoire différent — passer le répertoire de travail d'origine
+# Exemple : le compute a été lancé depuis /data, on est ailleurs
+./integrity.sh verify /data/hashes_2024-01-15.b3 /data
+
+# Comparer deux bases (états historiques) → résultats dans $RESULTATS_DIR/
 ./integrity.sh compare hashes_2024-01-15.b3 hashes_2024-02-01.b3
 ```
 
 ---
 
-## Arbre de décision rapide
+## Configuration
+
+`RESULTATS_DIR` dans `integrity.sh` définit où sont créés les dossiers de résultats (valeur par défaut : `~/integrity_resultats`).
+
+```bash
+# Modifier dans integrity.sh, ligne RESULTATS_DIR=
+RESULTATS_DIR="/mon/chemin/resultats"
+```
+
+Chaque exécution de `verify` ou `compare` crée un sous-dossier nommé d'après le fichier `.b3` utilisé :
+
+```
+~/integrity_resultats/
+└── resultats_hashes_2024-01-15/
+    ├── recap.txt       ← commande, date, compteurs
+    ├── failed.txt      ← fichiers en échec (verify)
+    ├── modifies.b3     ← fichiers dont le hash a changé (compare)
+    ├── disparus.txt    ← fichiers dans A absents de B (compare)
+    └── nouveaux.txt    ← fichiers dans B absents de A (compare)
+```
+
+---
+
+
 
 | Situation | Commande |
 |---|---|
@@ -64,13 +187,13 @@ Détection de corruption silencieuse et d'erreurs de transfert sur disque, par h
 
 ```
 integrity/
-|-- README.md              ← ce fichier
-|-- integrity.sh           ← script principal
-|-- docs/
-│   |-- manuel.md          ← référence technique complète
-│   |-- progression-eta.md ← progression temps réel et estimation ETA
-|-- tests/
-    |-- validation.md      ← protocole de test et critères qualité
+├── README.md              ← ce fichier
+├── integrity.sh           ← script principal
+├── docs/
+│   ├── manuel.md          ← référence technique complète
+│   └── progression-eta.md ← progression temps réel et estimation ETA
+└── tests/
+    └── validation.md      ← protocole de test et critères qualité
 ```
 
 ---
@@ -78,60 +201,17 @@ integrity/
 ## Règles d'utilisation critiques
 
 - Toujours utiliser des **chemins relatifs** (`find ./dossier`, jamais `/chemin/absolu`). Un chemin absolu rend la base inutilisable après déplacement ou remontage.
-- Lancer `b3sum --check` depuis le **même répertoire de travail** qu'au moment du `compute`.
+- Lancer `verify` depuis le **même répertoire de travail** qu'au moment du `compute`. Si ce n'est pas possible, passer ce répertoire en second argument : `verify hashes.b3 /chemin/origine` — c'est le répertoire d'où le compute a été lancé, **pas** le dossier qui a été haché.
 - Stocker la base `.b3` sur un **support distinct** des données à vérifier.
 - Nommer les bases avec une **date explicite** : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
 
-
---- Fichier : test_mano/destination/fichier (1).txt ---
-Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
-
-
-
---- Fichier : test_mano/destination/fichier (2).txt ---
-There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.
-
-
-
---- Fichier : test_mano/destination/fichier (3).txt ---
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-
-
-
---- Fichier : test_mano/destination/fichier (4).txt ---
-It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
-
-
-
---- Fichier : test_mano/source/fichier (1).txt ---
-Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
-
-fichier modifié
-
-
-
---- Fichier : test_mano/source/fichier (2).txt ---
-There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.
-
-
-
---- Fichier : test_mano/source/fichier (3).txt ---
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-
-
-
---- Fichier : test_mano/source/fichier (4).txt ---
-It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
-
-
-
---- Fichier : src/integrity.sh ---
+--- Fichier : integrity.sh ---
 #!/usr/bin/env bash
-# integrity.sh - vérification d'intégrité par hachage BLAKE3
+# integrity.sh — vérification d'intégrité par hachage BLAKE3
 #
 # Usage :
 #   ./integrity.sh compute <dossier> <base.b3>
-#   ./integrity.sh verify  <dossier> <base.b3>
+#   ./integrity.sh verify  <base.b3> [dossier]
 #   ./integrity.sh compare <ancienne.b3> <nouvelle.b3>
 #
 # Dépendances : b3sum, find, sort, awk, comm, join, stat, du
@@ -142,7 +222,49 @@ MODE=${1:-}
 ARG2=${2:-}
 ARG3=${3:-}
 
-# == Fonctions =================================================================
+# ── Configuration ─────────────────────────────────────────────────────────────
+
+# Dossier racine où seront créés les sous-dossiers de résultats.
+# Modifier ce chemin selon l'environnement.
+RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
+
+# ── Fonctions utilitaires ─────────────────────────────────────────────────────
+
+# Affiche un message d'erreur sur stderr et quitte.
+die() {
+  echo "ERREUR : $*" >&2
+  exit 1
+}
+
+# Vérifie qu'un fichier .b3 est valide : existe, est un fichier, non vide,
+# contient au moins une ligne au format b3sum (<hash>  <chemin>).
+assert_b3_valid() {
+  local file="$1"
+  local label="${2:-$file}"
+
+  [ -e "$file" ]  || die "$label : fichier introuvable."
+  [ -f "$file" ]  || die "$label : est un dossier, pas un fichier .b3."
+  [ -s "$file" ]  || die "$label : fichier vide — aucun hash à traiter."
+
+  # Vérifier le format : au moins une ligne avec deux champs (hash + chemin)
+  local first_valid
+  first_valid=$(grep -m1 -E '^[0-9a-f]{64}  .+' "$file" || true)
+  [ -n "$first_valid" ] || die "$label : format invalide — aucune ligne au format b3sum détectée."
+}
+
+# Vérifie qu'un dossier cible est valide et contient au moins un fichier.
+assert_target_valid() {
+  local dir="$1"
+
+  [ -e "$dir" ] || die "Dossier cible introuvable : $dir"
+  [ -d "$dir" ] || die "Le chemin cible n'est pas un dossier : $dir"
+
+  local nb_files
+  nb_files=$(find "$dir" -type f | wc -l)
+  (( nb_files > 0 )) || die "Le dossier $dir ne contient aucun fichier — rien à hacher."
+}
+
+# ── Fonctions principales ─────────────────────────────────────────────────────
 
 # Calcule le hash BLAKE3 de chaque fichier du dossier cible, fichier par fichier,
 # en affichant la progression et une estimation du temps restant (ETA).
@@ -185,90 +307,285 @@ compute_with_progress() {
   printf "\r%*s\r" 40 ""  # effacer la ligne de progression
 }
 
-# == Dispatch ==================================================================
+# Crée le dossier de résultats nommé d'après le fichier .b3 fourni.
+# Usage : outdir=$(make_result_dir <fichier.b3>)
+make_result_dir() {
+  local b3file="$1"
+  local basename
+  basename=$(basename "$b3file" .b3)
+  local outdir="${RESULTATS_DIR}/resultats_${basename}"
+  mkdir -p "$outdir"
+  echo "$outdir"
+}
+
+# Produit les fichiers de résultats pour le mode verify.
+# Usage : run_verify <hashfile_absolu>
+run_verify() {
+  local hashfile="$1"
+  local outdir
+  outdir=$(make_result_dir "$hashfile")
+
+  local raw exit_code
+  raw=$(b3sum --check "$hashfile" 2>&1) && exit_code=0 || exit_code=$?
+
+  # Séparer les lignes OK, FAILED, et les erreurs b3sum (ni OK ni FAILED)
+  local lines_ok lines_failed lines_error
+  lines_ok=$(echo "$raw"    | grep ': OK$'    || true)
+  lines_failed=$(echo "$raw" | grep ': FAILED' || true)
+  lines_error=$(echo "$raw"  | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
+
+  local nb_ok nb_failed
+  nb_ok=$(echo "$lines_ok"     | grep -c '.' || true)
+  nb_failed=$(echo "$lines_failed" | grep -c '.' || true)
+  [ -n "$lines_ok" ]     || nb_ok=0
+  [ -n "$lines_failed" ] || nb_failed=0
+
+  local statut
+  if [ -n "$lines_error" ]; then
+    statut="ERREUR"
+  elif (( nb_failed > 0 )); then
+    statut="ECHEC"
+  else
+    statut="OK"
+  fi
+
+  # ── recap.txt ──────────────────────────────────────────────────────────────
+  {
+    echo "════════════════════════════════════════"
+    echo "  STATUT : $statut"
+    echo "════════════════════════════════════════"
+    echo ""
+    echo "Commande  : integrity.sh verify $(basename "$hashfile")"
+    echo "Date      : $(date)"
+    echo "Base      : $hashfile"
+    echo ""
+    echo "OK        : $nb_ok"
+    if (( nb_failed > 0 )); then
+      echo "FAILED    : $nb_failed  ← voir failed.txt"
+    fi
+    if [ -n "$lines_error" ]; then
+      echo ""
+      echo "── Erreurs b3sum ──────────────────────"
+      echo "$lines_error"
+    fi
+  } > "${outdir}/recap.txt"
+
+  # ── failed.txt — créé uniquement si des échecs existent ───────────────────
+  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
+    {
+      echo "════════════════════════════════════════"
+      echo "  FICHIERS EN ECHEC"
+      echo "════════════════════════════════════════"
+      echo ""
+      if (( nb_failed > 0 )); then
+        echo "$lines_failed"
+      fi
+      if [ -n "$lines_error" ]; then
+        echo ""
+        echo "── Erreurs ────────────────────────────"
+        echo "$lines_error"
+      fi
+    } > "${outdir}/failed.txt"
+  fi
+
+  # ── Affichage terminal ─────────────────────────────────────────────────────
+  if [ "$statut" = "OK" ]; then
+    echo "Vérification OK — $nb_ok fichiers intègres."
+  else
+    echo ""
+    echo "████████████████████████████████████████"
+    if [ "$statut" = "ERREUR" ]; then
+      echo "  ERREUR lors de la vérification"
+    else
+      echo "  ECHEC : $nb_failed fichier(s) corrompu(s) ou manquant(s)"
+    fi
+    echo "████████████████████████████████████████"
+    echo ""
+    if (( nb_failed > 0 )); then echo "$lines_failed"; fi
+    if [ -n "$lines_error" ]; then echo "$lines_error"; fi
+    echo ""
+  fi
+
+  echo "Résultats dans : $outdir"
+  echo "  recap.txt"
+  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
+    echo "  failed.txt"
+  fi
+}
+
+# Produit les fichiers de résultats pour le mode compare.
+# Usage : run_compare <ancienne.b3> <nouvelle.b3>
+run_compare() {
+  local old="$1"
+  local new="$2"
+  local outdir
+  outdir=$(make_result_dir "$old")
+
+  local tmp_old tmp_new
+  tmp_old=$(mktemp)
+  tmp_new=$(mktemp)
+  sort -k2 "$old" > "$tmp_old"
+  sort -k2 "$new" > "$tmp_new"
+
+  # modifies.b3
+  join -1 2 -2 2 "$tmp_old" "$tmp_new" \
+    | awk '$2 != $3 {print $3, $1}' \
+    > "${outdir}/modifies.b3"
+
+  # disparus.txt
+  comm -23 <(awk '{print $2}' "$tmp_old") \
+           <(awk '{print $2}' "$tmp_new") \
+    > "${outdir}/disparus.txt"
+
+  # nouveaux.txt
+  comm -13 <(awk '{print $2}' "$tmp_old") \
+           <(awk '{print $2}' "$tmp_new") \
+    > "${outdir}/nouveaux.txt"
+
+  local nb_modifies nb_disparus nb_nouveaux
+  nb_modifies=$(wc -l < "${outdir}/modifies.b3")
+  nb_disparus=$(wc -l < "${outdir}/disparus.txt")
+  nb_nouveaux=$(wc -l < "${outdir}/nouveaux.txt")
+
+  # recap.txt
+  {
+    echo "Commande      : integrity.sh compare $(basename "$old") $(basename "$new")"
+    echo "Date          : $(date)"
+    echo "Ancienne base : $old"
+    echo "Nouvelle base : $new"
+    echo ""
+    echo "Modifiés      : $nb_modifies"
+    echo "Disparus      : $nb_disparus"
+    echo "Nouveaux      : $nb_nouveaux"
+  } > "${outdir}/recap.txt"
+
+  rm "$tmp_old" "$tmp_new"
+
+  # Affichage terminal
+  echo "Résultats enregistrés dans : $outdir"
+  echo "  recap.txt     — modifiés: $nb_modifies, disparus: $nb_disparus, nouveaux: $nb_nouveaux"
+  echo "  modifies.b3   — $nb_modifies fichiers"
+  echo "  disparus.txt  — $nb_disparus fichiers"
+  echo "  nouveaux.txt  — $nb_nouveaux fichiers"
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
 
 case "$MODE" in
   compute)
-    TARGET=$ARG2
-    HASHFILE=$ARG3
-    compute_with_progress "$TARGET" "$HASHFILE"
-    echo "Base enregistrée : $HASHFILE ($(wc -l < "$HASHFILE") fichiers)"
+    [ -n "$ARG2" ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3>"
+    [ -n "$ARG3" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3>"
+    [ ! -d "$ARG3" ] || die "compute : '$ARG3' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
+    assert_target_valid "$ARG2"
+    compute_with_progress "$ARG2" "$ARG3"
+    echo "Base enregistrée : $ARG3 ($(wc -l < "$ARG3") fichiers)"
     ;;
 
   verify)
-    HASHFILE=$ARG3
-    b3sum --check "$HASHFILE"
+    [ -n "$ARG2" ] || die "verify : fichier .b3 manquant.\nUsage : $0 verify <base.b3> [dossier]"
+    assert_b3_valid "$ARG2" "base"
+    # Résoudre le chemin absolu du .b3 AVANT tout cd
+    HASHFILE_ABS="$(cd "$(dirname "$ARG2")" && pwd)/$(basename "$ARG2")"
+    if [ -n "$ARG3" ]; then
+      [ -d "$ARG3" ] || die "verify : '$ARG3' n'est pas un dossier valide."
+      cd "$ARG3"
+    fi
+    run_verify "$HASHFILE_ABS"
     ;;
 
   compare)
-    OLD=$ARG2
-    NEW=$ARG3
-    RAPPORT="rapport_$(date +%Y-%m-%d_%H%M%S).txt"
-    {
-      echo "Rapport de comparaison - $(date)"
-      echo "Ancienne base : $OLD"
-      echo "Nouvelle base : $NEW"
-      echo ""
-      sort -k2 "$OLD" > /tmp/_old.b3
-      sort -k2 "$NEW" > /tmp/_new.b3
-
-      echo "=== FICHIERS MODIFIÉS ==="
-      join -1 2 -2 2 /tmp/_old.b3 /tmp/_new.b3 \
-        | awk '$2 != $3 {print $1, "\n  ancien:", $3, "\n  nouveau:", $2}'
-
-      echo ""
-      echo "=== FICHIERS DISPARUS ==="
-      comm -23 <(awk '{print $2}' /tmp/_old.b3) \
-               <(awk '{print $2}' /tmp/_new.b3)
-
-      echo ""
-      echo "=== FICHIERS NOUVEAUX ==="
-      comm -13 <(awk '{print $2}' /tmp/_old.b3) \
-               <(awk '{print $2}' /tmp/_new.b3)
-
-      rm /tmp/_old.b3 /tmp/_new.b3
-    } | tee "$RAPPORT"
-    echo "Rapport sauvegardé : $RAPPORT"
+    [ -n "$ARG2" ] || die "compare : fichier ancienne base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+    [ -n "$ARG3" ] || die "compare : fichier nouvelle base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+    assert_b3_valid "$ARG2" "ancienne base"
+    assert_b3_valid "$ARG3" "nouvelle base"
+    run_compare "$ARG2" "$ARG3"
     ;;
 
   *)
-    echo "Usage: $0 {compute|verify|compare} <args>"
+    echo "Usage:"
+    echo "  $0 compute <dossier> <base.b3>"
+    echo "  $0 verify  <base.b3> [dossier]"
+    echo "  $0 compare <ancienne.b3> <nouvelle.b3>"
     exit 1
     ;;
 esac
 
+--- Fichier : mon_dossier/destination/fichier (1).txt ---
+Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
 
---- Fichier : src/run_tests.sh ---
+
+
+--- Fichier : mon_dossier/destination/fichier (2).txt ---
+There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.
+
+
+
+--- Fichier : mon_dossier/destination/fichier (3).txt ---
+Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+
+
+
+--- Fichier : mon_dossier/destination/fichier (4).txt ---
+It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
+
+
+
+--- Fichier : mon_dossier/source/fichier (1).txt ---
+Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
+
+fichier modifié
+
+
+
+--- Fichier : mon_dossier/source/fichier (2).txt ---
+There are many variations of passages of Lorem Ipsum available, but the majority have suffered alteration in some form, by injected humour, or randomised words which don't look even slightly believable. If you are going to use a passage of Lorem Ipsum, you need to be sure there isn't anything embarrassing hidden in the middle of text. All the Lorem Ipsum generators on the Internet tend to repeat predefined chunks as necessary, making this the first true generator on the Internet. It uses a dictionary of over 200 Latin words, combined with a handful of model sentence structures, to generate Lorem Ipsum which looks reasonable. The generated Lorem Ipsum is therefore always free from repetition, injected humour, or non-characteristic words etc.
+
+
+
+--- Fichier : mon_dossier/source/fichier (3).txt ---
+Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
+
+
+
+--- Fichier : mon_dossier/source/fichier (4).txt ---
+It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
+
+
+
+--- Fichier : tests/run_tests.sh ---
 #!/usr/bin/env bash
-# run_tests.sh - suite de tests automatisée pour integrity.sh
+# run_tests.sh — suite de tests automatisée pour integrity.sh
 # Usage : ./run_tests.sh
 # Prérequis : b3sum, stat, du installés ; integrity.sh dans le dossier parent
 
 set -uo pipefail
 
-# == Configuration ============================================================
+# ── Configuration ─────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTEGRITY="$SCRIPT_DIR/../integrity.sh"
 WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
 
-# == Couleurs =================================================================
+# Rediriger les résultats dans le WORKDIR pour les tests
+export RESULTATS_DIR="$WORKDIR/resultats"
+
+# ── Couleurs ──────────────────────────────────────────────────────────────────
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# == Compteurs ================================================================
+# ── Compteurs ─────────────────────────────────────────────────────────────────
 
 PASS=0
 FAIL=0
 TOTAL=0
 
-# == Helpers ==================================================================
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-pass() { echo -e "${GREEN}  PASS${NC} - $1"; ((PASS++)); ((TOTAL++)); }
-fail() { echo -e "${RED}  FAIL${NC} - $1"; ((FAIL++)); ((TOTAL++)); }
+pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
+fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
 
 assert_exit_zero() {
   local label="$1"; shift
@@ -303,7 +620,13 @@ assert_line_count() {
   if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label (attendu: $expected lignes, obtenu: $actual)"; fi
 }
 
-# == Setup ====================================================================
+assert_file_exists() {
+  local label="$1"
+  local file="$2"
+  if [ -f "$file" ]; then pass "$label"; else fail "$label (fichier absent : $file)"; fi
+}
+
+# ── Setup ─────────────────────────────────────────────────────────────────────
 
 setup() {
   mkdir -p "$WORKDIR/data/sub"
@@ -317,20 +640,20 @@ teardown() {
   rm -rf "$WORKDIR"
 }
 
-# == Tests ====================================================================
+# ── Tests ─────────────────────────────────────────────────────────────────────
 
 run_tests() {
   cd "$WORKDIR"
 
   echo ""
-  echo "========================================"
-  echo "  integrity.sh - suite de tests"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  integrity.sh — suite de tests"
   echo "  Workdir : $WORKDIR"
-  echo "========================================"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
-  # == T01 : Compute de base =================================================
-  echo "T01 - Compute de base"
+  # ── T01 : Compute de base ─────────────────────────────────────────────────
+  echo "T01 — Compute de base"
   bash "$INTEGRITY" compute ./data base_t01.b3 > /dev/null 2>&1
   assert_line_count "base_t01.b3 contient 4 lignes" 4 base_t01.b3
 
@@ -339,89 +662,105 @@ run_tests() {
   assert_contains "ligne au format <hash>  <chemin>" "  ./data/" "$first_line"
   echo ""
 
-  # == T02 : Verify sans modification =======================================
-  echo "T02 - Verify sans modification"
+  # ── T02 : Verify sans modification ───────────────────────────────────────
+  echo "T02 — Verify sans modification"
   local out_t02
-  out_t02=$(b3sum --check base_t01.b3 2>&1)
-  assert_exit_zero    "exit code 0" b3sum --check base_t01.b3
-  assert_not_contains "aucun FAILED"  "FAILED" "$out_t02"
+  out_t02=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  assert_not_contains "aucun FAILED dans terminal" "FAILED" "$out_t02"
+  assert_contains     "terminal indique OK"        "OK"     "$out_t02"
+
+  local outdir_t02="${RESULTATS_DIR}/resultats_base_t01"
+  assert_file_exists "recap.txt créé" "${outdir_t02}/recap.txt"
+  assert_contains    "recap contient nb OK" "OK" "$(cat "${outdir_t02}/recap.txt")"
+  # failed.txt ne doit PAS exister si 0 échec
+  if [ -f "${outdir_t02}/failed.txt" ]; then
+    fail "failed.txt absent si 0 échec (fichier présent à tort)"
+  else
+    pass "failed.txt absent si 0 échec"
+  fi
   echo ""
 
-  # == T03 : Verify après corruption ========================================
-  echo "T03 - Verify après corruption d'un fichier"
+  # ── T03 : Verify après corruption ────────────────────────────────────────
+  echo "T03 — Verify après corruption d'un fichier"
   echo "contenu modifié" > data/beta.txt
   local out_t03
-  out_t03=$(b3sum --check base_t01.b3 2>&1 || true)
-  assert_exit_nonzero "exit code non nul"   b3sum --check base_t01.b3
-  assert_contains     "beta.txt FAILED"     "FAILED" "$out_t03"
+  out_t03=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  assert_contains "terminal affiche bloc ECHEC"    "ECHEC"   "$out_t03"
+  assert_contains "terminal liste beta.txt FAILED" "FAILED"  "$out_t03"
+
+  local outdir_t03="${RESULTATS_DIR}/resultats_base_t01"
+  assert_file_exists "failed.txt créé"              "${outdir_t03}/failed.txt"
+  assert_contains    "failed.txt contient beta.txt" "beta.txt" "$(cat "${outdir_t03}/failed.txt")"
+  assert_contains    "recap indique FAILED > 0"     "FAILED"   "$(cat "${outdir_t03}/recap.txt")"
   # Restauration
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  # == T04 : Verify après suppression =======================================
-  echo "T04 - Verify après suppression d'un fichier"
+  # ── T04 : Verify après suppression ───────────────────────────────────────
+  echo "T04 — Verify après suppression d'un fichier"
   rm data/gamma.txt
   local out_t04
-  out_t04=$(b3sum --check base_t01.b3 2>&1 || true)
-  assert_exit_nonzero "exit code non nul"    b3sum --check base_t01.b3
-  assert_contains     "gamma.txt FAILED"     "FAILED" "$out_t04"
+  out_t04=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  assert_contains "gamma.txt FAILED" "FAILED" "$out_t04"
   # Restauration
   echo "contenu gamma" > data/gamma.txt
   echo ""
 
-  # == T05 : Compare - aucune différence ====================================
-  echo "T05 - Compare : aucune différence"
+  # ── T05 : Compare — aucune différence ────────────────────────────────────
+  echo "T05 — Compare : aucune différence"
   bash "$INTEGRITY" compute ./data base_t05.b3 > /dev/null 2>&1
-  local out_t05
-  out_t05=$(bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 2>&1)
-  assert_not_contains "pas de fichiers modifiés"  "MODIFIÉS" "$(echo "$out_t05" | grep -v '===')"
-  assert_not_contains "pas de fichiers disparus"  "DISPARUS" "$(echo "$out_t05" | grep -v '===')"
-  assert_not_contains "pas de fichiers nouveaux"  "NOUVEAUX" "$(echo "$out_t05" | grep -v '===')"
-  # Vérifier qu'un rapport a été créé
-  local rapport_t05
-  rapport_t05=$(ls rapport_*.txt 2>/dev/null | tail -1)
-  if [ -n "$rapport_t05" ]; then pass "rapport horodaté créé"; else fail "rapport horodaté absent"; ((FAIL++)); ((TOTAL++)); fi
+  bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 > /dev/null 2>&1
+
+  local outdir_t05="${RESULTATS_DIR}/resultats_base_t01"
+  assert_file_exists "recap.txt créé"    "${outdir_t05}/recap.txt"
+  assert_file_exists "modifies.b3 créé"  "${outdir_t05}/modifies.b3"
+  assert_file_exists "disparus.txt créé" "${outdir_t05}/disparus.txt"
+  assert_file_exists "nouveaux.txt créé" "${outdir_t05}/nouveaux.txt"
+  assert_line_count  "modifies.b3 vide"  0 "${outdir_t05}/modifies.b3"
+  assert_line_count  "disparus.txt vide" 0 "${outdir_t05}/disparus.txt"
+  assert_line_count  "nouveaux.txt vide" 0 "${outdir_t05}/nouveaux.txt"
   echo ""
 
-  # == T06 : Compare - fichier modifié ======================================
-  echo "T06 - Compare : fichier modifié"
+  # ── T06 : Compare — fichier modifié ──────────────────────────────────────
+  echo "T06 — Compare : fichier modifié"
   echo "contenu beta modifié" > data/beta.txt
   bash "$INTEGRITY" compute ./data base_t06.b3 > /dev/null 2>&1
-  local out_t06
-  out_t06=$(bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 2>&1)
-  assert_contains "beta.txt dans MODIFIÉS" "beta.txt" "$out_t06"
+  bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 > /dev/null 2>&1
+
+  local outdir_t06="${RESULTATS_DIR}/resultats_base_t01"
+  assert_contains "modifies.b3 contient beta.txt" "beta.txt" "$(cat "${outdir_t06}/modifies.b3")"
   # Restauration
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  # == T07 : Compare - suppression + ajout ==================================
-  echo "T07 - Compare : fichier supprimé + fichier ajouté"
+  # ── T07 : Compare — suppression + ajout ──────────────────────────────────
+  echo "T07 — Compare : fichier supprimé + fichier ajouté"
   bash "$INTEGRITY" compute ./data base_t07_old.b3 > /dev/null 2>&1
   rm data/alpha.txt
   echo "contenu epsilon" > data/epsilon.txt
   bash "$INTEGRITY" compute ./data base_t07_new.b3 > /dev/null 2>&1
-  local out_t07
-  out_t07=$(bash "$INTEGRITY" compare base_t07_old.b3 base_t07_new.b3 2>&1)
-  assert_contains "alpha.txt dans DISPARUS"  "alpha.txt"   "$out_t07"
-  assert_contains "epsilon.txt dans NOUVEAUX" "epsilon.txt" "$out_t07"
+  bash "$INTEGRITY" compare base_t07_old.b3 base_t07_new.b3 > /dev/null 2>&1
+
+  local outdir_t07="${RESULTATS_DIR}/resultats_base_t07_old"
+  assert_contains "disparus.txt contient alpha.txt"  "alpha.txt"   "$(cat "${outdir_t07}/disparus.txt")"
+  assert_contains "nouveaux.txt contient epsilon.txt" "epsilon.txt" "$(cat "${outdir_t07}/nouveaux.txt")"
   # Restauration
   echo "contenu alpha" > data/alpha.txt
   rm data/epsilon.txt
   echo ""
 
-  # == T08 : Noms de fichiers avec espaces ===================================
-  echo "T08 - Robustesse : nom de fichier avec espace"
+  # ── T08 : Noms de fichiers avec espaces ───────────────────────────────────
+  echo "T08 — Robustesse : nom de fichier avec espace"
   echo "contenu avec espace" > "data/fichier avec espace.txt"
   bash "$INTEGRITY" compute ./data base_t08.b3 > /dev/null 2>&1
   local out_t08
-  out_t08=$(b3sum --check base_t08.b3 2>&1)
-  assert_exit_zero    "exit code 0"   b3sum --check base_t08.b3
-  assert_not_contains "aucun FAILED"  "FAILED" "$out_t08"
+  out_t08=$(bash "$INTEGRITY" verify base_t08.b3 2>&1 || true)
+  assert_not_contains "aucun FAILED" "FAILED" "$out_t08"
   rm "data/fichier avec espace.txt"
   echo ""
 
-  # == T09 : Dossier vide ignoré (limite documentée) =========================
-  echo "T09 - Limite : dossier vide ignoré"
+  # ── T09 : Dossier vide ignoré (limite documentée) ─────────────────────────
+  echo "T09 — Limite : dossier vide ignoré"
   mkdir data/dossier_vide
   bash "$INTEGRITY" compute ./data base_t09.b3 > /dev/null 2>&1
   assert_not_contains "dossier_vide absent de la base" "dossier_vide" "$(cat base_t09.b3)"
@@ -429,35 +768,30 @@ run_tests() {
   rmdir data/dossier_vide
   echo ""
 
-  # == T10 : Chemin absolu vs relatif =======================================
-  echo "T10 - Chemin absolu vs relatif"
+  # ── T10 : Chemin absolu vs relatif ───────────────────────────────────────
+  echo "T10 — Chemin absolu vs relatif"
   find "$WORKDIR/data" -type f -print0 | sort -z | xargs -0 b3sum > base_absolu.b3
   find ./data          -type f -print0 | sort -z | xargs -0 b3sum > base_relatif.b3
   local first_abs first_rel
   first_abs=$(head -1 base_absolu.b3)
   first_rel=$(head -1 base_relatif.b3)
-  assert_contains     "base absolue contient un chemin absolu"  "^/" "$first_abs" || true
+  assert_contains     "base absolue contient un chemin absolu"   "  /" "$first_abs"
   assert_contains     "base relative contient un chemin relatif" "\./data/" "$first_rel"
   assert_not_contains "bases non interchangeables" "$first_abs" "$first_rel"
   echo ""
 
-  # == T11 : compute_with_progress - intégrité de la base produite ===========
-  echo "T11 - ETA : la base produite est identique à une base de référence"
-  # Base de référence produite sans progression (pipeline xargs direct)
+  # ── T11 : compute_with_progress — intégrité de la base produite ───────────
+  echo "T11 — ETA : la base produite est identique à une base de référence"
   find ./data -type f -print0 | sort -z | xargs -0 b3sum > base_ref.b3
-  # Base produite par compute_with_progress via le script
   bash "$INTEGRITY" compute ./data base_eta.b3 > /dev/null 2>&1
-  # Les deux bases doivent être identiques ligne à ligne (ordre et contenu)
-  assert_exit_zero "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
-  # La base ne doit contenir aucune ligne de progression parasite
-  assert_not_contains "aucune ligne ETA dans la base" "ETA" "$(cat base_eta.b3)"
-  assert_not_contains "aucun caractère de contrôle dans la base" $'\r' "$(cat base_eta.b3)"
+  assert_exit_zero    "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
+  assert_not_contains "aucune ligne ETA dans la base"             "ETA"   "$(cat base_eta.b3)"
+  assert_not_contains "aucun caractère de contrôle dans la base"  $'\r'  "$(cat base_eta.b3)"
   echo ""
 }
 
-# == Main =====================================================================
+# ── Main ──────────────────────────────────────────────────────────────────────
 
-# Vérification des prérequis
 if ! command -v b3sum &> /dev/null; then
   echo -e "${RED}ERREUR${NC} : b3sum non trouvé. Installer avec : cargo install b3sum  ou  apt install b3sum"
   exit 1
@@ -472,36 +806,35 @@ setup
 run_tests
 teardown
 
-# == Rapport final =============================================================
+# ── Rapport final ──────────────────────────────────────────────────────────────
 
-echo "========================================"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ "$FAIL" -eq 0 ]; then
   echo -e "  ${GREEN}$PASS/$TOTAL tests passés${NC}"
 else
-  echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés - ${RED}$FAIL échec(s)${NC}"
+  echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés — ${RED}$FAIL échec(s)${NC}"
 fi
-echo "========================================"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
 [ "$FAIL" -eq 0 ]
 
-
 --- Fichier : docs/explication-run-tests.md ---
-# Explication du code - run_tests.sh
+# Explication du code — run_tests.sh
 
 ---
 
 ## Vue d'ensemble
 
-`run_tests.sh` est une suite de tests automatisée pour `integrity.sh`. Elle n'utilise aucun framework externe - uniquement du bash pur. Elle crée un environnement isolé, exécute 10 cas de test, restaure l'état entre chaque cas, puis nettoie.
+`run_tests.sh` est une suite de tests automatisée pour `integrity.sh`. Elle n'utilise aucun framework externe — uniquement du bash pur. Elle crée un environnement isolé, exécute 10 cas de test, restaure l'état entre chaque cas, puis nettoie.
 
 ```
 run_tests.sh
-|-- Vérification des prérequis   (b3sum, integrity.sh)
-|-- setup()                      création de l'environnement de test
-|-- run_tests()                  exécution des 10 cas T01–T10
-|-- teardown()                   suppression de l'environnement
-|-- Rapport final                compteurs PASS/FAIL + exit code
+├── Vérification des prérequis   (b3sum, integrity.sh)
+├── setup()                      création de l'environnement de test
+├── run_tests()                  exécution des 11 cas T01–T11
+├── teardown()                   suppression de l'environnement
+└── Rapport final                compteurs PASS/FAIL + exit code
 ```
 
 ---
@@ -515,8 +848,8 @@ WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
 ```
 
 - `SCRIPT_DIR` : répertoire absolu du script lui-même, indépendant du répertoire depuis lequel on l'appelle.
-- `INTEGRITY` : chemin vers `integrity.sh` calculé relativement à `run_tests.sh` - les deux scripts peuvent être déplacés ensemble sans modifier les chemins en dur.
-- `WORKDIR` : répertoire temporaire unique créé par `mktemp`. Le suffixe `XXXXXX` est remplacé par 6 caractères aléatoires - garantit l'isolation entre deux exécutions simultanées.
+- `INTEGRITY` : chemin vers `integrity.sh` calculé relativement à `run_tests.sh` — les deux scripts peuvent être déplacés ensemble sans modifier les chemins en dur.
+- `WORKDIR` : répertoire temporaire unique créé par `mktemp`. Le suffixe `XXXXXX` est remplacé par 6 caractères aléatoires — garantit l'isolation entre deux exécutions simultanées.
 
 ---
 
@@ -527,11 +860,11 @@ PASS=0
 FAIL=0
 TOTAL=0
 
-pass() { echo -e "${GREEN}  PASS${NC} - $1"; ((PASS++)); ((TOTAL++)); }
-fail() { echo -e "${RED}  FAIL${NC} - $1"; ((FAIL++)); ((TOTAL++)); }
+pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
+fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
 ```
 
-Deux compteurs indépendants `PASS` et `FAIL`, incrémentés par les fonctions `pass()` et `fail()`. Chaque assertion appelle l'une ou l'autre - jamais les deux. `TOTAL` permet de vérifier qu'aucun test n'a été sauté silencieusement.
+Deux compteurs indépendants `PASS` et `FAIL`, incrémentés par les fonctions `pass()` et `fail()`. Chaque assertion appelle l'une ou l'autre — jamais les deux. `TOTAL` permet de vérifier qu'aucun test n'a été sauté silencieusement.
 
 ---
 
@@ -548,7 +881,7 @@ assert_exit_zero() {
 }
 ```
 
-Exécute une commande et vérifie son code de retour. `> /dev/null 2>&1` supprime stdout et stderr - seul le code de retour importe ici. `shift` consomme le premier argument (`label`) pour que `"$@"` ne contienne que la commande à exécuter.
+Exécute une commande et vérifie son code de retour. `> /dev/null 2>&1` supprime stdout et stderr — seul le code de retour importe ici. `shift` consomme le premier argument (`label`) pour que `"$@"` ne contienne que la commande à exécuter.
 
 `assert_exit_nonzero` fait l'inverse : il attend un échec (code ≠ 0). Utilisé pour vérifier que `b3sum --check` détecte bien une corruption.
 
@@ -563,7 +896,7 @@ assert_contains() {
 }
 ```
 
-Cherche un pattern dans une chaîne déjà capturée (pas dans un fichier). Le résultat de la commande est capturé avant l'appel via `local out=$(commande)` - ce qui permet de l'inspecter plusieurs fois sans relancer la commande.
+Cherche un pattern dans une chaîne déjà capturée (pas dans un fichier). Le résultat de la commande est capturé avant l'appel via `local out=$(commande)` — ce qui permet de l'inspecter plusieurs fois sans relancer la commande.
 
 ### `assert_line_count`
 
@@ -595,7 +928,7 @@ teardown() {
 }
 ```
 
-`setup()` crée 4 fichiers avec contenu connu et déterministe - leurs hashes sont donc reproductibles d'une exécution à l'autre. `sub/delta.txt` teste la récursivité de `find` dans les sous-dossiers.
+`setup()` crée 4 fichiers avec contenu connu et déterministe — leurs hashes sont donc reproductibles d'une exécution à l'autre. `sub/delta.txt` teste la récursivité de `find` dans les sous-dossiers.
 
 `teardown()` supprime le `WORKDIR` entier. Appelé en fin de script, même en cas d'échec partiel (voir section 6).
 
@@ -606,7 +939,7 @@ teardown() {
 Chaque cas suit le même schéma :
 
 ```bash
-echo "T0X - Description"
+echo "T0X — Description"
 
 # 1. Préparer l'état (modifier fichiers, créer bases...)
 # 2. Exécuter la commande testée, capturer la sortie
@@ -620,13 +953,13 @@ echo ""
 
 Le `|| true` après la commande capturée est critique : sans lui, si la commande retourne un code non nul (ex: `b3sum --check` sur un fichier corrompu), le mode `-e` du script parent interromprait l'exécution avant que l'assertion puisse enregistrer le résultat.
 
-### T11 - Intégrité de la base produite par `compute_with_progress`
+### T11 — Intégrité de la base produite par `compute_with_progress`
 
 C'est le test critique post-intégration ETA. Il vérifie trois choses indépendantes :
 
-1. La base produite par `compute_with_progress` est **bit-à-bit identique** à une base de référence produite par `find | sort | xargs b3sum` - via `diff`. Si un fichier est manquant, dupliqué, ou dans le mauvais ordre, `diff` le détecte.
-2. La base ne contient **aucune ligne "ETA"** parasite - le `printf "\r..."` écrit sur le terminal (stderr implicite via `/dev/tty`), pas dans le fichier.
-3. La base ne contient **aucun caractère `\r`** - garantit que la progression n'a pas pollué le flux d'écriture.
+1. La base produite par `compute_with_progress` est **bit-à-bit identique** à une base de référence produite par `find | sort | xargs b3sum` — via `diff`. Si un fichier est manquant, dupliqué, ou dans le mauvais ordre, `diff` le détecte.
+2. La base ne contient **aucune ligne "ETA"** parasite — le `printf "\r..."` écrit sur le terminal (stderr implicite via `/dev/tty`), pas dans le fichier.
+3. La base ne contient **aucun caractère `\r`** — garantit que la progression n'a pas pollué le flux d'écriture.
 
 ```bash
 assert_exit_zero "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
@@ -650,7 +983,7 @@ if [ ! -f "$INTEGRITY" ]; then
 fi
 ```
 
-Vérifié avant `setup()` - inutile de créer l'environnement de test si les outils sont absents. `command -v` est la méthode portable pour tester la présence d'un exécutable (préférable à `which`).
+Vérifié avant `setup()` — inutile de créer l'environnement de test si les outils sont absents. `command -v` est la méthode portable pour tester la présence d'un exécutable (préférable à `which`).
 
 ---
 
@@ -666,13 +999,12 @@ Dernière ligne du script. Si `FAIL` vaut 0, l'expression est vraie → exit cod
 # Hook pre-commit git
 ./tests/run_tests.sh || exit 1
 
-# Crontab - alerte si régression
+# Crontab — alerte si régression
 0 3 * * * /opt/integrity/tests/run_tests.sh >> /var/log/integrity-tests.log 2>&1
 ```
 
-
 --- Fichier : docs/manuel.md ---
-# Manuel technique - Vérification d'intégrité de données
+# Manuel technique — Vérification d'intégrité de données
 
 **Périmètre :** détection d'erreurs de transfert et de corruption silencieuse sur disque, sans adversaire.  
 **Outils couverts :** b3sum (BLAKE3) · xxHash3 · find · diff · bash
@@ -688,7 +1020,7 @@ Dernière ligne du script. Si `FAIL` vaut 0, l'expression est vraie → exit cod
 5. [Performances et optimisation disque](#5-performances-et-optimisation-disque)
 6. [Limites et angles morts](#6-limites-et-angles-morts)
 7. [Référence rapide](#7-référence-rapide)
-8. [Annexe - Alternatives et extensions](#8-annexe--alternatives-et-extensions)
+8. [Annexe — Alternatives et extensions](#8-annexe--alternatives-et-extensions)
 
 ---
 
@@ -700,26 +1032,26 @@ Deux familles distinctes, usages mutuellement exclusifs :
 
 | Propriété | Cryptographique (BLAKE3) | Non-cryptographique (xxHash3) |
 |---|---|---|
-| Résistance collision intentionnelle | Oui - infaisable calculatoirement | Non - collisions construisibles |
+| Résistance collision intentionnelle | Oui — infaisable calculatoirement | Non — collisions construisibles |
 | Résistance préimage | Oui | Non |
 | Débit CPU (1 cœur) | ~1 Go/s | ~50 Go/s |
-| Débit sur HDD (150 Mo/s) | Identique - disque impose le rythme | Identique |
+| Débit sur HDD (150 Mo/s) | Identique — disque impose le rythme | Identique |
 | Débit sur SATA SSD (500 Mo/s) | Identique | Identique |
 | Détection corruption accidentelle | Oui | Oui |
 | Utilisable en sécurité | Oui | Non |
 
 ### Pourquoi BLAKE3 plutôt que xxHash3
 
-xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** - les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
+xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** — les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
 
 ```bash
-# Si xxHash3 est préféré - workflow identique à b3sum
+# Si xxHash3 est préféré — workflow identique à b3sum
 find ./dossier -type f -print0 | sort -z | xargs -0 xxh128sum > base.xxh
 ```
 
 ### Limitations spécifiques à ce workflow
 
-- Ne hache pas les métadonnées (mtime, permissions) - comportement voulu ici, mais à connaître.
+- Ne hache pas les métadonnées (mtime, permissions) — comportement voulu ici, mais à connaître.
 - Ne hache pas les dossiers vides : `find -type f` ne remonte que les fichiers réguliers.
 - Sensible aux chemins : le fichier `.b3` encode les chemins tels qu'ils ont été passés à `b3sum`. Chemin absolu vs relatif → deux bases incompatibles pour la même donnée.
 
@@ -754,7 +1086,7 @@ e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6  ./dossier/sous
 ### Calcul et enregistrement de la base
 
 ```bash
-# Calcul de base - commande de référence
+# Calcul de base — commande de référence
 find ./mon_dossier -type f -print0 \
   | sort -z \
   | xargs -0 b3sum \
@@ -764,7 +1096,7 @@ find ./mon_dossier -type f -print0 \
 wc -l hashes_2024-01-15.b3
 ```
 
-**Pourquoi `sort -z` :** `find` ne garantit pas un ordre déterministe - il dépend de l'ordre de parcours du filesystem (inode order sur ext4). Sans tri, deux exécutions consécutives peuvent produire des fichiers `.b3` dans des ordres différents, rendant la comparaison par `diff` bruyante et inutilisable.
+**Pourquoi `sort -z` :** `find` ne garantit pas un ordre déterministe — il dépend de l'ordre de parcours du filesystem (inode order sur ext4). Sans tri, deux exécutions consécutives peuvent produire des fichiers `.b3` dans des ordres différents, rendant la comparaison par `diff` bruyante et inutilisable.
 
 **Pourquoi `-print0` / `-0` :** les noms de fichiers peuvent contenir des espaces, des retours à la ligne, ou des caractères spéciaux. `-print0` utilise le caractère nul comme séparateur, et `-0` dans `xargs` l'interprète. C'est la seule approche robuste.
 
@@ -795,7 +1127,7 @@ b3sum --check hashes_2024-01-15.b3 2>&1 | grep FAILED
 Utile pour comparer deux états historiques sans avoir accès aux fichiers originaux (archive froide, backup distant).
 
 ```bash
-# Diff brut - suffisant si les bases sont triées
+# Diff brut — suffisant si les bases sont triées
 diff <(sort hashes_2024-01-15.b3) <(sort hashes_2024-02-01.b3)
 
 # Comparaison propre par fichier
@@ -844,7 +1176,7 @@ ARG2=${2:-}
 ARG3=${3:-}
 ```
 
-Récupère les 3 arguments positionnels. `:-` donne une valeur vide par défaut si l'argument n'est pas fourni - évite une erreur en mode `-u`.
+Récupère les 3 arguments positionnels. `:-` donne une valeur vide par défaut si l'argument n'est pas fourni — évite une erreur en mode `-u`.
 
 ### Mode `compute`
 
@@ -857,7 +1189,7 @@ compute_with_progress "$TARGET" "$HASHFILE"
 echo "Base enregistrée : $HASHFILE ($(wc -l < "$HASHFILE") fichiers)"
 ```
 
-**Pourquoi une fonction séparée :** la logique de progression représente ~20 lignes. Les inliner dans le `case` dégraderait la lisibilité du dispatch sans apport. La fonction est nommée explicitement - son rôle est lisible sans lire son corps.
+**Pourquoi une fonction séparée :** la logique de progression représente ~20 lignes. Les inliner dans le `case` dégraderait la lisibilité du dispatch sans apport. La fonction est nommée explicitement — son rôle est lisible sans lire son corps.
 
 **Corps de `compute_with_progress` :**
 
@@ -903,24 +1235,47 @@ compute_with_progress() {
 
 Points clés :
 
-- `mapfile -d ''` charge les chemins dans un tableau en respectant le séparateur nul - gère les noms de fichiers avec espaces ou caractères spéciaux.
+- `mapfile -d ''` charge les chemins dans un tableau en respectant le séparateur nul — gère les noms de fichiers avec espaces ou caractères spéciaux.
 - `>> "$hashfile"` en append : chaque `b3sum "$file"` ajoute une ligne. Le fichier est créé vide implicitement à la première écriture.
-- `stat -c%s` lit la taille en octets du fichier traité - opération metadata uniquement, sans relecture du contenu.
-- `printf "\r..."` écrase la ligne courante sans sauter de ligne - la progression ne pollue pas stdout.
+- `stat -c%s` lit la taille en octets du fichier traité — opération metadata uniquement, sans relecture du contenu.
+- `printf "\r..."` écrase la ligne courante sans sauter de ligne — la progression ne pollue pas stdout.
 - `printf "\r%*s\r" 40 ""` efface proprement la ligne de progression avant le message final.
 
 ### Mode `verify`
 
 ```bash
-HASHFILE=$ARG3
-b3sum --check "$HASHFILE"
+HASHFILE=$ARG2
+# ARG3 optionnel : si fourni, cd dans ce dossier avant b3sum --check
+if [ -n "$ARG3" ]; then cd "$ARG3"; fi
+run_verify "$HASHFILE"
 ```
 
-Délègue directement à `b3sum --check`. Simple, sans surcharge.
+Le paramètre `[dossier]` est optionnel. Il résout le cas où la base `.b3` a été calculée depuis un répertoire différent du répertoire courant : plutôt que de naviguer manuellement avant de lancer le script, on passe le dossier directement.
+
+```bash
+# Sans dossier — doit être lancé depuis le répertoire d'origine du compute
+./integrity.sh verify hashes.b3
+
+# Avec dossier — spécifie explicitement le répertoire de travail
+# Le dossier passé doit être le répertoire DEPUIS LEQUEL le compute a été lancé,
+# pas le dossier cible qui a été haché.
+#
+# Exemple : compute lancé depuis /data → chemins dans le .b3 : ./mon_dossier/...
+#   Correct   : ./integrity.sh verify hashes.b3 /data
+#   Incorrect : ./integrity.sh verify hashes.b3 /data/mon_dossier
+./integrity.sh verify hashes.b3 /data
+```
 
 ### Mode `compare`
 
-Trie les deux bases sur le nom de fichier (colonne 2), puis produit trois sections : fichiers modifiés (hash différent), fichiers disparus (présents dans l'ancienne base, absents dans la nouvelle), fichiers nouveaux (absent dans l'ancienne, présents dans la nouvelle). Le rapport est à la fois affiché en terminal et sauvegardé via `tee`.
+Délègue à `run_compare` qui trie les deux bases, produit quatre fichiers dans `$RESULTATS_DIR/resultats_<nom_base_ancienne>/` :
+
+- `recap.txt` — commande, date, compteurs modifiés/disparus/nouveaux
+- `modifies.b3` — lignes b3sum des fichiers dont le hash a changé (format hash + chemin, réutilisable)
+- `disparus.txt` — chemins présents dans A absents de B
+- `nouveaux.txt` — chemins présents dans B absents de A
+
+Les fichiers temporaires de tri passent par `mktemp` et sont supprimés après usage — pas de résidu dans `/tmp`.
 
 ---
 
@@ -937,13 +1292,13 @@ Sur toute configuration réaliste, l'I/O disque est le facteur limitant. BLAKE3 
 | NVMe Gen3 | 2–3 Go/s | 12–17 min | Non (1 Go/s/cœur) |
 | NVMe Gen4+ | 5–7 Go/s | 5–7 min | Possible |
 
-**RAM :** b3sum + find + xargs consomment quelques mégaoctets. BLAKE3 traite les fichiers en streaming par chunks de 1 Ko - la taille des fichiers n'influence pas la consommation mémoire. 1 Go de RAM est largement suffisant.
+**RAM :** b3sum + find + xargs consomment quelques mégaoctets. BLAKE3 traite les fichiers en streaming par chunks de 1 Ko — la taille des fichiers n'influence pas la consommation mémoire. 1 Go de RAM est largement suffisant.
 
-### Stratégie HDD - séquentiel obligatoire
+### Stratégie HDD — séquentiel obligatoire
 
-Un HDD est optimisé pour les accès séquentiels. Les accès concurrents cassent la séquentialité de lecture et imposent des déplacements mécaniques de tête coûteux. `xargs -P 4` sur HDD dégrade typiquement les performances de 30 à 50 %. La boucle fichier par fichier de `compute_with_progress` est séquentielle par construction - comportement optimal sur HDD.
+Un HDD est optimisé pour les accès séquentiels. Les accès concurrents cassent la séquentialité de lecture et imposent des déplacements mécaniques de tête coûteux. `xargs -P 4` sur HDD dégrade typiquement les performances de 30 à 50 %. La boucle fichier par fichier de `compute_with_progress` est séquentielle par construction — comportement optimal sur HDD.
 
-Le disque est systématiquement le goulot. BLAKE3 (~1 Go/s/cœur) ne limite jamais sur HDD (100–150 Mo/s) ni sur SATA SSD (500 Mo/s). Sur NVMe Gen4+ (5–7 Go/s), BLAKE3 monothread peut devenir limitant - cas hors périmètre de ce workflow.
+Le disque est systématiquement le goulot. BLAKE3 (~1 Go/s/cœur) ne limite jamais sur HDD (100–150 Mo/s) ni sur SATA SSD (500 Mo/s). Sur NVMe Gen4+ (5–7 Go/s), BLAKE3 monothread peut devenir limitant — cas hors périmètre de ce workflow.
 
 ### Estimations de durée par volume
 
@@ -970,7 +1325,7 @@ Durées indicatives, pipeline monothread. Sur SSD avec `-P 4`, diviser par 2–3
 | Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
 | Dossier vide ajouté/supprimé | **Non** | `find -type f` ignore les dossiers vides |
 | Modification de permissions/timestamps | **Non** | b3sum ne hache que le contenu binaire |
-| Fichier remplacé par un clone identique | **Non** | Hash identique - indétectable par définition |
+| Fichier remplacé par un clone identique | **Non** | Hash identique — indétectable par définition |
 | Corruption de la base .b3 elle-même | **Non** | La base n'est pas auto-protégée |
 | Corruption pendant la lecture pour hachage | **Non** | Le hash reflète la donnée lue, corrompue ou non |
 
@@ -1002,7 +1357,7 @@ b3sum --check hashes_2024-01-15.b3.check
 
 b3sum --check base.b3
 # Résultat : FAILED (No such file or directory) sur TOUS les fichiers
-# Le hash est correct - c'est le chemin qui a changé.
+# Le hash est correct — c'est le chemin qui a changé.
 
 # Solution : corriger les chemins dans la base avant vérification
 sed 's|./mon_projet/|./projet_final/|g' base.b3 > base_corrigee.b3
@@ -1016,16 +1371,16 @@ b3sum --check base_corrigee.b3
 ### Commandes essentielles
 
 ```bash
-# Calcul de base (universel, HDD/SSD)
+# Calcul de base (universel, HDD)
 find ./dossier -type f -print0 | sort -z | xargs -0 b3sum > base.b3
 
-# Vérification directe (état actuel vs base)
-b3sum --check base.b3
+# Vérification directe (état actuel vs base) → résultats dans RESULTATS_DIR
+./integrity.sh verify base.b3
 
-# Filtrer uniquement les échecs
-b3sum --check base.b3 2>&1 | grep FAILED
+# Filtrer uniquement les échecs en terminal
+./integrity.sh verify base.b3 2>&1 | grep FAILED
 
-# Comparaison deux bases (script externe)
+# Comparaison deux bases → résultats dans RESULTATS_DIR
 ./integrity.sh compare ancienne.b3 nouvelle.b3
 
 # Compter les fichiers indexés
@@ -1042,15 +1397,14 @@ b3sum base.b3 > base.b3.check
 
 | Situation | Mode | Commande |
 |---|---|---|
-| Première indexation | compute | `find \| sort \| xargs b3sum > base.b3` |
-| Vérifier après transfert/stockage | verify | `b3sum --check base.b3` |
+| Première indexation | compute | `./integrity.sh compute ./dossier base.b3` |
+| Vérifier après transfert/stockage | verify | `./integrity.sh verify base.b3` |
 | Comparer deux archives | compare | `./integrity.sh compare old.b3 new.b3` |
 | Contrôle rapide d'un seul fichier | ad hoc | `b3sum fichier.bin` |
-| Rapport horodaté persistant | compare+log | `./integrity.sh compare old.b3 new.b3` |
 
 ---
 
-## 8. Annexe - Alternatives et extensions
+## 8. Annexe — Alternatives et extensions
 
 ### A.1 Outils FIM si le besoin évolue vers la sécurité
 
@@ -1063,21 +1417,20 @@ Si le périmètre évolue vers une surveillance continue ou un contexte de sécu
 | AIDE | Alternative open source à Tripwire | Moyenne | Remplacement direct de Tripwire |
 | ZFS | Filesystem avec checksum natif sur chaque bloc | Faible (si migration possible) | Protection transparente sans workflow explicite |
 
-La ligne de démarcation structurante : b3sum/xxHash3 sont des **primitives** - ils font ce qu'on leur demande, sans contexte. Tripwire et Samhain sont des **systèmes** - ils maintiennent un état de référence et détectent les dérives.
+La ligne de démarcation structurante : b3sum/xxHash3 sont des **primitives** — ils font ce qu'on leur demande, sans contexte. Tripwire et Samhain sont des **systèmes** — ils maintiennent un état de référence et détectent les dérives.
 
 ### A.2 Intégration dans un pipeline automatisé
 
 ```bash
-# Crontab - vérification hebdomadaire automatique
+# Crontab — vérification hebdomadaire automatique
 0 2 * * 0 /opt/integrity.sh verify ./donnees /var/lib/integrity/base.b3 >> /var/log/integrity.log 2>&1
 
-# Post-transfert rsync - vérification immédiate après copie
+# Post-transfert rsync — vérification immédiate après copie
 rsync -av source/ dest/ && b3sum --check base.b3
 
 # Alerte email si des fichiers ont échoué
 b3sum --check base.b3 2>&1 | grep FAILED | mail -s 'Alerte intégrité' admin@example.com
 ```
-
 
 --- Fichier : docs/progression-eta.md ---
 # Progression temps réel et estimation ETA

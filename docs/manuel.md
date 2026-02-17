@@ -1,4 +1,4 @@
-# Manuel technique - Vérification d'intégrité de données
+# Manuel technique — Vérification d'intégrité de données
 
 **Périmètre :** détection d'erreurs de transfert et de corruption silencieuse sur disque, sans adversaire.  
 **Outils couverts :** b3sum (BLAKE3) · xxHash3 · find · diff · bash
@@ -14,7 +14,7 @@
 5. [Performances et optimisation disque](#5-performances-et-optimisation-disque)
 6. [Limites et angles morts](#6-limites-et-angles-morts)
 7. [Référence rapide](#7-référence-rapide)
-8. [Annexe - Alternatives et extensions](#8-annexe--alternatives-et-extensions)
+8. [Annexe — Alternatives et extensions](#8-annexe--alternatives-et-extensions)
 
 ---
 
@@ -26,26 +26,26 @@ Deux familles distinctes, usages mutuellement exclusifs :
 
 | Propriété | Cryptographique (BLAKE3) | Non-cryptographique (xxHash3) |
 |---|---|---|
-| Résistance collision intentionnelle | Oui - infaisable calculatoirement | Non - collisions construisibles |
+| Résistance collision intentionnelle | Oui — infaisable calculatoirement | Non — collisions construisibles |
 | Résistance préimage | Oui | Non |
 | Débit CPU (1 cœur) | ~1 Go/s | ~50 Go/s |
-| Débit sur HDD (150 Mo/s) | Identique - disque impose le rythme | Identique |
+| Débit sur HDD (150 Mo/s) | Identique — disque impose le rythme | Identique |
 | Débit sur SATA SSD (500 Mo/s) | Identique | Identique |
 | Détection corruption accidentelle | Oui | Oui |
 | Utilisable en sécurité | Oui | Non |
 
 ### Pourquoi BLAKE3 plutôt que xxHash3
 
-xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** - les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
+xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** — les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
 
 ```bash
-# Si xxHash3 est préféré - workflow identique à b3sum
+# Si xxHash3 est préféré — workflow identique à b3sum
 find ./dossier -type f -print0 | sort -z | xargs -0 xxh128sum > base.xxh
 ```
 
 ### Limitations spécifiques à ce workflow
 
-- Ne hache pas les métadonnées (mtime, permissions) - comportement voulu ici, mais à connaître.
+- Ne hache pas les métadonnées (mtime, permissions) — comportement voulu ici, mais à connaître.
 - Ne hache pas les dossiers vides : `find -type f` ne remonte que les fichiers réguliers.
 - Sensible aux chemins : le fichier `.b3` encode les chemins tels qu'ils ont été passés à `b3sum`. Chemin absolu vs relatif → deux bases incompatibles pour la même donnée.
 
@@ -80,7 +80,7 @@ e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6  ./dossier/sous
 ### Calcul et enregistrement de la base
 
 ```bash
-# Calcul de base - commande de référence
+# Calcul de base — commande de référence
 find ./mon_dossier -type f -print0 \
   | sort -z \
   | xargs -0 b3sum \
@@ -90,7 +90,7 @@ find ./mon_dossier -type f -print0 \
 wc -l hashes_2024-01-15.b3
 ```
 
-**Pourquoi `sort -z` :** `find` ne garantit pas un ordre déterministe - il dépend de l'ordre de parcours du filesystem (inode order sur ext4). Sans tri, deux exécutions consécutives peuvent produire des fichiers `.b3` dans des ordres différents, rendant la comparaison par `diff` bruyante et inutilisable.
+**Pourquoi `sort -z` :** `find` ne garantit pas un ordre déterministe — il dépend de l'ordre de parcours du filesystem (inode order sur ext4). Sans tri, deux exécutions consécutives peuvent produire des fichiers `.b3` dans des ordres différents, rendant la comparaison par `diff` bruyante et inutilisable.
 
 **Pourquoi `-print0` / `-0` :** les noms de fichiers peuvent contenir des espaces, des retours à la ligne, ou des caractères spéciaux. `-print0` utilise le caractère nul comme séparateur, et `-0` dans `xargs` l'interprète. C'est la seule approche robuste.
 
@@ -121,7 +121,7 @@ b3sum --check hashes_2024-01-15.b3 2>&1 | grep FAILED
 Utile pour comparer deux états historiques sans avoir accès aux fichiers originaux (archive froide, backup distant).
 
 ```bash
-# Diff brut - suffisant si les bases sont triées
+# Diff brut — suffisant si les bases sont triées
 diff <(sort hashes_2024-01-15.b3) <(sort hashes_2024-02-01.b3)
 
 # Comparaison propre par fichier
@@ -170,7 +170,7 @@ ARG2=${2:-}
 ARG3=${3:-}
 ```
 
-Récupère les 3 arguments positionnels. `:-` donne une valeur vide par défaut si l'argument n'est pas fourni - évite une erreur en mode `-u`.
+Récupère les 3 arguments positionnels. `:-` donne une valeur vide par défaut si l'argument n'est pas fourni — évite une erreur en mode `-u`.
 
 ### Mode `compute`
 
@@ -183,7 +183,7 @@ compute_with_progress "$TARGET" "$HASHFILE"
 echo "Base enregistrée : $HASHFILE ($(wc -l < "$HASHFILE") fichiers)"
 ```
 
-**Pourquoi une fonction séparée :** la logique de progression représente ~20 lignes. Les inliner dans le `case` dégraderait la lisibilité du dispatch sans apport. La fonction est nommée explicitement - son rôle est lisible sans lire son corps.
+**Pourquoi une fonction séparée :** la logique de progression représente ~20 lignes. Les inliner dans le `case` dégraderait la lisibilité du dispatch sans apport. La fonction est nommée explicitement — son rôle est lisible sans lire son corps.
 
 **Corps de `compute_with_progress` :**
 
@@ -229,24 +229,47 @@ compute_with_progress() {
 
 Points clés :
 
-- `mapfile -d ''` charge les chemins dans un tableau en respectant le séparateur nul - gère les noms de fichiers avec espaces ou caractères spéciaux.
+- `mapfile -d ''` charge les chemins dans un tableau en respectant le séparateur nul — gère les noms de fichiers avec espaces ou caractères spéciaux.
 - `>> "$hashfile"` en append : chaque `b3sum "$file"` ajoute une ligne. Le fichier est créé vide implicitement à la première écriture.
-- `stat -c%s` lit la taille en octets du fichier traité - opération metadata uniquement, sans relecture du contenu.
-- `printf "\r..."` écrase la ligne courante sans sauter de ligne - la progression ne pollue pas stdout.
+- `stat -c%s` lit la taille en octets du fichier traité — opération metadata uniquement, sans relecture du contenu.
+- `printf "\r..."` écrase la ligne courante sans sauter de ligne — la progression ne pollue pas stdout.
 - `printf "\r%*s\r" 40 ""` efface proprement la ligne de progression avant le message final.
 
 ### Mode `verify`
 
 ```bash
-HASHFILE=$ARG3
-b3sum --check "$HASHFILE"
+HASHFILE=$ARG2
+# ARG3 optionnel : si fourni, cd dans ce dossier avant b3sum --check
+if [ -n "$ARG3" ]; then cd "$ARG3"; fi
+run_verify "$HASHFILE"
 ```
 
-Délègue directement à `b3sum --check`. Simple, sans surcharge.
+Le paramètre `[dossier]` est optionnel. Il résout le cas où la base `.b3` a été calculée depuis un répertoire différent du répertoire courant : plutôt que de naviguer manuellement avant de lancer le script, on passe le dossier directement.
+
+```bash
+# Sans dossier — doit être lancé depuis le répertoire d'origine du compute
+./integrity.sh verify hashes.b3
+
+# Avec dossier — spécifie explicitement le répertoire de travail
+# Le dossier passé doit être le répertoire DEPUIS LEQUEL le compute a été lancé,
+# pas le dossier cible qui a été haché.
+#
+# Exemple : compute lancé depuis /data → chemins dans le .b3 : ./mon_dossier/...
+#   Correct   : ./integrity.sh verify hashes.b3 /data
+#   Incorrect : ./integrity.sh verify hashes.b3 /data/mon_dossier
+./integrity.sh verify hashes.b3 /data
+```
 
 ### Mode `compare`
 
-Trie les deux bases sur le nom de fichier (colonne 2), puis produit trois sections : fichiers modifiés (hash différent), fichiers disparus (présents dans l'ancienne base, absents dans la nouvelle), fichiers nouveaux (absent dans l'ancienne, présents dans la nouvelle). Le rapport est à la fois affiché en terminal et sauvegardé via `tee`.
+Délègue à `run_compare` qui trie les deux bases, produit quatre fichiers dans `$RESULTATS_DIR/resultats_<nom_base_ancienne>/` :
+
+- `recap.txt` — commande, date, compteurs modifiés/disparus/nouveaux
+- `modifies.b3` — lignes b3sum des fichiers dont le hash a changé (format hash + chemin, réutilisable)
+- `disparus.txt` — chemins présents dans A absents de B
+- `nouveaux.txt` — chemins présents dans B absents de A
+
+Les fichiers temporaires de tri passent par `mktemp` et sont supprimés après usage — pas de résidu dans `/tmp`.
 
 ---
 
@@ -263,13 +286,13 @@ Sur toute configuration réaliste, l'I/O disque est le facteur limitant. BLAKE3 
 | NVMe Gen3 | 2–3 Go/s | 12–17 min | Non (1 Go/s/cœur) |
 | NVMe Gen4+ | 5–7 Go/s | 5–7 min | Possible |
 
-**RAM :** b3sum + find + xargs consomment quelques mégaoctets. BLAKE3 traite les fichiers en streaming par chunks de 1 Ko - la taille des fichiers n'influence pas la consommation mémoire. 1 Go de RAM est largement suffisant.
+**RAM :** b3sum + find + xargs consomment quelques mégaoctets. BLAKE3 traite les fichiers en streaming par chunks de 1 Ko — la taille des fichiers n'influence pas la consommation mémoire. 1 Go de RAM est largement suffisant.
 
-### Stratégie HDD - séquentiel obligatoire
+### Stratégie HDD — séquentiel obligatoire
 
-Un HDD est optimisé pour les accès séquentiels. Les accès concurrents cassent la séquentialité de lecture et imposent des déplacements mécaniques de tête coûteux. `xargs -P 4` sur HDD dégrade typiquement les performances de 30 à 50 %. La boucle fichier par fichier de `compute_with_progress` est séquentielle par construction - comportement optimal sur HDD.
+Un HDD est optimisé pour les accès séquentiels. Les accès concurrents cassent la séquentialité de lecture et imposent des déplacements mécaniques de tête coûteux. `xargs -P 4` sur HDD dégrade typiquement les performances de 30 à 50 %. La boucle fichier par fichier de `compute_with_progress` est séquentielle par construction — comportement optimal sur HDD.
 
-Le disque est systématiquement le goulot. BLAKE3 (~1 Go/s/cœur) ne limite jamais sur HDD (100–150 Mo/s) ni sur SATA SSD (500 Mo/s). Sur NVMe Gen4+ (5–7 Go/s), BLAKE3 monothread peut devenir limitant - cas hors périmètre de ce workflow.
+Le disque est systématiquement le goulot. BLAKE3 (~1 Go/s/cœur) ne limite jamais sur HDD (100–150 Mo/s) ni sur SATA SSD (500 Mo/s). Sur NVMe Gen4+ (5–7 Go/s), BLAKE3 monothread peut devenir limitant — cas hors périmètre de ce workflow.
 
 ### Estimations de durée par volume
 
@@ -296,7 +319,7 @@ Durées indicatives, pipeline monothread. Sur SSD avec `-P 4`, diviser par 2–3
 | Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
 | Dossier vide ajouté/supprimé | **Non** | `find -type f` ignore les dossiers vides |
 | Modification de permissions/timestamps | **Non** | b3sum ne hache que le contenu binaire |
-| Fichier remplacé par un clone identique | **Non** | Hash identique - indétectable par définition |
+| Fichier remplacé par un clone identique | **Non** | Hash identique — indétectable par définition |
 | Corruption de la base .b3 elle-même | **Non** | La base n'est pas auto-protégée |
 | Corruption pendant la lecture pour hachage | **Non** | Le hash reflète la donnée lue, corrompue ou non |
 
@@ -328,7 +351,7 @@ b3sum --check hashes_2024-01-15.b3.check
 
 b3sum --check base.b3
 # Résultat : FAILED (No such file or directory) sur TOUS les fichiers
-# Le hash est correct - c'est le chemin qui a changé.
+# Le hash est correct — c'est le chemin qui a changé.
 
 # Solution : corriger les chemins dans la base avant vérification
 sed 's|./mon_projet/|./projet_final/|g' base.b3 > base_corrigee.b3
@@ -342,16 +365,16 @@ b3sum --check base_corrigee.b3
 ### Commandes essentielles
 
 ```bash
-# Calcul de base (universel, HDD/SSD)
+# Calcul de base (universel, HDD)
 find ./dossier -type f -print0 | sort -z | xargs -0 b3sum > base.b3
 
-# Vérification directe (état actuel vs base)
-b3sum --check base.b3
+# Vérification directe (état actuel vs base) → résultats dans RESULTATS_DIR
+./integrity.sh verify base.b3
 
-# Filtrer uniquement les échecs
-b3sum --check base.b3 2>&1 | grep FAILED
+# Filtrer uniquement les échecs en terminal
+./integrity.sh verify base.b3 2>&1 | grep FAILED
 
-# Comparaison deux bases (script externe)
+# Comparaison deux bases → résultats dans RESULTATS_DIR
 ./integrity.sh compare ancienne.b3 nouvelle.b3
 
 # Compter les fichiers indexés
@@ -368,15 +391,14 @@ b3sum base.b3 > base.b3.check
 
 | Situation | Mode | Commande |
 |---|---|---|
-| Première indexation | compute | `find \| sort \| xargs b3sum > base.b3` |
-| Vérifier après transfert/stockage | verify | `b3sum --check base.b3` |
+| Première indexation | compute | `./integrity.sh compute ./dossier base.b3` |
+| Vérifier après transfert/stockage | verify | `./integrity.sh verify base.b3` |
 | Comparer deux archives | compare | `./integrity.sh compare old.b3 new.b3` |
 | Contrôle rapide d'un seul fichier | ad hoc | `b3sum fichier.bin` |
-| Rapport horodaté persistant | compare+log | `./integrity.sh compare old.b3 new.b3` |
 
 ---
 
-## 8. Annexe - Alternatives et extensions
+## 8. Annexe — Alternatives et extensions
 
 ### A.1 Outils FIM si le besoin évolue vers la sécurité
 
@@ -389,15 +411,15 @@ Si le périmètre évolue vers une surveillance continue ou un contexte de sécu
 | AIDE | Alternative open source à Tripwire | Moyenne | Remplacement direct de Tripwire |
 | ZFS | Filesystem avec checksum natif sur chaque bloc | Faible (si migration possible) | Protection transparente sans workflow explicite |
 
-La ligne de démarcation structurante : b3sum/xxHash3 sont des **primitives** - ils font ce qu'on leur demande, sans contexte. Tripwire et Samhain sont des **systèmes** - ils maintiennent un état de référence et détectent les dérives.
+La ligne de démarcation structurante : b3sum/xxHash3 sont des **primitives** — ils font ce qu'on leur demande, sans contexte. Tripwire et Samhain sont des **systèmes** — ils maintiennent un état de référence et détectent les dérives.
 
 ### A.2 Intégration dans un pipeline automatisé
 
 ```bash
-# Crontab - vérification hebdomadaire automatique
+# Crontab — vérification hebdomadaire automatique
 0 2 * * 0 /opt/integrity.sh verify ./donnees /var/lib/integrity/base.b3 >> /var/log/integrity.log 2>&1
 
-# Post-transfert rsync - vérification immédiate après copie
+# Post-transfert rsync — vérification immédiate après copie
 rsync -av source/ dest/ && b3sum --check base.b3
 
 # Alerte email si des fichiers ont échoué
