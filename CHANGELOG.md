@@ -1,5 +1,52 @@
 # Changelog — hash_tool / integrity.sh
 
+## [0.6] — Robustesse et mode silencieux
+
+### Ajouté
+- `integrity.sh`
+  - Flag `--quiet` : supprime toute sortie terminal, écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`). Exit code propagé pour usage CI/cron.
+  - Fonction `say()` : point d'entrée unique pour toute sortie terminal, désactivée si `--quiet`.
+  - Fonction `file_size()` : abstraction portable `stat -c%s` (GNU/Linux) / `stat -f%z` (BSD/macOS).
+  - Vérification version bash en tête de script : `bash >= 4` requis, exit explicite avec message si non respecté.
+  - `make_result_dir()` : horodatage automatique des dossiers de résultats en cas de collision (`_YYYYMMDD-HHMMSS`), plus d'écrasement silencieux.
+  - `trap EXIT` dans `run_compare()` : nettoyage garanti des fichiers temporaires même en cas d'erreur intermédiaire.
+  - Redirection ETA sur `/dev/tty` dans `compute_with_progress()` : garantit que la progression n'est jamais écrite dans le fichier `.b3`.
+- `tests/run_tests.sh`
+  - `set -euo pipefail` : mode strict complet activé (ajout de `-e`).
+  - Fonction `assert_file_absent()` : helper dédié pour les assertions d'absence de fichier.
+  - T00 : ShellCheck sur `integrity.sh` et `run_tests.sh` (SKIP propre si non installé).
+  - T12 : couverture exhaustive du mode `--quiet` (stdout vide, fichiers produits, exit code propagé).
+  - T13 : vérifie l'horodatage automatique des dossiers de résultats sur collision.
+  - T14 : détection d'un argument `[dossier]` invalide pour `verify`.
+- `README.md`
+  - Section `--quiet` avec exemples CI/cron.
+  - Section Tests avec instructions d'exécution et comptage des cas (14 tests).
+  - Mention horodatage automatique dans l'arborescence des résultats.
+
+### Modifié
+- `integrity.sh`
+  - `assert_target_valid()` : `find -print0 | grep -zc ''` au lieu de `find | wc -l` — robuste aux noms de fichiers contenant des newlines.
+  - `run_verify()` : comptage de lignes via `grep -c '^'` au lieu de `grep -c '.'` — correction du bug de comptage sur flux vide.
+  - `run_compare()` : `sort -k2,2` au lieu de `sort -k2` — clé de tri limitée strictement au champ chemin, sans déborder sur le hash.
+  - `run_verify()` : propagation de l'exit code de `b3sum --check` via `return $exit_code` — utilisable en scripting avec `|| alert`.
+  - `failed.txt` : suppression explicite via `rm -f` si `nb_failed == 0` après une vérification OK suivant un échec précédent.
+- `tests/run_tests.sh`
+  - Résolution dynamique des `outdir` via `ls -d ... | tail -1` : compatible avec l'horodatage des dossiers de résultats.
+  - T02, T03, T05, T06, T07 : assertions adaptées à la résolution dynamique des dossiers.
+- `README.md`
+  - Dépendances : mention explicite de `bash >= 4`.
+  - Usage : exemple `--quiet` ajouté.
+
+### Corrigé
+- `integrity.sh`
+  - Bug comptage lignes dans `run_verify()` : `grep -c '.'` sur flux vide retournait 0 mais ne capturait pas correctement les lignes non vides. Remplacé par `grep -c '^'`.
+  - Bug tri ambigü dans `run_compare()` : `sort -k2` triait du champ 2 à la fin de ligne, incluant potentiellement le hash. `sort -k2,2` limite la clé au seul champ 2.
+  - Bug nettoyage tmpfiles : `run_compare()` laissait des fichiers temporaires en cas d'erreur intermédiaire. Ajout de `trap 'rm -f ...' EXIT`.
+  - Bug portabilité `stat` : `stat -c%s` est GNU-only. Ajout de `file_size()` avec fallback BSD `stat -f%z`.
+  - Bug comptage fichiers avec newlines : `assert_target_valid()` utilisait `find | wc -l`. Corrigé avec `find -print0 | grep -zc ''`.
+- `tests/run_tests.sh`
+  - T10 : pattern `"^/"` remplacé par `"  /"` — `grep` opérait sur une chaîne, l'ancre `^` ne matchait pas la deuxième colonne.
+
 ---
 
 ## [0.5] — Documentation

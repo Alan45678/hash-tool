@@ -6,26 +6,55 @@
 #   ./integrity.sh verify  <base.b3> [dossier]
 #   ./integrity.sh compare <ancienne.b3> <nouvelle.b3>
 #
+# Options :
+#   --quiet   Supprime toute sortie terminal ; écrit uniquement dans les
+#             fichiers de résultats (recap.txt, failed.txt, etc.).
+#             Utile pour usage en CI/cron/script parent.
+#
 # Dépendances : b3sum, find, sort, awk, comm, join, stat, du
 
 set -euo pipefail
 
-MODE=${1:-}
-ARG2=${2:-}
-ARG3=${3:-}
+# ── Vérification version bash ──────────────────────────────────────────────────
 
-# ── Configuration ─────────────────────────────────────────────────────────────
+(( BASH_VERSINFO[0] >= 4 )) || {
+  echo "ERREUR : bash >= 4 requis (actuel : $BASH_VERSION)" >&2
+  exit 1
+}
+
+# ── Parsing des arguments ──────────────────────────────────────────────────────
+
+QUIET=0
+ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    *)       ARGS+=("$arg") ;;
+  esac
+done
+
+MODE="${ARGS[0]:-}"
+ARG2="${ARGS[1]:-}"
+ARG3="${ARGS[2]:-}"
+
+# ── Configuration ──────────────────────────────────────────────────────────────
 
 # Dossier racine où seront créés les sous-dossiers de résultats.
 # Modifier ce chemin selon l'environnement.
 RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
 
-# ── Fonctions utilitaires ─────────────────────────────────────────────────────
+# ── Fonctions utilitaires ──────────────────────────────────────────────────────
 
 # Affiche un message d'erreur sur stderr et quitte.
 die() {
   echo "ERREUR : $*" >&2
   exit 1
+}
+
+# Affiche sur stdout uniquement si --quiet n'est pas actif.
+say() {
+  (( QUIET )) || echo "$@"
 }
 
 # Vérifie qu'un fichier .b3 est valide : existe, est un fichier, non vide,
@@ -34,11 +63,10 @@ assert_b3_valid() {
   local file="$1"
   local label="${2:-$file}"
 
-  [ -e "$file" ]  || die "$label : fichier introuvable."
-  [ -f "$file" ]  || die "$label : est un dossier, pas un fichier .b3."
-  [ -s "$file" ]  || die "$label : fichier vide — aucun hash à traiter."
+  [ -e "$file" ] || die "$label : fichier introuvable."
+  [ -f "$file" ] || die "$label : est un dossier, pas un fichier .b3."
+  [ -s "$file" ] || die "$label : fichier vide — aucun hash à traiter."
 
-  # Vérifier le format : au moins une ligne avec deux champs (hash + chemin)
   local first_valid
   first_valid=$(grep -m1 -E '^[0-9a-f]{64}  .+' "$file" || true)
   [ -n "$first_valid" ] || die "$label : format invalide — aucune ligne au format b3sum détectée."
@@ -52,14 +80,27 @@ assert_target_valid() {
   [ -d "$dir" ] || die "Le chemin cible n'est pas un dossier : $dir"
 
   local nb_files
-  nb_files=$(find "$dir" -type f | wc -l)
+  # -print0 + grep -zc : robuste aux noms de fichiers contenant des newlines
+  nb_files=$(find "$dir" -type f -print0 | grep -zc '' || echo 0)
   (( nb_files > 0 )) || die "Le dossier $dir ne contient aucun fichier — rien à hacher."
 }
 
-# ── Fonctions principales ─────────────────────────────────────────────────────
+# Taille d'un fichier en octets — abstraction GNU/BSD
+file_size() {
+  local f="$1"
+  if stat -c%s "$f" 2>/dev/null; then
+    return
+  fi
+  # BSD/macOS fallback
+  stat -f%z "$f"
+}
+
+# ── Fonctions principales ──────────────────────────────────────────────────────
 
 # Calcule le hash BLAKE3 de chaque fichier du dossier cible, fichier par fichier,
 # en affichant la progression et une estimation du temps restant (ETA).
+# La progression est écrite sur le terminal (/dev/tty) uniquement si --quiet
+# n'est pas actif, jamais dans le fichier de hashes.
 # Usage : compute_with_progress <dossier> <hashfile>
 compute_with_progress() {
   local target="$1"
@@ -80,32 +121,42 @@ compute_with_progress() {
   for file in "${files[@]}"; do
     b3sum "$file" >> "$hashfile"
 
-    bytes_done=$(( bytes_done + $(stat -c%s "$file") ))
+    bytes_done=$(( bytes_done + $(file_size "$file") ))
     i=$(( i + 1 ))
 
-    local t_now elapsed
-    t_now=$(date +%s)
-    elapsed=$(( t_now - t_start ))
+    if (( ! QUIET )); then
+      local t_now elapsed
+      t_now=$(date +%s)
+      elapsed=$(( t_now - t_start ))
 
-    if (( bytes_done > 0 && elapsed > 0 )); then
-      local speed remaining
-      speed=$(( bytes_done / elapsed ))
-      remaining=$(( (total_bytes - bytes_done) / speed ))
-      printf "\r[%d/%d] ETA : %dm %02ds   " \
-        "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 ))
+      if (( bytes_done > 0 && elapsed > 0 )); then
+        local speed remaining
+        speed=$(( bytes_done / elapsed ))
+        remaining=$(( (total_bytes - bytes_done) / speed ))
+        printf "\r[%d/%d] ETA : %dm %02ds   " \
+          "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 )) > /dev/tty
+      fi
     fi
   done
 
-  printf "\r%*s\r" 40 ""  # effacer la ligne de progression
+  if (( ! QUIET )); then
+    printf "\r%*s\r" 40 "" > /dev/tty  # effacer la ligne de progression
+  fi
 }
 
 # Crée le dossier de résultats nommé d'après le fichier .b3 fourni.
+# Horodaté si le dossier existe déjà, pour éviter l'écrasement silencieux.
 # Usage : outdir=$(make_result_dir <fichier.b3>)
 make_result_dir() {
   local b3file="$1"
   local basename
   basename=$(basename "$b3file" .b3)
   local outdir="${RESULTATS_DIR}/resultats_${basename}"
+
+  if [ -d "$outdir" ]; then
+    outdir="${outdir}_$(date +%Y%m%d-%H%M%S)"
+  fi
+
   mkdir -p "$outdir"
   echo "$outdir"
 }
@@ -122,15 +173,22 @@ run_verify() {
 
   # Séparer les lignes OK, FAILED, et les erreurs b3sum (ni OK ni FAILED)
   local lines_ok lines_failed lines_error
-  lines_ok=$(echo "$raw"    | grep ': OK$'    || true)
-  lines_failed=$(echo "$raw" | grep ': FAILED' || true)
-  lines_error=$(echo "$raw"  | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
+  lines_ok=$(echo    "$raw" | grep ': OK$'     || true)
+  lines_failed=$(echo "$raw" | grep ': FAILED'  || true)
+  lines_error=$(echo  "$raw" | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
 
+  # Comptage robuste : grep -c '^' compte toutes les lignes non vides du flux
   local nb_ok nb_failed
-  nb_ok=$(echo "$lines_ok"     | grep -c '.' || true)
-  nb_failed=$(echo "$lines_failed" | grep -c '.' || true)
-  [ -n "$lines_ok" ]     || nb_ok=0
-  [ -n "$lines_failed" ] || nb_failed=0
+  if [ -n "$lines_ok" ]; then
+    nb_ok=$(echo "$lines_ok" | grep -c '^')
+  else
+    nb_ok=0
+  fi
+  if [ -n "$lines_failed" ]; then
+    nb_failed=$(echo "$lines_failed" | grep -c '^')
+  else
+    nb_failed=0
+  fi
 
   local statut
   if [ -n "$lines_error" ]; then
@@ -141,7 +199,7 @@ run_verify() {
     statut="OK"
   fi
 
-  # ── recap.txt ──────────────────────────────────────────────────────────────
+  # ── recap.txt ────────────────────────────────────────────────────────────────
   {
     echo "════════════════════════════════════════"
     echo "  STATUT : $statut"
@@ -178,31 +236,36 @@ run_verify() {
         echo "$lines_error"
       fi
     } > "${outdir}/failed.txt"
-  fi
-
-  # ── Affichage terminal ─────────────────────────────────────────────────────
-  if [ "$statut" = "OK" ]; then
-    echo "Vérification OK — $nb_ok fichiers intègres."
   else
-    echo ""
-    echo "████████████████████████████████████████"
-    if [ "$statut" = "ERREUR" ]; then
-      echo "  ERREUR lors de la vérification"
-    else
-      echo "  ECHEC : $nb_failed fichier(s) corrompu(s) ou manquant(s)"
-    fi
-    echo "████████████████████████████████████████"
-    echo ""
-    if (( nb_failed > 0 )); then echo "$lines_failed"; fi
-    if [ -n "$lines_error" ]; then echo "$lines_error"; fi
-    echo ""
+    rm -f "${outdir}/failed.txt"
   fi
 
-  echo "Résultats dans : $outdir"
-  echo "  recap.txt"
-  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
-    echo "  failed.txt"
+  # ── Affichage terminal (supprimé si --quiet) ───────────────────────────────
+  if [ "$statut" = "OK" ]; then
+    say "Vérification OK — $nb_ok fichiers intègres."
+  else
+    say ""
+    say "████████████████████████████████████████"
+    if [ "$statut" = "ERREUR" ]; then
+      say "  ERREUR lors de la vérification"
+    else
+      say "  ECHEC : $nb_failed fichier(s) corrompu(s) ou manquant(s)"
+    fi
+    say "████████████████████████████████████████"
+    say ""
+    if (( nb_failed > 0 )); then say "$lines_failed"; fi
+    if [ -n "$lines_error" ]; then say "$lines_error"; fi
+    say ""
   fi
+
+  say "Résultats dans : $outdir"
+  say "  recap.txt"
+  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
+    say "  failed.txt"
+  fi
+
+  # Propager l'échec au appelant en mode --quiet (utile pour CI)
+  return $exit_code
 }
 
 # Produit les fichiers de résultats pour le mode compare.
@@ -216,20 +279,25 @@ run_compare() {
   local tmp_old tmp_new
   tmp_old=$(mktemp)
   tmp_new=$(mktemp)
-  sort -k2 "$old" > "$tmp_old"
-  sort -k2 "$new" > "$tmp_new"
 
-  # modifies.b3
+  # Nettoyage garanti même en cas d'erreur intermédiaire
+  trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
+
+  # sort -k2,2 : clé limitée au seul champ 2 (chemin), sans déborder sur le hash
+  sort -k2,2 "$old" > "$tmp_old"
+  sort -k2,2 "$new" > "$tmp_new"
+
+  # modifies.b3 : fichiers présents dans les deux bases avec hash différent
   join -1 2 -2 2 "$tmp_old" "$tmp_new" \
     | awk '$2 != $3 {print $3, $1}' \
     > "${outdir}/modifies.b3"
 
-  # disparus.txt
+  # disparus.txt : fichiers dans A absents de B
   comm -23 <(awk '{print $2}' "$tmp_old") \
            <(awk '{print $2}' "$tmp_new") \
     > "${outdir}/disparus.txt"
 
-  # nouveaux.txt
+  # nouveaux.txt : fichiers dans B absents de A
   comm -13 <(awk '{print $2}' "$tmp_old") \
            <(awk '{print $2}' "$tmp_new") \
     > "${outdir}/nouveaux.txt"
@@ -251,14 +319,14 @@ run_compare() {
     echo "Nouveaux      : $nb_nouveaux"
   } > "${outdir}/recap.txt"
 
-  rm "$tmp_old" "$tmp_new"
+  rm -f "$tmp_old" "$tmp_new"
+  trap - EXIT  # désarmer le trap après nettoyage explicite
 
-  # Affichage terminal
-  echo "Résultats enregistrés dans : $outdir"
-  echo "  recap.txt     — modifiés: $nb_modifies, disparus: $nb_disparus, nouveaux: $nb_nouveaux"
-  echo "  modifies.b3   — $nb_modifies fichiers"
-  echo "  disparus.txt  — $nb_disparus fichiers"
-  echo "  nouveaux.txt  — $nb_nouveaux fichiers"
+  say "Résultats enregistrés dans : $outdir"
+  say "  recap.txt     — modifiés: $nb_modifies, disparus: $nb_disparus, nouveaux: $nb_nouveaux"
+  say "  modifies.b3   — $nb_modifies fichiers"
+  say "  disparus.txt  — $nb_disparus fichiers"
+  say "  nouveaux.txt  — $nb_nouveaux fichiers"
 }
 
 # ── Dispatch ──────────────────────────────────────────────────────────────────
@@ -270,7 +338,7 @@ case "$MODE" in
     [ ! -d "$ARG3" ] || die "compute : '$ARG3' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
     assert_target_valid "$ARG2"
     compute_with_progress "$ARG2" "$ARG3"
-    echo "Base enregistrée : $ARG3 ($(wc -l < "$ARG3") fichiers)"
+    say "Base enregistrée : $ARG3 ($(wc -l < "$ARG3") fichiers)"
     ;;
 
   verify)
@@ -295,9 +363,12 @@ case "$MODE" in
 
   *)
     echo "Usage:"
-    echo "  $0 compute <dossier> <base.b3>"
-    echo "  $0 verify  <base.b3> [dossier]"
-    echo "  $0 compare <ancienne.b3> <nouvelle.b3>"
+    echo "  $0 [--quiet] compute <dossier> <base.b3>"
+    echo "  $0 [--quiet] verify  <base.b3> [dossier]"
+    echo "  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>"
+    echo ""
+    echo "Options:"
+    echo "  --quiet   Silencieux : écrit uniquement dans les fichiers de résultats."
     exit 1
     ;;
 esac

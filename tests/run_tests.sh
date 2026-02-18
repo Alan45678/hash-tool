@@ -3,7 +3,7 @@
 # Usage : ./run_tests.sh
 # Prérequis : b3sum, stat, du installés ; integrity.sh dans le dossier parent
 
-set -uo pipefail
+set -euo pipefail
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -18,7 +18,6 @@ export RESULTATS_DIR="$WORKDIR/resultats"
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-YELLOW='\033[1;33m'
 NC='\033[0m'
 
 # ── Compteurs ─────────────────────────────────────────────────────────────────
@@ -71,6 +70,12 @@ assert_file_exists() {
   if [ -f "$file" ]; then pass "$label"; else fail "$label (fichier absent : $file)"; fi
 }
 
+assert_file_absent() {
+  local label="$1"
+  local file="$2"
+  if [ ! -f "$file" ]; then pass "$label"; else fail "$label (fichier présent à tort : $file)"; fi
+}
+
 # ── Setup ─────────────────────────────────────────────────────────────────────
 
 setup() {
@@ -97,6 +102,16 @@ run_tests() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
+  # ── T00 : ShellCheck ──────────────────────────────────────────────────────
+  echo "T00 — ShellCheck"
+  if command -v shellcheck &> /dev/null; then
+    assert_exit_zero "ShellCheck integrity.sh" shellcheck "$INTEGRITY"
+    assert_exit_zero "ShellCheck run_tests.sh" shellcheck "$0"
+  else
+    echo "  SKIP — shellcheck non installé (apt install shellcheck)"
+  fi
+  echo ""
+
   # ── T01 : Compute de base ─────────────────────────────────────────────────
   echo "T01 — Compute de base"
   bash "$INTEGRITY" compute ./data base_t01.b3 > /dev/null 2>&1
@@ -114,15 +129,11 @@ run_tests() {
   assert_not_contains "aucun FAILED dans terminal" "FAILED" "$out_t02"
   assert_contains     "terminal indique OK"        "OK"     "$out_t02"
 
-  local outdir_t02="${RESULTATS_DIR}/resultats_base_t01"
-  assert_file_exists "recap.txt créé" "${outdir_t02}/recap.txt"
-  assert_contains    "recap contient nb OK" "OK" "$(cat "${outdir_t02}/recap.txt")"
-  # failed.txt ne doit PAS exister si 0 échec
-  if [ -f "${outdir_t02}/failed.txt" ]; then
-    fail "failed.txt absent si 0 échec (fichier présent à tort)"
-  else
-    pass "failed.txt absent si 0 échec"
-  fi
+  local outdir_t02
+  outdir_t02=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
+  assert_file_exists "recap.txt créé"   "${outdir_t02}/recap.txt"
+  assert_contains    "recap contient OK" "OK" "$(cat "${outdir_t02}/recap.txt")"
+  assert_file_absent "failed.txt absent si 0 échec" "${outdir_t02}/failed.txt"
   echo ""
 
   # ── T03 : Verify après corruption ────────────────────────────────────────
@@ -133,7 +144,8 @@ run_tests() {
   assert_contains "terminal affiche bloc ECHEC"    "ECHEC"   "$out_t03"
   assert_contains "terminal liste beta.txt FAILED" "FAILED"  "$out_t03"
 
-  local outdir_t03="${RESULTATS_DIR}/resultats_base_t01"
+  local outdir_t03
+  outdir_t03=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
   assert_file_exists "failed.txt créé"              "${outdir_t03}/failed.txt"
   assert_contains    "failed.txt contient beta.txt" "beta.txt" "$(cat "${outdir_t03}/failed.txt")"
   assert_contains    "recap indique FAILED > 0"     "FAILED"   "$(cat "${outdir_t03}/recap.txt")"
@@ -156,7 +168,8 @@ run_tests() {
   bash "$INTEGRITY" compute ./data base_t05.b3 > /dev/null 2>&1
   bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 > /dev/null 2>&1
 
-  local outdir_t05="${RESULTATS_DIR}/resultats_base_t01"
+  local outdir_t05
+  outdir_t05=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
   assert_file_exists "recap.txt créé"    "${outdir_t05}/recap.txt"
   assert_file_exists "modifies.b3 créé"  "${outdir_t05}/modifies.b3"
   assert_file_exists "disparus.txt créé" "${outdir_t05}/disparus.txt"
@@ -172,7 +185,8 @@ run_tests() {
   bash "$INTEGRITY" compute ./data base_t06.b3 > /dev/null 2>&1
   bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 > /dev/null 2>&1
 
-  local outdir_t06="${RESULTATS_DIR}/resultats_base_t01"
+  local outdir_t06
+  outdir_t06=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
   assert_contains "modifies.b3 contient beta.txt" "beta.txt" "$(cat "${outdir_t06}/modifies.b3")"
   # Restauration
   echo "contenu beta" > data/beta.txt
@@ -186,8 +200,9 @@ run_tests() {
   bash "$INTEGRITY" compute ./data base_t07_new.b3 > /dev/null 2>&1
   bash "$INTEGRITY" compare base_t07_old.b3 base_t07_new.b3 > /dev/null 2>&1
 
-  local outdir_t07="${RESULTATS_DIR}/resultats_base_t07_old"
-  assert_contains "disparus.txt contient alpha.txt"  "alpha.txt"   "$(cat "${outdir_t07}/disparus.txt")"
+  local outdir_t07
+  outdir_t07=$(ls -d "${RESULTATS_DIR}/resultats_base_t07_old"* 2>/dev/null | tail -1)
+  assert_contains "disparus.txt contient alpha.txt"   "alpha.txt"   "$(cat "${outdir_t07}/disparus.txt")"
   assert_contains "nouveaux.txt contient epsilon.txt" "epsilon.txt" "$(cat "${outdir_t07}/nouveaux.txt")"
   # Restauration
   echo "contenu alpha" > data/alpha.txt
@@ -230,8 +245,72 @@ run_tests() {
   find ./data -type f -print0 | sort -z | xargs -0 b3sum > base_ref.b3
   bash "$INTEGRITY" compute ./data base_eta.b3 > /dev/null 2>&1
   assert_exit_zero    "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
-  assert_not_contains "aucune ligne ETA dans la base"             "ETA"   "$(cat base_eta.b3)"
+  assert_not_contains "aucune ligne ETA dans la base"             "ETA"  "$(cat base_eta.b3)"
   assert_not_contains "aucun caractère de contrôle dans la base"  $'\r'  "$(cat base_eta.b3)"
+  echo ""
+
+  # ── T12 : Mode --quiet ────────────────────────────────────────────────────
+  echo "T12 — Mode --quiet : aucune sortie terminal"
+  bash "$INTEGRITY" compute ./data base_t12.b3 > /dev/null 2>&1
+
+  local out_quiet_ok
+  out_quiet_ok=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
+  assert_not_contains "--quiet verify OK : stdout vide" "OK"   "$out_quiet_ok"
+  assert_not_contains "--quiet verify OK : stdout vide" "Résultats" "$out_quiet_ok"
+
+  # Vérifier que les fichiers de résultats sont bien produits malgré --quiet
+  local outdir_t12
+  outdir_t12=$(ls -d "${RESULTATS_DIR}/resultats_base_t12"* 2>/dev/null | tail -1)
+  assert_file_exists "recap.txt produit en mode --quiet" "${outdir_t12}/recap.txt"
+
+  # --quiet avec échec : stdout toujours vide, fichiers produits, exit code non nul
+  echo "contenu corrompu" > data/beta.txt
+  local out_quiet_fail exit_quiet
+  out_quiet_fail=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
+  bash "$INTEGRITY" --quiet verify base_t12.b3 > /dev/null 2>&1 && exit_quiet=0 || exit_quiet=$?
+  assert_not_contains "--quiet verify ECHEC : stdout vide" "ECHEC"  "$out_quiet_fail"
+  assert_not_contains "--quiet verify ECHEC : stdout vide" "FAILED" "$out_quiet_fail"
+
+  local outdir_t12b
+  outdir_t12b=$(ls -d "${RESULTATS_DIR}/resultats_base_t12"* 2>/dev/null | tail -1)
+  assert_file_exists "failed.txt produit en mode --quiet" "${outdir_t12b}/failed.txt"
+
+  if (( exit_quiet != 0 )); then
+    pass "--quiet propage l'exit code non nul sur échec"
+  else
+    fail "--quiet propage l'exit code non nul sur échec (exit_quiet=$exit_quiet)"
+  fi
+
+  # Restauration
+  echo "contenu beta" > data/beta.txt
+
+  # --quiet compute : pas de sortie progression
+  local out_quiet_compute
+  out_quiet_compute=$(bash "$INTEGRITY" --quiet compute ./data base_t12c.b3 2>&1 || true)
+  assert_not_contains "--quiet compute : stdout vide" "Base enregistrée" "$out_quiet_compute"
+  assert_not_contains "--quiet compute : pas d'ETA"   "ETA"              "$out_quiet_compute"
+  echo ""
+
+  # ── T13 : Horodatage make_result_dir — pas d'écrasement ──────────────────
+  echo "T13 — Horodatage : deux exécutions successives sur la même base"
+  bash "$INTEGRITY" compute ./data base_t13.b3 > /dev/null 2>&1
+  bash "$INTEGRITY" verify base_t13.b3 > /dev/null 2>&1 || true
+  sleep 1
+  bash "$INTEGRITY" verify base_t13.b3 > /dev/null 2>&1 || true
+  local nb_resultats
+  nb_resultats=$(ls -d "${RESULTATS_DIR}/resultats_base_t13"* 2>/dev/null | wc -l)
+  if (( nb_resultats >= 2 )); then
+    pass "deux dossiers distincts créés (pas d'écrasement)"
+  else
+    fail "écrasement détecté : $nb_resultats dossier(s) au lieu de >= 2"
+  fi
+  echo ""
+
+  # ── T14 : verify avec [dossier] incorrect ────────────────────────────────
+  echo "T14 — verify : dossier argument invalide détecté"
+  local out_t14
+  out_t14=$(bash "$INTEGRITY" verify base_t01.b3 /chemin/inexistant 2>&1 || true)
+  assert_contains "erreur si dossier invalide" "ERREUR" "$out_t14"
   echo ""
 }
 
