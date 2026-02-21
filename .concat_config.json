@@ -9,7 +9,8 @@
         "gentxt.txt",
         ".concat_config.json"
     ],
-    "exclude_tree_extensions": [],
+    "exclude_tree_extensions": [
+    ],
     "exclude_content_dirs": [
         ".git",
         "docs_ancien",
@@ -21,5 +22,6 @@
         ".concat_config.json"
     ],
     "exclude_content_extensions": [
+        ".b3"
     ]
 }

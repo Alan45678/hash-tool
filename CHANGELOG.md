@@ -1,5 +1,13 @@
 # Changelog — hash_tool / integrity.sh
 
+## [0.7] — Robustesse compare : chemins avec espaces
+
+### Corrigé
+- `integrity.sh`
+  - Bug critique dans `run_compare()` : `sort -k2,2`, `join -1 2 -2 2` et `awk '{print $2}'` utilisent le blanc comme séparateur de champ. Un chemin contenant des espaces est fragmenté en plusieurs champs, ce qui corrompt le tri, le join et l'extraction — produisant des faux positifs massifs (ex. 26569 modifiés pour 163 fichiers dont 1 seul a changé).
+  - Correction : conversion préalable de chaque ligne en `chemin\thash` via `awk '{ print substr($0,67) "\t" substr($0,1,64) }'` — le hash b3sum étant toujours exactement 64 caractères, l'offset 67 est garanti par le format. Toutes les opérations suivantes utilisent `-t $'\t'` comme séparateur explicite : `sort -t $'\t' -k1,1`, `join -t $'\t' -1 1 -2 1`, `cut -f1`.
+  - `modifies.b3` : format de sortie préservé (`hash  chemin`) via `awk -F $'\t' '$2 != $3 { print $3 "  " $1 }'`.
+
 ## [0.6] — Robustesse et mode silencieux
 
 ### Ajouté

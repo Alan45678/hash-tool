@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 # integrity.sh — vérification d'intégrité par hachage BLAKE3
 #
@@ -283,23 +284,29 @@ run_compare() {
   # Nettoyage garanti même en cas d'erreur intermédiaire
   trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
 
-  # sort -k2,2 : clé limitée au seul champ 2 (chemin), sans déborder sur le hash
-  sort -k2,2 "$old" > "$tmp_old"
-  sort -k2,2 "$new" > "$tmp_new"
+  # Convertit "hash  chemin" → "chemin\thash"
+  # substr(0,64) = hash fixe ; substr(67) = chemin (robuste aux espaces)
+  b3_to_path_hash() {
+    awk '{ print substr($0,67) "\t" substr($0,1,64) }' "$1" | sort -t $'\t' -k1,1
+  }
 
-  # modifies.b3 : fichiers présents dans les deux bases avec hash différent
-  join -1 2 -2 2 "$tmp_old" "$tmp_new" \
-    | awk '$2 != $3 {print $3, $1}' \
+  b3_to_path_hash "$old" > "$tmp_old"
+  b3_to_path_hash "$new" > "$tmp_new"
+
+  # modifies.b3 : présents dans les deux bases avec hash différent
+  # join sur champ 1 (chemin), compare champ 2 (hash)
+  join -t $'\t' -1 1 -2 1 "$tmp_old" "$tmp_new" \
+    | awk -F $'\t' '$2 != $3 { print $3 "  " $1 }' \
     > "${outdir}/modifies.b3"
 
-  # disparus.txt : fichiers dans A absents de B
-  comm -23 <(awk '{print $2}' "$tmp_old") \
-           <(awk '{print $2}' "$tmp_new") \
+  # disparus.txt : chemins dans A absents de B
+  comm -23 <(cut -f1 "$tmp_old") \
+           <(cut -f1 "$tmp_new") \
     > "${outdir}/disparus.txt"
 
-  # nouveaux.txt : fichiers dans B absents de A
-  comm -13 <(awk '{print $2}' "$tmp_old") \
-           <(awk '{print $2}' "$tmp_new") \
+  # nouveaux.txt : chemins dans B absents de A
+  comm -13 <(cut -f1 "$tmp_old") \
+           <(cut -f1 "$tmp_new") \
     > "${outdir}/nouveaux.txt"
 
   local nb_modifies nb_disparus nb_nouveaux
@@ -372,3 +379,5 @@ case "$MODE" in
     exit 1
     ;;
 esac
+
+
