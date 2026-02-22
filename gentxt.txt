@@ -1,8 +1,13 @@
 # === Arborescence du dossier ===
 
 hash_tool
+├── docker
+│   └── entrypoint.sh
 ├── docs
+│   ├── docker.md
 │   ├── explication-run-tests.md
+│   ├── hash_tool-docker-documentation.docx
+│   ├── hash_tool-docker-documentation.pdf
 │   ├── manuel.md
 │   └── progression-eta.md
 ├── mon_dossier
@@ -45,16 +50,192 @@ hash_tool
 │   ├── run_tests.sh
 │   ├── run_tests_pipeline.sh
 │   └── validation.md
+├── .dockerignore
+├── .gitignore
 ├── CHANGELOG.md
+├── Dockerfile
 ├── README.md
+├── docker-compose.yml
 ├── runner.sh
 └── temp.txt
 
 
 # === Contenu des fichiers ===
 
+--- Fichier : .dockerignore ---
+# .dockerignore — hash_tool
+#
+# Exclut du contexte de build Docker ce qui n'est pas nécessaire.
+# Réduit la taille du contexte envoyé au daemon.
+
+# Données utilisateur — jamais dans l'image
+mon_dossier/
+*.b3
+
+# Résultats
+resultats/
+~/integrity_resultats/
+
+# Tests — non requis dans l'image de production
+tests/
+
+# Documentation — non requise dans l'image
+docs/
+reports/
+*.md
+!README.md
+
+# Fichiers temporaires
+temp.txt
+*.tmp
+*.log
+
+# Outils de développement
+.git/
+.gitignore
+
+
+--- Fichier : .gitignore ---
+# ── Données utilisateur ───────────────────────────────────────────────────────
+autre/
+*.b3
+
+# ── Résultats ─────────────────────────────────────────────────────────────────
+resultats/
+integrity_resultats/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Ne pas ignorer : Dockerfile, .dockerignore, docker-compose.yml, docker/
+# Ignorer les artefacts de build local
+.docker/
+
+# ── Fichiers temporaires ──────────────────────────────────────────────────────
+temp.txt
+*.tmp
+*.log
+*.bak
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Éditeurs ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
 --- Fichier : CHANGELOG.md ---
 # Changelog — hash_tool / integrity.sh
+
+## [0.12] — Dockerisation
+
+### Ajouté
+
+- `Dockerfile` : image multi-stage basée sur Alpine 3.19.
+  - Stage `fetcher` : télécharge le binaire officiel `b3sum` musl depuis GitHub Releases, le vérifie (auto-vérification via `b3sum --check`). Supporte `amd64`, `arm64`, `armv7`.
+  - Stage final : Alpine + `bash` + `jq` + `coreutils` + `findutils` + binaire `b3sum` copié. Image finale ~14 Mo sans toolchain Rust.
+  - `ARG B3SUM_VERSION` : version b3sum paramétrable au build.
+
+- `docker/entrypoint.sh` : dispatcher des commandes.
+  - `compute`, `verify`, `compare` → délégués à `src/integrity.sh`.
+  - `runner [pipeline.json]` → délégué à `runner.sh` (défaut : `/pipelines/pipeline.json`).
+  - `shell` / `bash` → shell interactif debug.
+  - `help`, `version` → affichage inline.
+  - `--quiet` supporté en premier argument.
+
+- `docker-compose.yml` : trois services.
+  - `integrity` : commandes ponctuelles (compute/verify/compare).
+  - `pipeline` : exécution de `runner.sh` avec `pipeline.json` monté.
+  - `cron` : profil optionnel (`--profile cron`) pour vérification périodique.
+  - Section `x-volumes` : chemins à adapter en un seul endroit.
+
+- `.dockerignore` : exclut données, résultats, tests, docs du contexte de build.
+
+- `docs/docker.md` : guide complet — build, commandes, volumes, NAS Synology, cron Debian, taille image, mise à jour b3sum.
+
+### Volumes conventionnels
+
+| Volume conteneur | Usage |
+|---|---|
+| `/data` | Données à hacher (`:ro` recommandé) |
+| `/bases` | Fichiers `.b3` |
+| `/pipelines` | Fichiers `pipeline.json` |
+| `/resultats` | Résultats compare/verify |
+
+`RESULTATS_DIR=/resultats` est défini par défaut dans l'image.
+
+---
+
+ — Restructuration + rapport HTML compare
+
+### Restructuration du projet
+
+```
+hash_tool/
+├── runner.sh                  ← inchangé (point d'entrée)
+├── src/
+│   ├── integrity.sh           ← déplacé depuis la racine
+│   └── lib/
+│       └── report.sh          ← nouveau, extrait de integrity.sh
+├── pipelines/
+│   ├── pipeline.json          ← déplacé depuis la racine
+│   └── pipeline-full.json     ← renommé depuis "pipeline full.json"
+└── reports/
+    └── template.html          ← nouveau, barebone HTML de référence
+```
+
+Motivations :
+- `src/` isole le code des fichiers de configuration et de données.
+- `src/lib/` prépare l'extension à d'autres modules (ex. `notify.sh`, `export.sh`).
+- `pipelines/` centralise les configurations de pipeline, évite la pollution de la racine.
+- `reports/` documente la structure HTML attendue, sert de référence pour la personnalisation.
+
+### Modifié
+
+- `runner.sh`
+  - Chemin `INTEGRITY` mis à jour : `$SCRIPT_DIR/src/integrity.sh`.
+  - Chemin `CONFIG` par défaut mis à jour : `$SCRIPT_DIR/pipelines/pipeline.json`.
+  - `run_compare()` : lecture du champ optionnel `resultats` dans le bloc JSON. Si présent, exporte `RESULTATS_DIR` avec cette valeur pour le seul appel à `integrity.sh compare`. Isolation par sous-shell : le `RESULTATS_DIR` global du processus parent n'est pas modifié.
+  - `run_compute()` et `run_verify()` : isolation du `cd` dans un sous-shell `( )` — le répertoire courant ne fuite plus vers les blocs suivants du pipeline.
+
+- `src/integrity.sh`
+  - Chargement de `src/lib/report.sh` via `source` au démarrage.
+  - `run_compare()` : délègue la génération HTML à `generate_compare_html()` (définie dans `lib/report.sh`).
+
+### Ajouté
+
+- `src/lib/report.sh` : bibliothèque de génération de rapports.
+  - `generate_compare_html()` : produit `report.html` autonome (CSS inline, sans dépendance externe) à partir des fichiers `modifies.b3`, `disparus.txt`, `nouveaux.txt`. Thème sombre, police monospace, compteurs par catégorie, badge statut IDENTIQUES / DIFFÉRENCES DÉTECTÉES.
+
+- `reports/template.html` : barebone HTML statique de référence. Documente les placeholders injectés par `generate_compare_html()` et la structure attendue du dossier de résultats.
+
+- `pipeline.json` (et `pipeline-full.json`) : champ optionnel `"resultats"` sur les blocs `compare`.
+
+  ```json
+  {
+      "op":       "compare",
+      "base_a":   "/chemin/hashes_1.b3",
+      "base_b":   "/chemin/hashes_2.b3",
+      "resultats": "/chemin/vers/dossier_resultats"
+  }
+  ```
+
+  Sans ce champ, comportement inchangé : résultats dans `RESULTATS_DIR` (défaut `~/integrity_resultats`).
+
+- `tests/run_tests_pipeline.sh` : cas TP10b — vérifie que le champ `resultats` redirige bien les résultats dans le dossier personnalisé et n'écrit rien dans `RESULTATS_DIR` par défaut.
+
+### Couverture tests mise à jour
+
+| Suite | Cas | Description |
+|---|---|---|
+| `run_tests.sh` | T00–T14 | Inchangée — `INTEGRITY` mis à jour vers `../src/integrity.sh` |
+| `run_tests_pipeline.sh` | TP01–TP12 | Inchangée dans la logique |
+| `run_tests_pipeline.sh` | **TP10b** | Nouveau — champ `resultats` personnalisé et isolation |
+
+---
 
 
 ## [0.11] — Restructuration + rapport HTML compare
@@ -381,6 +562,106 @@ pipeline = {
 - `tests/run_tests.sh` — suite de tests automatisée bash pur, 11 cas T01–T11, isolation via `mktemp`, teardown systématique, exit code CI-compatible.
 - `tests/validation.md` — protocole de test manuel : 10 cas T01–T10 avec commandes exactes et résultats attendus, critères de qualité globaux.
 
+
+--- Fichier : Dockerfile ---
+# ─────────────────────────────────────────────────────────────────────────────
+# hash_tool — Dockerfile
+#
+# Image Alpine légère (~15 Mo) avec b3sum et jq.
+# Supporte linux/amd64 et linux/arm64 (NAS Synology, Raspberry Pi, etc.)
+#
+# Build :
+#   docker build -t hash_tool .
+#   docker build --platform linux/arm64 -t hash_tool:arm64 .
+#
+# Utilisation :
+#   docker run --rm -v /mes/donnees:/data hash_tool verify /data/base.b3
+#   docker run --rm -v /mes/donnees:/data -v /mes/bases:/bases hash_tool compute /data /bases/hashes.b3
+#   docker run --rm -v /chemin/pipeline.json:/pipelines/pipeline.json \
+#              -v /mes/donnees:/data -v /mes/bases:/bases -v /mes/resultats:/resultats \
+#              hash_tool runner /pipelines/pipeline.json
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Stage 1 : téléchargement et vérification du binaire b3sum ────────────────
+FROM alpine:3.19 AS fetcher
+
+# Version b3sum — mettre à jour ici lors des nouvelles releases
+ARG B3SUM_VERSION=1.5.4
+
+# Détection architecture pour sélectionner le bon binaire musl
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+      x86_64)  B3SUM_ARCH="linux_amd64_musl"   ;; \
+      aarch64) B3SUM_ARCH="linux_aarch64_musl"  ;; \
+      armv7l)  B3SUM_ARCH="linux_armv7_musl"    ;; \
+      *)       echo "Architecture non supportée : $ARCH" >&2; exit 1 ;; \
+    esac; \
+    \
+    apk add --no-cache wget ca-certificates; \
+    \
+    BASE_URL="https://github.com/BLAKE3-team/BLAKE3/releases/download/${B3SUM_VERSION}"; \
+    wget -q -O /usr/local/bin/b3sum "${BASE_URL}/b3sum_${B3SUM_ARCH}"; \
+    wget -q -O /tmp/b3sum.b3        "${BASE_URL}/b3sum_${B3SUM_ARCH}.b3"; \
+    \
+    chmod +x /usr/local/bin/b3sum; \
+    \
+    # Auto-vérification : b3sum vérifie sa propre signature de téléchargement
+    # On travaille depuis /usr/local/bin pour que le chemin dans le .b3 corresponde
+    cd /usr/local/bin && b3sum --check /tmp/b3sum.b3; \
+    \
+    echo "b3sum ${B3SUM_VERSION} (${B3SUM_ARCH}) installé et vérifié."
+
+# ── Stage 2 : image finale ───────────────────────────────────────────────────
+FROM alpine:3.19
+
+LABEL maintainer="hash_tool" \
+      description="Vérification d'intégrité BLAKE3 — integrity.sh + runner.sh" \
+      org.opencontainers.image.source="https://github.com/hash_tool"
+
+# Dépendances runtime uniquement : jq + outils POSIX (inclus dans busybox Alpine)
+# bash est requis (bash >= 4 pour integrity.sh)
+RUN apk add --no-cache \
+      bash \
+      jq \
+      coreutils \
+      findutils \
+    && rm -rf /var/cache/apk/*
+
+# b3sum depuis le stage fetcher
+COPY --from=fetcher /usr/local/bin/b3sum /usr/local/bin/b3sum
+
+# ── Copie des scripts ────────────────────────────────────────────────────────
+
+WORKDIR /app
+
+COPY runner.sh           ./runner.sh
+COPY src/integrity.sh    ./src/integrity.sh
+COPY src/lib/report.sh   ./src/lib/report.sh
+
+RUN chmod +x runner.sh src/integrity.sh src/lib/report.sh
+
+# ── Entrypoint ───────────────────────────────────────────────────────────────
+
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+#
+# /data       → données à hacher (montage en lecture seule recommandé)
+# /bases      → fichiers .b3 (lecture/écriture)
+# /pipelines  → fichiers pipeline.json
+# /resultats  → résultats compare/verify
+#
+VOLUME ["/data", "/bases", "/pipelines", "/resultats"]
+
+# RESULTATS_DIR par défaut redirigé vers /resultats (volume monté)
+ENV RESULTATS_DIR=/resultats
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["help"]
+
+
 --- Fichier : README.md ---
 # integrity.sh — Vérification d'intégrité BLAKE3
 
@@ -542,6 +823,39 @@ hash_tool/
 
 ---
 
+## Docker
+
+Aucune dépendance à installer sur l'hôte. Fonctionne sur Windows, NAS Synology, serveur Debian.
+
+```bash
+# Build
+docker build -t hash_tool .
+
+# Compute
+docker run --rm -v /mes/donnees:/data:ro -v /mes/bases:/bases \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+
+# Verify
+docker run --rm -v /mes/donnees:/data:ro -v /mes/bases:/bases:ro \
+  -v /mes/resultats:/resultats \
+  hash_tool verify /bases/hashes.b3 /data
+
+# Compare
+docker run --rm -v /mes/bases:/bases:ro -v /mes/resultats:/resultats \
+  hash_tool compare /bases/old.b3 /bases/new.b3
+
+# Pipeline complet
+docker run --rm \
+  -v /mes/donnees:/data:ro -v /mes/bases:/bases \
+  -v /mes/resultats:/resultats \
+  -v /chemin/pipeline.json:/pipelines/pipeline.json:ro \
+  hash_tool runner
+```
+
+Voir `docs/docker.md` pour la documentation complète (NAS, cron, ARM64, Compose).
+
+---
+
 ## Tests
 
 ```bash
@@ -570,6 +884,83 @@ apt install shellcheck && ./run_tests.sh
 | Pipeline multi-dossiers / VeraCrypt | `runner.sh` + `pipeline.json` |
 | Contrôle ad hoc d'un fichier unique | `b3sum fichier.bin` |
 | Intégration CI/cron | `--quiet verify` |
+
+
+--- Fichier : docker-compose.yml ---
+# docker-compose.yml — hash_tool
+#
+# Cas d'usage typiques :
+#   docker compose run --rm integrity compute /data /bases/hashes.b3
+#   docker compose run --rm integrity verify  /bases/hashes.b3 /data
+#   docker compose run --rm integrity compare /bases/old.b3 /bases/new.b3
+#   docker compose run --rm pipeline
+#
+# Adapter les volumes (section x-volumes) selon l'environnement :
+#   - Windows/WSL   : /mnt/c/Users/TonNom/...
+#   - NAS Synology  : /volume1/...
+#   - Serveur Debian: /srv/...
+
+# ── Chemins à adapter ────────────────────────────────────────────────────────
+x-volumes:
+  data:      &vol-data      /chemin/vers/donnees     # données à hacher (lecture seule)
+  bases:     &vol-bases     /chemin/vers/bases        # fichiers .b3
+  pipelines: &vol-pipelines /chemin/vers/pipelines   # fichiers pipeline.json
+  resultats: &vol-resultats /chemin/vers/resultats   # résultats compare/verify
+
+# ── Services ─────────────────────────────────────────────────────────────────
+services:
+
+  # Service principal — compute / verify / compare
+  integrity:
+    image: hash_tool
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - *vol-data:/data:ro
+      - *vol-bases:/bases
+      - *vol-resultats:/resultats
+    environment:
+      - RESULTATS_DIR=/resultats
+    # Pas de commande par défaut — passer la commande à docker compose run
+    # Ex : docker compose run --rm integrity verify /bases/hashes.b3 /data
+
+  # Service pipeline — exécute runner.sh avec pipeline.json monté
+  pipeline:
+    image: hash_tool
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - *vol-data:/data:ro
+      - *vol-bases:/bases
+      - *vol-pipelines:/pipelines
+      - *vol-resultats:/resultats
+    environment:
+      - RESULTATS_DIR=/resultats
+    command: ["runner", "/pipelines/pipeline.json"]
+
+  # Service cron — vérification périodique (optionnel)
+  # Nécessite : docker compose up -d cron
+  cron:
+    image: hash_tool
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - *vol-data:/data:ro
+      - *vol-bases:/bases:ro
+      - *vol-resultats:/resultats
+    environment:
+      - RESULTATS_DIR=/resultats
+      - CRON_SCHEDULE=0 3 * * *       # 03h00 chaque nuit
+      - CRON_BASE=/bases/hashes.b3    # base à vérifier
+    # Le service cron tourne en boucle — nécessite l'image étendue avec crond
+    # Voir docs/docker-cron.md pour le setup complet
+    command: ["shell"]
+    profiles: ["cron"]   # non démarré par défaut (docker compose --profile cron up)
+    restart: unless-stopped
+
 
 --- Fichier : runner.sh ---
 #!/usr/bin/env bash
@@ -3133,6 +3524,165 @@ ${list_nouveaux}
 HTML
 }
 
+--- Fichier : docker/entrypoint.sh ---
+#!/usr/bin/env bash
+# /entrypoint.sh — Point d'entrée Docker pour hash_tool
+#
+# Dispatche les commandes vers integrity.sh ou runner.sh.
+# Toutes les commandes de integrity.sh sont supportées directement.
+#
+# Exemples :
+#   docker run hash_tool help
+#   docker run hash_tool compute /data /bases/hashes.b3
+#   docker run hash_tool verify  /bases/hashes.b3
+#   docker run hash_tool compare /bases/old.b3 /bases/new.b3
+#   docker run hash_tool runner  /pipelines/pipeline.json
+#   docker run hash_tool runner                              # lit /pipelines/pipeline.json
+#   docker run -it hash_tool shell                           # bash interactif (debug)
+
+set -euo pipefail
+
+APP="/app"
+INTEGRITY="$APP/src/integrity.sh"
+RUNNER="$APP/runner.sh"
+
+# ── Aide ─────────────────────────────────────────────────────────────────────
+
+print_help() {
+  cat <<'EOF'
+hash_tool — Vérification d'intégrité BLAKE3
+
+Usage :
+  docker run [--rm] [-v ...] hash_tool <commande> [arguments...]
+
+Commandes :
+  compute <dossier> <base.b3>       Calcule les hashes d'un dossier
+  verify  <base.b3> [dossier]       Vérifie l'intégrité
+  compare <ancienne.b3> <nouvelle.b3>  Compare deux bases
+  runner  [pipeline.json]           Exécute un pipeline (défaut : /pipelines/pipeline.json)
+  shell                             Lance un shell bash interactif (debug)
+  help                              Affiche cette aide
+
+Options globales (à placer avant la commande) :
+  --quiet                           Supprime la sortie terminal
+
+Volumes conventionnels :
+  /data        → données à hacher        (-v /mes/donnees:/data)
+  /bases       → fichiers .b3            (-v /mes/bases:/bases)
+  /pipelines   → fichiers pipeline.json  (-v /chemin/pipeline.json:/pipelines/pipeline.json)
+  /resultats   → résultats               (-v /mes/resultats:/resultats)
+
+Variable d'environnement :
+  RESULTATS_DIR  Dossier de résultats (défaut dans le conteneur : /resultats)
+
+Exemples :
+  # Calculer les hashes de /data, stocker dans /bases
+  docker run --rm \
+    -v /mes/donnees:/data:ro \
+    -v /mes/bases:/bases \
+    hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+
+  # Vérifier depuis le dossier d'origine
+  docker run --rm \
+    -v /mes/donnees:/data:ro \
+    -v /mes/bases:/bases:ro \
+    -v /mes/resultats:/resultats \
+    hash_tool verify /bases/hashes_2024-01-15.b3 /data
+
+  # Comparer deux snapshots
+  docker run --rm \
+    -v /mes/bases:/bases:ro \
+    -v /mes/resultats:/resultats \
+    hash_tool compare /bases/hashes_2024-01-15.b3 /bases/hashes_2024-02-01.b3
+
+  # Pipeline complet depuis un fichier JSON
+  docker run --rm \
+    -v /mes/donnees:/data:ro \
+    -v /mes/bases:/bases \
+    -v /mes/resultats:/resultats \
+    -v /chemin/vers/pipeline.json:/pipelines/pipeline.json:ro \
+    hash_tool runner
+
+  # Mode silencieux (CI/cron)
+  docker run --rm \
+    -v /mes/donnees:/data:ro \
+    -v /mes/bases:/bases:ro \
+    -v /mes/resultats:/resultats \
+    hash_tool --quiet verify /bases/hashes.b3 /data
+
+EOF
+}
+
+# ── Vérification des outils ───────────────────────────────────────────────────
+
+check_deps() {
+  local ok=1
+  command -v b3sum &>/dev/null || { echo "ERREUR : b3sum introuvable" >&2; ok=0; }
+  command -v jq    &>/dev/null || { echo "ERREUR : jq introuvable"    >&2; ok=0; }
+  [ -f "$INTEGRITY" ]          || { echo "ERREUR : $INTEGRITY introuvable" >&2; ok=0; }
+  [ -f "$RUNNER" ]             || { echo "ERREUR : $RUNNER introuvable"    >&2; ok=0; }
+  (( ok )) || exit 1
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
+
+# Extraire --quiet en tête s'il est présent
+QUIET_FLAG=""
+if [ "${1:-}" = "--quiet" ]; then
+  QUIET_FLAG="--quiet"
+  shift
+fi
+
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+
+  compute|verify|compare)
+    check_deps
+    exec bash "$INTEGRITY" $QUIET_FLAG "$CMD" "$@"
+    ;;
+
+  runner)
+    check_deps
+    PIPELINE="${1:-/pipelines/pipeline.json}"
+    if [ ! -f "$PIPELINE" ]; then
+      echo "ERREUR : pipeline.json introuvable : $PIPELINE" >&2
+      echo "Monter le fichier avec : -v /chemin/pipeline.json:/pipelines/pipeline.json" >&2
+      exit 1
+    fi
+    exec bash "$RUNNER" "$PIPELINE"
+    ;;
+
+  shell|bash)
+    echo "hash_tool — shell interactif (debug)"
+    echo "  b3sum    : $(b3sum --version 2>/dev/null || echo 'non trouvé')"
+    echo "  jq       : $(jq --version 2>/dev/null || echo 'non trouvé')"
+    echo "  bash     : $BASH_VERSION"
+    echo ""
+    exec /bin/bash
+    ;;
+
+  help|--help|-h)
+    print_help
+    ;;
+
+  version|--version|-v)
+    echo "hash_tool"
+    echo "  b3sum : $(b3sum --version 2>/dev/null || echo 'non trouvé')"
+    echo "  jq    : $(jq --version 2>/dev/null || echo 'non trouvé')"
+    echo "  bash  : $BASH_VERSION"
+    ;;
+
+  *)
+    echo "ERREUR : commande inconnue : '$CMD'" >&2
+    echo "Lancer 'docker run hash_tool help' pour la liste des commandes." >&2
+    exit 1
+    ;;
+
+esac
+
+
 --- Fichier : pipelines/pipeline full.json ---
 {
     "pipeline": [
@@ -3201,6 +3751,225 @@ HTML
 
     ]
 }
+
+--- Fichier : docs/docker.md ---
+# Docker — hash_tool
+
+Utilisation de hash_tool via Docker — aucune dépendance à installer sur l'hôte.
+
+---
+
+## Prérequis
+
+- Docker >= 20.10 (support multi-platform)
+- Optionnel : Docker Compose v2
+
+---
+
+## Build
+
+```bash
+# Build standard (amd64)
+docker build -t hash_tool .
+
+# Build pour ARM64 (NAS Synology DS923+, Raspberry Pi, Apple Silicon)
+docker build --platform linux/arm64 -t hash_tool:arm64 .
+
+# Build avec version b3sum spécifique
+docker build --build-arg B3SUM_VERSION=1.5.4 -t hash_tool .
+```
+
+---
+
+## Commandes disponibles
+
+```
+docker run [--rm] [-v ...] hash_tool <commande> [args]
+
+  compute <dossier> <base.b3>           Calcule les hashes
+  verify  <base.b3> [dossier]           Vérifie l'intégrité
+  compare <ancienne.b3> <nouvelle.b3>   Compare deux bases
+  runner  [pipeline.json]               Exécute un pipeline JSON
+  shell                                 Shell bash interactif (debug)
+  help                                  Aide
+  version                               Versions des outils
+```
+
+---
+
+## Exemples d'utilisation
+
+### Compute — indexer un dossier
+
+```bash
+docker run --rm \
+  -v /mes/donnees:/data:ro \
+  -v /mes/bases:/bases \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+```
+
+### Verify — vérifier l'intégrité
+
+```bash
+# Depuis le répertoire d'origine (même montage /data qu'au compute)
+docker run --rm \
+  -v /mes/donnees:/data:ro \
+  -v /mes/bases:/bases:ro \
+  -v /mes/resultats:/resultats \
+  hash_tool verify /bases/hashes_2024-01-15.b3 /data
+```
+
+Le résultat (`recap.txt`, `failed.txt` si échec) est écrit dans `/resultats` sur l'hôte.
+
+### Compare — deux snapshots
+
+```bash
+docker run --rm \
+  -v /mes/bases:/bases:ro \
+  -v /mes/resultats:/resultats \
+  hash_tool compare /bases/hashes_2024-01-15.b3 /bases/hashes_2024-02-01.b3
+```
+
+Produit `recap.txt`, `modifies.b3`, `disparus.txt`, `nouveaux.txt`, `report.html`.
+
+### Pipeline JSON complet
+
+```bash
+docker run --rm \
+  -v /mes/donnees:/data:ro \
+  -v /mes/bases:/bases \
+  -v /mes/resultats:/resultats \
+  -v /chemin/vers/pipeline.json:/pipelines/pipeline.json:ro \
+  hash_tool runner
+```
+
+### Mode silencieux — CI/cron
+
+```bash
+# Exit code 0 si OK, non-nul si FAILED
+docker run --rm \
+  -v /mes/donnees:/data:ro \
+  -v /mes/bases:/bases:ro \
+  -v /mes/resultats:/resultats \
+  hash_tool --quiet verify /bases/hashes.b3 /data \
+  || echo "ALERTE : corruption détectée"
+```
+
+### Debug interactif
+
+```bash
+docker run --rm -it \
+  -v /mes/donnees:/data \
+  -v /mes/bases:/bases \
+  hash_tool shell
+```
+
+---
+
+## Volumes
+
+| Volume | Usage | Recommandation |
+|---|---|---|
+| `/data` | Données à hacher | `:ro` (lecture seule) |
+| `/bases` | Fichiers `.b3` | Lecture/écriture pour `compute` |
+| `/pipelines` | Fichiers `pipeline.json` | `:ro` |
+| `/resultats` | Résultats `verify`/`compare` | Lecture/écriture |
+
+---
+
+## Variable d'environnement
+
+`RESULTATS_DIR` — dossier de résultats dans le conteneur (défaut : `/resultats`).
+
+```bash
+docker run --rm \
+  -v /mes/resultats:/mon_dossier_custom \
+  -e RESULTATS_DIR=/mon_dossier_custom \
+  hash_tool verify /bases/hashes.b3
+```
+
+---
+
+## Docker Compose
+
+Adapter les chemins dans `docker-compose.yml` (section `x-volumes`), puis :
+
+```bash
+# Commande ponctuelle
+docker compose run --rm integrity verify /bases/hashes.b3 /data
+docker compose run --rm integrity compute /data /bases/hashes.b3
+
+# Pipeline complet
+docker compose run --rm pipeline
+
+# Build et run pipeline
+docker compose build && docker compose run --rm pipeline
+```
+
+---
+
+## NAS Synology
+
+Sur DSM 7.x avec Docker Manager ou Portainer :
+
+```bash
+# Chemin type sur Synology
+docker run --rm \
+  -v /volume1/data:/data:ro \
+  -v /volume1/bases:/bases \
+  -v /volume1/resultats:/resultats \
+  hash_tool verify /bases/hashes.b3 /data
+```
+
+Pour ARM64 (DS220+, DS923+) : builder avec `--platform linux/arm64` ou utiliser une image pré-buildée.
+
+---
+
+## Cron sur serveur Debian
+
+```bash
+# /etc/cron.d/hash-integrity
+0 3 * * * root docker run --rm \
+  -v /srv/data:/data:ro \
+  -v /srv/bases:/bases:ro \
+  -v /srv/resultats:/resultats \
+  hash_tool --quiet verify /bases/hashes.b3 /data \
+  >> /var/log/hash-integrity.log 2>&1 \
+  || mail -s "ALERTE intégrité $(hostname)" admin@example.com
+```
+
+---
+
+## Taille de l'image
+
+| Couche | Taille approx. |
+|---|---|
+| Alpine 3.19 base | ~7 Mo |
+| bash + jq + coreutils + findutils | ~5 Mo |
+| b3sum binaire musl | ~2 Mo |
+| Scripts hash_tool | <100 Ko |
+| **Total** | **~14 Mo** |
+
+L'utilisation d'un binaire musl pré-compilé (stage `fetcher`) évite d'embarquer la toolchain Rust (~700 Mo) dans l'image finale.
+
+---
+
+## Mise à jour de b3sum
+
+Modifier `ARG B3SUM_VERSION` dans le `Dockerfile` et rebuilder :
+
+```bash
+docker build --build-arg B3SUM_VERSION=1.6.0 -t hash_tool .
+```
+
+Les URLs de release suivent le pattern :
+```
+https://github.com/BLAKE3-team/BLAKE3/releases/download/<version>/b3sum_linux_amd64_musl
+https://github.com/BLAKE3-team/BLAKE3/releases/download/<version>/b3sum_linux_aarch64_musl
+```
+
+La signature `.b3` est vérifiée automatiquement au build (le binaire se vérifie lui-même).
+
 
 --- Fichier : docs/explication-run-tests.md ---
 # Explication du code — run_tests.sh + run_tests_pipeline.sh
@@ -3398,6 +4167,12 @@ apt install b3sum jq
 ```
 
 Les deux suites sont indépendantes et peuvent être lancées séparément.
+
+--- Fichier : docs/hash_tool-docker-documentation.docx ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : docs/hash_tool-docker-documentation.pdf ---
+[Fichier binaire ou illisible, contenu ignoré]
 
 --- Fichier : docs/manuel.md ---
 # Manuel technique — Vérification d'intégrité de données

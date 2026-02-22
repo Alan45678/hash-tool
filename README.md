@@ -158,6 +158,39 @@ hash_tool/
 
 ---
 
+## Docker
+
+Aucune dépendance à installer sur l'hôte. Fonctionne sur Windows, NAS Synology, serveur Debian.
+
+```bash
+# Build
+docker build -t hash_tool .
+
+# Compute
+docker run --rm -v /mes/donnees:/data:ro -v /mes/bases:/bases \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+
+# Verify
+docker run --rm -v /mes/donnees:/data:ro -v /mes/bases:/bases:ro \
+  -v /mes/resultats:/resultats \
+  hash_tool verify /bases/hashes.b3 /data
+
+# Compare
+docker run --rm -v /mes/bases:/bases:ro -v /mes/resultats:/resultats \
+  hash_tool compare /bases/old.b3 /bases/new.b3
+
+# Pipeline complet
+docker run --rm \
+  -v /mes/donnees:/data:ro -v /mes/bases:/bases \
+  -v /mes/resultats:/resultats \
+  -v /chemin/pipeline.json:/pipelines/pipeline.json:ro \
+  hash_tool runner
+```
+
+Voir `docs/docker.md` pour la documentation complète (NAS, cron, ARM64, Compose).
+
+---
+
 ## Tests
 
 ```bash

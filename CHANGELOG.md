@@ -1,5 +1,125 @@
 # Changelog — hash_tool / integrity.sh
 
+## [0.12] — Dockerisation
+
+### Ajouté
+
+- `Dockerfile` : image multi-stage basée sur Alpine 3.19.
+  - Stage `fetcher` : télécharge le binaire officiel `b3sum` musl depuis GitHub Releases, le vérifie (auto-vérification via `b3sum --check`). Supporte `amd64`, `arm64`, `armv7`.
+  - Stage final : Alpine + `bash` + `jq` + `coreutils` + `findutils` + binaire `b3sum` copié. Image finale ~14 Mo sans toolchain Rust.
+  - `ARG B3SUM_VERSION` : version b3sum paramétrable au build.
+
+- `docker/entrypoint.sh` : dispatcher des commandes.
+  - `compute`, `verify`, `compare` → délégués à `src/integrity.sh`.
+  - `runner [pipeline.json]` → délégué à `runner.sh` (défaut : `/pipelines/pipeline.json`).
+  - `shell` / `bash` → shell interactif debug.
+  - `help`, `version` → affichage inline.
+  - `--quiet` supporté en premier argument.
+
+- `docker-compose.yml` : trois services.
+  - `integrity` : commandes ponctuelles (compute/verify/compare).
+  - `pipeline` : exécution de `runner.sh` avec `pipeline.json` monté.
+  - `cron` : profil optionnel (`--profile cron`) pour vérification périodique.
+  - Section `x-volumes` : chemins à adapter en un seul endroit.
+
+- `.dockerignore` : exclut données, résultats, tests, docs du contexte de build.
+
+- `docs/docker.md` : guide complet — build, commandes, volumes, NAS Synology, cron Debian, taille image, mise à jour b3sum.
+
+### Volumes conventionnels
+
+| Volume conteneur | Usage |
+|---|---|
+| `/data` | Données à hacher (`:ro` recommandé) |
+| `/bases` | Fichiers `.b3` |
+| `/pipelines` | Fichiers `pipeline.json` |
+| `/resultats` | Résultats compare/verify |
+
+`RESULTATS_DIR=/resultats` est défini par défaut dans l'image.
+
+---
+
+ — Restructuration + rapport HTML compare
+
+### Restructuration du projet
+
+```
+hash_tool/
+├── runner.sh                  ← inchangé (point d'entrée)
+├── src/
+│   ├── integrity.sh           ← déplacé depuis la racine
+│   └── lib/
+│       └── report.sh          ← nouveau, extrait de integrity.sh
+├── pipelines/
+│   ├── pipeline.json          ← déplacé depuis la racine
+│   └── pipeline-full.json     ← renommé depuis "pipeline full.json"
+└── reports/
+    └── template.html          ← nouveau, barebone HTML de référence
+```
+
+Motivations :
+- `src/` isole le code des fichiers de configuration et de données.
+- `src/lib/` prépare l'extension à d'autres modules (ex. `notify.sh`, `export.sh`).
+- `pipelines/` centralise les configurations de pipeline, évite la pollution de la racine.
+- `reports/` documente la structure HTML attendue, sert de référence pour la personnalisation.
+
+### Modifié
+
+- `runner.sh`
+  - Chemin `INTEGRITY` mis à jour : `$SCRIPT_DIR/src/integrity.sh`.
+  - Chemin `CONFIG` par défaut mis à jour : `$SCRIPT_DIR/pipelines/pipeline.json`.
+  - `run_compare()` : lecture du champ optionnel `resultats` dans le bloc JSON. Si présent, exporte `RESULTATS_DIR` avec cette valeur pour le seul appel à `integrity.sh compare`. Isolation par sous-shell : le `RESULTATS_DIR` global du processus parent n'est pas modifié.
+  - `run_compute()` et `run_verify()` : isolation du `cd` dans un sous-shell `( )` — le répertoire courant ne fuite plus vers les blocs suivants du pipeline.
+
+- `src/integrity.sh`
+  - Chargement de `src/lib/report.sh` via `source` au démarrage.
+  - `run_compare()` : délègue la génération HTML à `generate_compare_html()` (définie dans `lib/report.sh`).
+
+### Ajouté
+
+- `src/lib/report.sh` : bibliothèque de génération de rapports.
+  - `generate_compare_html()` : produit `report.html` autonome (CSS inline, sans dépendance externe) à partir des fichiers `modifies.b3`, `disparus.txt`, `nouveaux.txt`. Thème sombre, police monospace, compteurs par catégorie, badge statut IDENTIQUES / DIFFÉRENCES DÉTECTÉES.
+
+- `reports/template.html` : barebone HTML statique de référence. Documente les placeholders injectés par `generate_compare_html()` et la structure attendue du dossier de résultats.
+
+- `pipeline.json` (et `pipeline-full.json`) : champ optionnel `"resultats"` sur les blocs `compare`.
+
+  ```json
+  {
+      "op":       "compare",
+      "base_a":   "/chemin/hashes_1.b3",
+      "base_b":   "/chemin/hashes_2.b3",
+      "resultats": "/chemin/vers/dossier_resultats"
+  }
+  ```
+
+  Sans ce champ, comportement inchangé : résultats dans `RESULTATS_DIR` (défaut `~/integrity_resultats`).
+
+- `tests/run_tests_pipeline.sh` : cas TP10b — vérifie que le champ `resultats` redirige bien les résultats dans le dossier personnalisé et n'écrit rien dans `RESULTATS_DIR` par défaut.
+
+### Couverture tests mise à jour
+
+| Suite | Cas | Description |
+|---|---|---|
+| `run_tests.sh` | T00–T14 | Inchangée — `INTEGRITY` mis à jour vers `../src/integrity.sh` |
+| `run_tests_pipeline.sh` | TP01–TP12 | Inchangée dans la logique |
+| `run_tests_pipeline.sh` | **TP10b** | Nouveau — champ `resultats` personnalisé et isolation |
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## [0.11] — Restructuration + rapport HTML compare
 

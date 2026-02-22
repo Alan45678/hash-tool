@@ -1,0 +1,30 @@
+# ── Données utilisateur ───────────────────────────────────────────────────────
+autre/
+*.b3
+
+# ── Résultats ─────────────────────────────────────────────────────────────────
+resultats/
+integrity_resultats/
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+# Ne pas ignorer : Dockerfile, .dockerignore, docker-compose.yml, docker/
+# Ignorer les artefacts de build local
+.docker/
+
+# ── Fichiers temporaires ──────────────────────────────────────────────────────
+temp.txt
+*.tmp
+*.log
+*.bak
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Éditeurs ─────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
