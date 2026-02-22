@@ -1,5 +1,116 @@
 # Changelog — hash_tool / integrity.sh
 
+
+
+
+
+## [0.10] — Pipeline JSON + tests pipeline
+
+### Modifié
+
+- `pipeline.json` (ex `config.txt`) : format migré de la syntaxe custom vers JSON standard. Champ `op` remplace les noms de blocs. Parsé par `jq` — validation syntaxique native, interopérable avec tout outil JSON.
+- `runner.sh` : réécriture du parser. Suppression du parser bash custom (`IFS`, regex, `local -n`). Remplacement par `jq` pour l'extraction des champs. Validation JSON en entrée (`jq empty`), détection des champs manquants et des opérations inconnues avec messages d'erreur explicites incluant le numéro de bloc.
+
+### Ajouté
+
+- `tests/run_tests_pipeline.sh` : suite de tests dédiée au pipeline. 12 cas TP01–TP12.
+
+### Format pipeline.json
+
+```json
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier",
+            "bases":  "/mnt/c/bases",
+            "nom":    "hashes.b3"
+        },
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier",
+            "base":   "/mnt/c/bases/hashes.b3"
+        },
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/bases/hashes_1.b3",
+            "base_b": "/mnt/c/bases/hashes_2.b3"
+        }
+    ]
+}
+```
+
+### Couverture run_tests_pipeline.sh
+
+| Cas | Description |
+|---|---|
+| TP01 | JSON invalide — erreur propre sans stacktrace jq |
+| TP02 | Clé `.pipeline` absente |
+| TP03 | Champ manquant dans un bloc (`nom`) |
+| TP04 | Opération inconnue |
+| TP05 | Compute — cd correct, chemins relatifs dans la base, comptage fichiers |
+| TP06 | Compute — dossier source absent |
+| TP07 | Verify — bon répertoire de travail, OK détecté |
+| TP08 | Verify — corruption détectée |
+| TP09 | Verify — base .b3 absente |
+| TP10 | Compare — fichiers de résultats produits |
+| TP11 | Compare — base_a absente |
+| TP12 | Pipeline complet compute + verify + compare |
+
+---
+
+
+## [0.9] — Pipeline batch : runner.sh + config.txt
+
+### Ajouté
+
+- `runner.sh` : exécuteur de pipeline batch. Lit `config.txt`, parse les blocs `compute`, `verify`, `compare` et appelle `integrity.sh` avec les arguments corrects. Gère le `cd` automatique avant chaque `compute` et `verify` pour garantir des chemins relatifs dans les bases `.b3`.
+- `config.txt` : déclaration du pipeline au format structuré `pipeline = { ... }`. Chaque opération est un bloc nommé avec des champs `clé = "valeur"`. Supporte les commentaires `#` et les lignes vides.
+- `runner.bat` : lanceur Windows pour double-clic depuis le bureau. Appelle `runner.sh` via WSL. Paramètre `pause` final pour garder la fenêtre ouverte.
+
+### Format config.txt
+
+```
+pipeline = {
+
+    compute {
+        source = "/mnt/a/dossier",
+        bases  = "/mnt/c/bases",
+        nom    = "hashes.b3"
+    }
+
+    verify {
+        source = "/mnt/a/dossier",
+        base   = "/mnt/c/bases/hashes.b3"
+    }
+
+    compare {
+        base_a = "/mnt/c/bases/hashes_1.b3",
+        base_b = "/mnt/c/bases/hashes_2.b3"
+    }
+
+}
+```
+
+### Comportement runner.sh
+
+- `compute` : `cd` dans `source`, puis `integrity.sh compute . bases/nom` — chemin relatif garanti.
+- `verify` : `cd` dans `source`, puis `integrity.sh verify base` — répertoire de travail correct.
+- `compare` : appel direct `integrity.sh compare base_a base_b`.
+- Crée `bases/` automatiquement si inexistant (`mkdir -p`).
+- `set -e` : arrêt immédiat sur toute erreur.
+
+---
+
+## [0.8] — Fonctionnalité batch_compute.sh
+
+### Ajouté
+
+- `batch_compute.sh` : permet de lancer plusieurs commandes `compute` avec un seul script. Remplacé par `runner.sh` + `config.txt` dans la version 0.9.
+
+
+---
+
 ## [0.7] — Robustesse compare : chemins avec espaces
 
 ### Corrigé

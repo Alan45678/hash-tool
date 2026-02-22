@@ -1,10 +1,14 @@
 
+- pipeline à config et à tester 
+semble fonctionner 
 
-J'ai ajouté des modifications au code, après avoir demandé à Claude les améliorations à apporter. 
-Cependant il m'a pas donné les .md à jour. 
-Il faut encore lui demander 
-- manuel.md , changelog.md et readme.md 
+- tester les tests 
 
-tester, nopttament le flag --quiet  !!
+- ranger le dossier, j'aime pas la façon dont il est rangé là , il y a des .sh dans la racine... 
+- pouvoir indiquer le lieu où enregistrer les fichiers des comparaisons des bases de hash 
+- j'aimerais que ça génère un rapport html 
 
-puis commit 
+- il faut que la comparaison, les bases de hash aussi vienne avec des métadonnées
+  - par exemple un fichier "[nom de la base] - métadonnée.json" avec les métadonnées , un sidecar file 
+
+

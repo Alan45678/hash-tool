@@ -4,27 +4,30 @@ hash_tool
 ├── docs
 │   ├── explication-run-tests.md
 │   ├── manuel.md
-│   ├── progression-eta.md
-│   └── validation.md
+│   └── progression-eta.md
 ├── mon_dossier
+│   ├── bases
 │   ├── destination
 │   │   ├── fichier (1).txt
 │   │   ├── fichier (2).txt
 │   │   ├── fichier (3).txt
 │   │   └── fichier (4).txt
+│   ├── result
 │   └── source
 │       ├── fichier (1).txt
 │       ├── fichier (2).txt
 │       ├── fichier (3).txt
 │       └── fichier (4).txt
 ├── tests
-│   └── run_tests.sh
+│   ├── run_tests.sh
+│   ├── run_tests_pipeline.sh
+│   └── validation.md
 ├── CHANGELOG.md
 ├── README.md
-├── TODO.md
-├── hash_1.b3
-├── hash_2.b3
 ├── integrity.sh
+├── pipeline full.json
+├── pipeline.json
+├── runner.sh
 └── temp.txt
 
 
@@ -32,6 +35,125 @@ hash_tool
 
 --- Fichier : CHANGELOG.md ---
 # Changelog — hash_tool / integrity.sh
+
+
+# Changelog — hash_tool / integrity.sh
+
+
+## [0.10] — Pipeline JSON + tests pipeline
+
+### Modifié
+
+- `pipeline.json` (ex `config.txt`) : format migré de la syntaxe custom vers JSON standard. Champ `op` remplace les noms de blocs. Parsé par `jq` — validation syntaxique native, interopérable avec tout outil JSON.
+- `runner.sh` : réécriture du parser. Suppression du parser bash custom (`IFS`, regex, `local -n`). Remplacement par `jq` pour l'extraction des champs. Validation JSON en entrée (`jq empty`), détection des champs manquants et des opérations inconnues avec messages d'erreur explicites incluant le numéro de bloc.
+
+### Ajouté
+
+- `tests/run_tests_pipeline.sh` : suite de tests dédiée au pipeline. 12 cas TP01–TP12.
+
+### Format pipeline.json
+
+```json
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier",
+            "bases":  "/mnt/c/bases",
+            "nom":    "hashes.b3"
+        },
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier",
+            "base":   "/mnt/c/bases/hashes.b3"
+        },
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/bases/hashes_1.b3",
+            "base_b": "/mnt/c/bases/hashes_2.b3"
+        }
+    ]
+}
+```
+
+### Couverture run_tests_pipeline.sh
+
+| Cas | Description |
+|---|---|
+| TP01 | JSON invalide — erreur propre sans stacktrace jq |
+| TP02 | Clé `.pipeline` absente |
+| TP03 | Champ manquant dans un bloc (`nom`) |
+| TP04 | Opération inconnue |
+| TP05 | Compute — cd correct, chemins relatifs dans la base, comptage fichiers |
+| TP06 | Compute — dossier source absent |
+| TP07 | Verify — bon répertoire de travail, OK détecté |
+| TP08 | Verify — corruption détectée |
+| TP09 | Verify — base .b3 absente |
+| TP10 | Compare — fichiers de résultats produits |
+| TP11 | Compare — base_a absente |
+| TP12 | Pipeline complet compute + verify + compare |
+
+---
+
+
+## [0.9] — Pipeline batch : runner.sh + config.txt
+
+### Ajouté
+
+- `runner.sh` : exécuteur de pipeline batch. Lit `config.txt`, parse les blocs `compute`, `verify`, `compare` et appelle `integrity.sh` avec les arguments corrects. Gère le `cd` automatique avant chaque `compute` et `verify` pour garantir des chemins relatifs dans les bases `.b3`.
+- `config.txt` : déclaration du pipeline au format structuré `pipeline = { ... }`. Chaque opération est un bloc nommé avec des champs `clé = "valeur"`. Supporte les commentaires `#` et les lignes vides.
+- `runner.bat` : lanceur Windows pour double-clic depuis le bureau. Appelle `runner.sh` via WSL. Paramètre `pause` final pour garder la fenêtre ouverte.
+
+### Format config.txt
+
+```
+pipeline = {
+
+    compute {
+        source = "/mnt/a/dossier",
+        bases  = "/mnt/c/bases",
+        nom    = "hashes.b3"
+    }
+
+    verify {
+        source = "/mnt/a/dossier",
+        base   = "/mnt/c/bases/hashes.b3"
+    }
+
+    compare {
+        base_a = "/mnt/c/bases/hashes_1.b3",
+        base_b = "/mnt/c/bases/hashes_2.b3"
+    }
+
+}
+```
+
+### Comportement runner.sh
+
+- `compute` : `cd` dans `source`, puis `integrity.sh compute . bases/nom` — chemin relatif garanti.
+- `verify` : `cd` dans `source`, puis `integrity.sh verify base` — répertoire de travail correct.
+- `compare` : appel direct `integrity.sh compare base_a base_b`.
+- Crée `bases/` automatiquement si inexistant (`mkdir -p`).
+- `set -e` : arrêt immédiat sur toute erreur.
+
+---
+
+## [0.8] — Fonctionnalité batch_compute.sh
+
+### Ajouté
+
+- `batch_compute.sh` : permet de lancer plusieurs commandes `compute` avec un seul script. Remplacé par `runner.sh` + `config.txt` dans la version 0.9.
+
+
+---
+
+## [0.7] — Robustesse compare : chemins avec espaces
+
+### Corrigé
+- `integrity.sh`
+  - Bug critique dans `run_compare()` : `sort -k2,2`, `join -1 2 -2 2` et `awk '{print $2}'` utilisent le blanc comme séparateur de champ. Un chemin contenant des espaces est fragmenté en plusieurs champs, ce qui corrompt le tri, le join et l'extraction — produisant des faux positifs massifs (ex. 26569 modifiés pour 163 fichiers dont 1 seul a changé).
+  - Correction : conversion préalable de chaque ligne en `chemin\thash` via `awk '{ print substr($0,67) "\t" substr($0,1,64) }'` — le hash b3sum étant toujours exactement 64 caractères, l'offset 67 est garanti par le format. Toutes les opérations suivantes utilisent `-t $'\t'` comme séparateur explicite : `sort -t $'\t' -k1,1`, `join -t $'\t' -1 1 -2 1`, `cut -f1`.
+  - `modifies.b3` : format de sortie préservé (`hash  chemin`) via `awk -F $'\t' '$2 != $3 { print $3 "  " $1 }'`.
 
 ## [0.6] — Robustesse et mode silencieux
 
@@ -191,23 +313,75 @@ Détection de corruption silencieuse et d'erreurs de transfert sur disque, par h
 ./integrity.sh verify hashes_2024-01-15.b3
 
 # Idem depuis un répertoire différent — passer le répertoire de travail d'origine
-# Exemple : le compute a été lancé depuis /data, on est ailleurs
 ./integrity.sh verify /data/hashes_2024-01-15.b3 /data
 
 # Comparer deux bases (états historiques) → résultats dans $RESULTATS_DIR/
 ./integrity.sh compare hashes_2024-01-15.b3 hashes_2024-02-01.b3
 
-# Mode silencieux pour CI/cron — écrit uniquement dans les fichiers de résultats
+# Mode silencieux pour CI/cron
 ./integrity.sh --quiet verify hashes_2024-01-15.b3
 ```
 
 ---
 
+## Pipeline batch — runner.sh + pipeline.json
+
+Pour lancer plusieurs opérations en une seule commande. Dépendance supplémentaire : `jq`.
+
+**Dépendance :** `jq` (`apt install jq`)
+
+### pipeline.json
+
+```json
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier_disque_1",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier_disque_1",
+            "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
+        }
+
+    ]
+}
+```
+
+Champs par opération :
+
+| `op` | Champs requis |
+|---|---|
+| `compute` | `source`, `bases`, `nom` |
+| `verify` | `source`, `base` |
+| `compare` | `base_a`, `base_b` |
+
+### Lancement depuis Windows (double-clic)
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/runner.sh
+pause
+```
+
+`runner.sh`, `pipeline.json` et `integrity.sh` doivent être dans le même dossier.
+
+---
+
 ## Mode `--quiet`
 
-Supprime toute sortie terminal (stdout/stderr) et écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`). L'exit code est propagé : 0 si OK, non-nul en cas d'échec.
-
-**Usage typique en CI/cron :**
+Supprime toute sortie terminal et écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`). Exit code propagé : 0 si OK, non-nul en cas d'échec.
 
 ```bash
 # Hook pre-commit git
@@ -223,24 +397,23 @@ Compatible avec `compute`, `verify`, et `compare`.
 
 ## Configuration
 
-`RESULTATS_DIR` dans `integrity.sh` définit où sont créés les dossiers de résultats (valeur par défaut : `~/integrity_resultats`).
+`RESULTATS_DIR` dans `integrity.sh` définit où sont créés les dossiers de résultats (défaut : `~/integrity_resultats`).
 
 ```bash
-# Modifier dans integrity.sh, ligne RESULTATS_DIR=
 RESULTATS_DIR="/mon/chemin/resultats"
 ```
 
-Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le dossier existe déjà (pas d'écrasement silencieux) :
+Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le dossier existe déjà :
 
 ```
 ~/integrity_resultats/
 ├── resultats_hashes_2024-01-15/
-│   ├── recap.txt       ← commande, date, compteurs
-│   ├── failed.txt      ← fichiers en échec (verify)
-│   ├── modifies.b3     ← fichiers dont le hash a changé (compare)
-│   ├── disparus.txt    ← fichiers dans A absents de B (compare)
-│   └── nouveaux.txt    ← fichiers dans B absents de A (compare)
-└── resultats_hashes_2024-01-15_20250215-143022/  ← horodatage si collision
+│   ├── recap.txt
+│   ├── failed.txt
+│   ├── modifies.b3
+│   ├── disparus.txt
+│   └── nouveaux.txt
+└── resultats_hashes_2024-01-15_20250215-143022/
     └── ...
 ```
 
@@ -251,6 +424,7 @@ Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le
 | Première indexation | `compute` |
 | Vérifier après transfert / stockage | `verify` |
 | Comparer deux snapshots | `compare` |
+| Pipeline multi-dossiers | `runner.sh` + `pipeline.json` |
 | Contrôle ad hoc d'un fichier unique | `b3sum fichier.bin` |
 | Intégration CI/cron | `--quiet verify` |
 
@@ -259,24 +433,28 @@ Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le
 ## Structure du projet
 
 ```
-integrity/
-├── README.md              ← ce fichier
+hash_tool/
+├── README.md
 ├── integrity.sh           ← script principal
+├── runner.sh              ← exécuteur de pipeline
+├── pipeline.json          ← déclaration du pipeline
 ├── docs/
-│   ├── manuel.md          ← référence technique complète
-│   └── progression-eta.md ← progression temps réel et estimation ETA
+│   ├── manuel.md
+│   ├── progression-eta.md
+│   └── explication-run-tests.md
 └── tests/
-    ├── run_tests.sh       ← suite de tests automatisée
-    └── validation.md      ← protocole de test et critères qualité
+    ├── run_tests.sh               ← tests integrity.sh (T00–T14)
+    ├── run_tests_pipeline.sh      ← tests runner.sh (TP01–TP12)
+    └── validation.md
 ```
 
 ---
 
 ## Règles d'utilisation critiques
 
-- Toujours utiliser des **chemins relatifs** (`find ./dossier`, jamais `/chemin/absolu`). Un chemin absolu rend la base inutilisable après déplacement ou remontage.
-- Lancer `verify` depuis le **même répertoire de travail** qu'au moment du `compute`. Si ce n'est pas possible, passer ce répertoire en second argument : `verify hashes.b3 /chemin/origine` — c'est le répertoire d'où le compute a été lancé, **pas** le dossier qui a été haché.
-- Stocker la base `.b3` sur un **support distinct** des données à vérifier.
+- Toujours des **chemins relatifs** dans les bases `.b3`. `runner.sh` gère le `cd` automatiquement.
+- Lancer `verify` depuis le **même répertoire de travail** qu'au `compute`, ou passer ce répertoire en second argument.
+- Stocker les `.b3` sur un **support distinct** des données — sur VeraCrypt, stocker sur `C:` ou un support tiers.
 - Nommer les bases avec une **date explicite** : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
 
 ---
@@ -284,421 +462,23 @@ integrity/
 ## Tests
 
 ```bash
-# Exécuter la suite de tests automatisée (bash >= 4, b3sum requis)
+# Tests integrity.sh (bash >= 4, b3sum requis)
 cd tests
 ./run_tests.sh
+
+# Tests runner.sh + pipeline.json (jq requis en plus)
+./run_tests_pipeline.sh
 
 # Avec ShellCheck (recommandé)
 apt install shellcheck
 ./run_tests.sh
 ```
 
-14 cas de test couvrent : compute, verify, compare, noms avec espaces, chemins absolus vs relatifs, mode `--quiet`, horodatage des résultats, robustesse des assertions.
-
---- Fichier : TODO.md ---
-
-
-J'ai ajouté des modifications au code, après avoir demandé à Claude les améliorations à apporter. 
-Cependant il m'a pas donné les .md à jour. 
-Il faut encore lui demander 
-- manuel.md , changelog.md et readme.md 
-
-tester, nopttament le flag --quiet  !!
-
-puis commit 
-
-
---- Fichier : hash_1.b3 ---
-3de7652fb73e4dbe9a6555ba09730acc2e9daaacc1fda7155bedd6c7c9518be6  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- calcul green card.ods
-400e50a0c29d6f739fa6531fc2b2b366b691fa7421e44f7489a7118df0ae1ee1  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- calcul green card.txt
-2f8773ddf9208753af952ab167031db2e3ba6634f68ed7bd76bca10ba5dcdbcb  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- green card.txt
-646752e2cfc37487cb9d1db3de0f26cf20d54875cb3221185bee7cae23b78d02  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- llm -- livres green card loterie.md
-4b7822bd902d4ec5d15fa73ac6d233d3651ec38b59ca233b443012c5782f9cc1  /media/veracrypt1/partition_laptop/a ranger/2025-10-26 -- note -- la patience.txt
-148ecbfab4f88bc6b63cdc2d6a68e6e397fb22fcb860387a1611f67c81aad2f5  /media/veracrypt1/partition_laptop/a ranger/2025-11-02 -- jeff bezos invent and think long term.mkv
-ba864626030b885bebb8e3ad80c0e7b4e848bd60dd75a03273a98519397a7917  /media/veracrypt1/partition_laptop/a ranger/2025-11-05 -- twitter -- francois chollet -- difference philosophie et ingenierie.png
-a8be7c3e5767db14e1fc457995ff6bbb1b2cc73014f957423908745e501421de  /media/veracrypt1/partition_laptop/a ranger/2025-11-14 -- wikipedia -- thesaurisation.pdf
-69020dd1faaffa27df56f08e086690528dc9709818224d5d0cc003846ecf842e  /media/veracrypt1/partition_laptop/a ranger/2025-11-20 -- enfance/2025-11-20 -- 2025-11-20 -- nan -- nan.png
-d980992c894fd421f3157ca1f775de092469938527991fe2de7022ab42f6c3f3  /media/veracrypt1/partition_laptop/a ranger/2025-11-20 -- enfance/2025-11-20 -- 2025-11-20 -- packard bell logo 1990.svg.png
-d85dcd32d9a6ffff910dd036190540ce58783f06ef83f5ec585d85da34d7e2b2  /media/veracrypt1/partition_laptop/a ranger/2025-12-23 -- note -- nul et bosse pas.txt
-a6b2a7f6b0111e2a45fa04e4cb38d1ed7f33bc6c47d1557e7e52de7f2d982df9  /media/veracrypt1/partition_laptop/a ranger/2025-12-23 -- twitter -- dokpepper -- multi pass porte.pdf
-dad1ecfa24916df9df413144c2ba05c91e1270067eaea36f2813fa6e7eef2838  /media/veracrypt1/partition_laptop/a ranger/2025-12-26 -- note -- audit perso.txt
-14064216907d7a22cb70c63aaa93774a4144b1882760ed346ed8608ec55a0926  /media/veracrypt1/partition_laptop/a ranger/2025-12-27 -- note -- perte de sens.txt
-a3e4875af51b8e62479c931a83fa026a9e7a7272e672177a629ff119727f8eab  /media/veracrypt1/partition_laptop/a ranger/2025-12-29 -- chaufage methode economie.pdf
-c6386d44e88ec60a0c21087af31f8c0f19a4f42e8276602dd19b635a8e7298fe  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- calcul differentiel -- andre avez.pdf
-08b1ca735e67688faa2f3080ed980d5e5bd09839cdad2900037b1fa50149c54c  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques 2.jpg
-c73562680eeae42f0d8620c3af95346b06b2cf2fbebe7ada15d0aa1b2b040258  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques (2).jpg
-5cab9d7df06a0f6e1c29ef4cb7aeed7f4e6e6ed0eee1d46677fcdf08200b2cb7  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques.jpg
-535127536ee3f3f42774472cb94564f7e070e259c03945dbf25d9e84297a84d2  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques.webp
-c807937075d8d0a64c2670ae03ceaf99b07fddc542d519ef7eb90b6e5f868ef1  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- France - morale et valeurs/2026-02-02 -- llm -- religions avant les monothéismes.md
-019ef2905a32dca906c0cee932003067012da1cc8d564659617c5ec41cb79166  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- France - morale et valeurs/g bjymuxcaa-jpd.jfif
-16fc9b46649ad4c5000628e2a570329ca463720cc9ad382c913498f90a78c8c8  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- style vestimentaire/llm -- alternatives moins chères au style barbour.md
-dd20de22129f518ac10828949be676e2b07b138729473024a70ce04fc8914340  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- style vestimentaire/vetements fermier barbour.pdf
-990f81549e4f6313471b16b0f15db23927ea878cac873c387dcc850c8854c75b  /media/veracrypt1/partition_laptop/a ranger/2026-01-01 -- note -- mercure danger.txt
-dd41f084d9382e3eb00af26aec4d58ae82bea0baaeff5c07987b18ed6156d4f9  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- adresse coralie - trajet récupération voiture et séjour pays basque.txt
-7f2147f4b013aa0aa0e741531188beb9793206de31f6779ab3f096fb057db01b  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- créer de faux profils.txt
-6bc781ec2f9d710a3b833cd367c553fdaec8cb45755c0fba88956aca19c7ec35  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- todo -- test vih.txt
-889311789f43557390bada161baa3d310914ff5723ed6680610286419f256ba7  /media/veracrypt1/partition_laptop/a ranger/2026-01-05 -- note -- adresses email à faire.txt
-57d97d8176ded8c27216e15c73d39304ebf997870daabba44569e20f9fac0aa4  /media/veracrypt1/partition_laptop/a ranger/2026-01-08 -- note -- courroie de distribution.txt
-dd0ee5b7886402d956683637826e1b54671bebe4bdddb5f2a0b3a32bacc4a7c7  /media/veracrypt1/partition_laptop/a ranger/2026-01-09 -- note -- 2026 projets.txt
-9423abac9c08f00dbb220d37a8f9c9be41baeaa709b66264fcce803bafb9a06a  /media/veracrypt1/partition_laptop/a ranger/2026-01-14 -- note -- note voiture.txt
-679f3a384e6cfda26aa73b92de71e58d694068e5c10249727a4995e8bf64b955  /media/veracrypt1/partition_laptop/a ranger/2026-01-17 -- note -- démarches admin.txt
-d801c90937a7910f60c9aaafaa0f7eef166fcda624901531c1f49196d517f7ff  /media/veracrypt1/partition_laptop/a ranger/2026-01-20 -- note -- à faire.txt
-ee174290fa4eb7943dcc1326b865f92dc9def3826daa64b8bdbc6e1a39050ee4  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- à modifier.txt
-da06ddfa1fd6fbb74c85435663f6e9c6b8fc9bb337c937f384fc3750e1fba09a  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- election municipales.txt
-27f0e6603d7698e266178b1abacd4d6b7f80f3a5c687705484faa9855ff629dd  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- espoir de changement.txt
-ce7763cc61376c46ea4c7c97997894576b05ee6331a399fb8a5462735dc42820  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- ne pas devenir fou.txt
-ce98437926c4cfb8050b329eaa855ee8066d72420ed7f5db1eaad3cce518ee91  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- todo -- les mails de moreno rsa.txt
-3ac9778e2c88130820e5252621cce4010e2cb281c41bf20ad4082ed8a67709fb  /media/veracrypt1/partition_laptop/a ranger/2026-01-26 -- note -- changer assurance.txt
-d57b79a8eb7a5c3cc7cd3e12523b666904c5124c7780596553e90bcff7204aa7  /media/veracrypt1/partition_laptop/a ranger/2026-01-28 -- note -- nqt suivi.txt
-47ca309391159a6756a7647cbc0a1708b3672f2267a9d5e11fde87b203b2962f  /media/veracrypt1/partition_laptop/a ranger/2026-01-28 -- note -- todo maison.txt
-06d6f2b939c3cad74bb00f0af66439f72d9595bb684e28267a98cdf1ca46bee8  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Création de liens symboliques.md
-ec89bd4319943cd1d13df1a1fde217c533dfe928fc27623f00f433fa31da92ad  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Problème icônes et liens.md
-437488efd6b0d3a36179808ea2e58ac8bb0be3a17930f21ebc4e1fdabf302765  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Problème script Bash.md
-59eb5f67307877319e9a9fe1eb218e347c6598a29a9e20afe2b8a201db5a9d13  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/icons/icon_blue_star.png
-273b951528979f04007b3332e3815b3b10f8d399298a3378e8f7b445438866df  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/icons/icon_free_file_sync.png
-5e7346347cf59227ca8160b7c1a46d116a83c4800589340aa87377ce922a4077  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/liens.csv
-bdc6e97ca44eff6910121e6a21679297a3b6ea9c4f0e3838c5def4c933ef5ec3  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/liens.ods
-af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/README.md
-137e9ceef8763633ce1badccff10e1eae1b7de3dcd3e199582518ef93154fbb2  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/script.sh
-04e10e0705426d4f13c21dab233b1f666df31f32e60091d47bc211d86146a489  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/iconlayoutsforcm.ini
-2658eb2f6a9a326fb83f0ca41cc2c168a8464fbb14a8d4b5f64f3947180af313  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon.exe
-cb93693c6906e54a28c7bc7dc210b95424b4782d79516ad5582868222af9dffc  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon.ini
-a65abadb7afc2d3b02db6fc9c82ddd422659d6a6d894155c17948b3fd7b97f6c  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon_x64.exe
-f23d1183986012e68747908d41a45667f6c87ab7f4af730d167bd9f93221ce86  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/version_info.txt
-72a3ab9ec68d078909dc096d77c0a436cd8d558d737ad66ace0aeb8082364291  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/2026-02-06 -- la cité des taupes -- dlq.jfif
-d1b4afe035559de64329d77153f42b4b4567972d110d99c1c7dd716c98114b42  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/2026-02-06 -- la cité des taupes -- dlq.pdf
-391576b330f224f476ac84c93e16d0a6cf37bc2090d2cb8e4102bee1aa63d163  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/dox la cité des taupes.txt
-4d3397ee5c0339a5540a0fbaa3fd09802ea7bda76e3896da0e73208487477688  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- llm -- valorisation des stages sur le marché du travail.md
-bcd492dfd24662fc5533be695472423fa78018aa0d9c77374d9a851e7ffaef2b  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- todo claude.txt
-8180fc85d789dd5b07435cfd9270efe5db97030b8dd86c26e223911c6ccccd95  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- voiture -- radar.png
-786f2ab3dd38d82f82320cbbd75a164143333e5de0c0b639789e2fbbe676059c  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- kant maîtrise et responsabilité de soi.md
-d0edc708fcd16332562e8fe37414a2a9466cd2fdf0d3e6ab4d9358b2f643c420  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- perception travail sexe classes sociales v1.md
-c530a4626f44f3eb3590a5e176ff173ef77104d0850ef66e4f308379cdf5e2f8  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- perception travail sexe classes sociales v2.md
-f48bc09d0ca36fe7591ac65be60b8239dafa25bebd0757d13e70f250a9a09c84  /media/veracrypt1/partition_laptop/a ranger/2026-02-14 -- 14-02-2026 -- twitter -- pasvrmntpierre -- nan.pdf
-c377f6ff2c2efd422c3606c328eb058bf348b1fef7b5a69d71e8dd9c65087f02  /media/veracrypt1/partition_laptop/a ranger/2026-02-16 -- 16-02-2026 -- maman
-29303459a1d3d47a23a91e0a1a7d1fcf253da99842cbfbfc883f96a46eb0a733  /media/veracrypt1/partition_laptop/a ranger/2026-02-17 -- gestion des risques cassos emploi
-d580c94a44f30e1d1933d428f080c1e1cd01ca86120635439f5a3cb9cc5d2634  /media/veracrypt1/partition_laptop/a ranger/2026-02-18 -- llm -- Afficher fichiers cachés Nautilus (1).md
-da4b9648703684b1f9c996f71cf87867822ffd6ae69621e611b9a2c1d5c2a0e1  /media/veracrypt1/partition_laptop/a ranger/2026-02-18 -- llm -- Principes actifs prouvés.md
-6a0e40f80e8b9959334f0977cfc05e5d46490dc283b58f764995102d57bfd6cf  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- llm -- Holding patrimoniale et SCI.md
-3134c0fa479b065cfc1efaddeee0a58fe6612d2a79e713f267ffe5589fc01fb3  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- llm -- Redémarrer logiciel Linux.md
-d186e33ff58dcc4f8cbf2ae2f2cc041a91b33819b6aef245f401c726f4c8195a  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- twitter -- AnttonRouget -- nan.pdf
-32d080b92a3c068660dc23d8b1e84252fa48f2af8a4f223817ef3114cc8a76ad  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- twitter -- bluetouff -- nan.pdf
-ecca58a96d0e5445917859bd1cc27ec3ca94950eadd6184886a35aeb4e307b6f  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_101_Cours_Complet.docx
-b45e3c87faea3d48f665b572e5f59fb979f90f0529867a284faac4ebba200f38  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_101_Cours_Complet.pdf
-e4d8189c79cac73c4188515242fd46297dd4a4917b0827c288f1a4971fe2bb75  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_102_Cours_Complet.docx
-a339470f2202220751c95b5698476eeda99803014fb5c16b63b99c1749da1ef5  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_102_Cours_Complet.pdf
-e960911762a6466c5146235afc89f6d375732eecfc1afedc956d1e310c0ae8fb  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_103_Cours_Complet.docx
-80b6fcda1e53a459c25d1911082b167318ec32e0a732c5f044dad3d95850b760  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_103_Cours_Complet.pdf
-c3bf9db6367548d1a1476d859c01bcdbe73db227d8d5a7a1f25d05c52d1b6a3b  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_104_Cours_Complet.docx
-ec5f0d1a42b5bbd73656b3c3eec967bcdc28b458c544ef66fa52695fdc8aadb2  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_105_Cours_Complet.docx
-fdd3a783567e19f14857640c34e136e5152ac5d1cc4b6cbf9b74516100bd280f  /media/veracrypt1/partition_laptop/a ranger/!administratif/2026-01-21 -- date des impots.txt
-667ac19664cbfdcd2a2489d2f928ca9e37709467144ced0b4fe2a90fd0c336e2  /media/veracrypt1/partition_laptop/a ranger/!administratif/raccourci -- !a ranger.lnk
-2ffcd28d0c0e38d9680dbfbac8ff94af47676e375719c8392bc464b7a5487802  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 1.png
-31acaaeea69f3a58c32f2e5beb94b0582e9a2346299a3beb82aa009edab8e165  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 2.png
-6557a23716ca5edbf7fa72b10aca7350c2335a5a9c7b23b5094f788ac8c39234  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 3.png
-276e82bb73e6b10abd6ab9f6ea541c54bf598ef888f228e5cde2b1a604736159  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/llm -- l'histoire des lampes waldmann.md
-c55f00fdf7576beb4c11fd9b80a480c09d0a5e1154fcdac90e1fa7b6da748372  /media/veracrypt1/partition_laptop/a ranger/!bureau/test mst.txt
-100b181024b91bfc5d6d828bd0fa52adb6ccd2804c738a64e7541725ba78448b  /media/veracrypt1/partition_laptop/a ranger/!bureau/todo.txt
-52fce69387f6eadb601f4ae71d56958430ae878908238a0c519ce0b06c217a87  /media/veracrypt1/partition_laptop/a ranger/!bureau/vitamines.txt
-2dd09ad2011221e41ae46346f4e77790b8867876b0cb9409ee2197b6f52367a8  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-14 -- 14-02-2026 -- j cloud et j wiki
-cedc09e3803553f45df439ee7db06eb6a3108bf0e4e512acabda18a1780adc07  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-14 -- 14-02-2026 -- plateformes ia pour données personnelles.odt
-a924472c9d009b8287e7d9b429fe68fd5ba8285081823d2d2cd1992d98eb206b  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-16 -- llm -- Langage et interfaces numériques (1).md
-f934b328e1395f02d555d9542f090de0f761440bca18d93504d24bbc72540b08  /media/veracrypt1/partition_laptop/a ranger/!cuisine/2025-11-30 -- note -- cuisson pates.txt
-0c3e855339bbec24f26ceef618b77bb8097d9472f9e333c64428d64083eb2d1d  /media/veracrypt1/partition_laptop/a ranger/!emploi/10-02-2026 -- cnam.txt
-af40ddfcb5114cb86096bbe83b0b6131fca8b8c8d45237fda1cca1a5e09c15f9  /media/veracrypt1/partition_laptop/a ranger/!emploi/10-02-2026 -- llm -- financement formation cnam.md
-a76db2a72bda817647bc16b86066a107c14b3de678609e7e3c7260d3b7f1888b  /media/veracrypt1/partition_laptop/a ranger/!emploi/11-02-2026 -- twitter -- tanguylacr0ix -- ghost job - réalité honnête.pdf
-c179c9463f32d7c0160856e7a80d4fa8f841a1805cb4c6e8e45bb77800b48942  /media/veracrypt1/partition_laptop/a ranger/!emploi/2026-02-03 -- llm -- qui est responsable de quoi.md
-84c97504d07df7d57f1881ab6684b991255928859023fc651bd3f63102a0d2a1  /media/veracrypt1/partition_laptop/a ranger/!emploi/2026-02-08 -- twitter -- energieduvide -- nan.pdf
-98e15bdbc4c2aeb080c39bd5aad63e4214b59d76727bea576e98cdbc9b0f7ed1  /media/veracrypt1/partition_laptop/a ranger/!emploi/NQT/mail de bienvenu et info.pdf
-f65348224478a20e09b72a304467ca2259ae77ff4c05103d6b27ab816f14ed10  /media/veracrypt1/partition_laptop/a ranger/!emploi/raccourci -- !a ranger.lnk
-c1968f9a00ed33bf888574d897120dbf3b8c6c8b7e7a966ec42fe30039c6d561  /media/veracrypt1/partition_laptop/a ranger/!etudes/2026-01-19 -- le cube révélations sur les dérives de lenseignement supérieur privé -- claire marchal.epub
-c0cd70c9e441852a9dd86ac9046b04267a8c58bdf53471f6c5eda72ef1ab4a2a  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-02 -- twitter -- lukas ekwueme -- gain travailler plus , plateau - allemagne.pdf
-5fc5718ed4f5cb6b10b241dae288f131fb3abab730723643025e95b2fef5c72b  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-20 -- llm -- contrat de capitalisation fonctionnement et transmission.md
-18e8dad8ea5c42aa645c75035e19e2384e6dfc6ae01bf302622aeb8aaa768ac9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- llm -- imposition revenus de l'étranger.md
-86fc9d1e9da6bda40b142085b1da983637c12b68bd71386c495bb5ca7f278537  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- twitter -- bayesreality - gain marginal du travail en france.pdf
-bc775d811e2a466318303c754ac8cb63ba6ad965cde5a4038bc7772b285181ad  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- twitter -- kerguennecp - utilisation des llm anti pièges.pdf
-f3a8a15aa4fc5cf3956950a8475d06166356ae08f26845b8da20e600a0d27e32  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-23 -- twitter -- boringbiz - immobilier politique économique.pdf
-3ff22993ebdf17a68e33bc7ae014338c2d3a4cf36af9c85b1b69b5f25b7e470d  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-30 -- twitter -- tradeform -- a reflechir.pdf
-fa7fd4b3c52d9bf0f3cdb4a7e95833192253c8b8808057d030bc3e5286a4460d  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-02-03 -- twitter -- cortisquared -- explication conséquence austérité.pdf
-bc17436ce6009b73b9021f2356543bbd87769a722fab648d5c1be343d8ced762  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-02-06 -- différence niveau de vie retraite actif.png
-4a52c06fb7e4e3574bd903bd119ec8df32c7b0a62b25dec6490c880f4241f576  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/raccourci -- !a ranger - politique economique.lnk
-e91a5f115890208ea7ad102354931692255314a18a561200124761152bfad2da  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/08-02-2026 --  danger squat immobilier.png
-11427c5119666656d59ab4f6d3ce3469f9b9d2c39bf2212b7065040423b990a9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/14-02-2026 -- asset breakdown by wealth level.jpeg
-2c945df5457a8cf3ffe3ab23ebc705cf2e25d526cdccab17336609e8837e20ab  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/14-02-2026 -- scf23.pdf
-47056278813c4b39902d02e613d0b232052c681c9af2f785a070decb5985442e  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/2026-01-30 -- 100331-brinson determinants portfolio performance.pdf
-e08b8b904bdae9457e91e9115f3de4a748b8c203aa6d57db2face739e7e412d6  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/2026-02-01 -- minimum veilliesse retraite.jfif
-d1486b50cffc92041890cc4b0af99b4b726c894551de4031f956a1ee885b5fe9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/capture d’écran 2026-02-10 190008.png
-515e40a5ce54231709b7c83c4bade55db86120492358cf66d9b5c835ca5e5f96  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/raccourci -- !a ranger - invest.lnk
-907fdf51e9520465ac3dd7349b5dd782728acb602fca8a1d67691a17d4cd85a6  /media/veracrypt1/partition_laptop/a ranger/!methode/2025-12-31 -- llm -- lois de puissance et pareto.md
-3be9a70905415cd6619c50575ea3545e1e13b2caef802254040353e01d01f07f  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- unknown unknown.md
-5115980df5d067184eb641dbf134afd7c8964ca93f094309476890405cb3f1fa  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-24 -- méthode rédaction de documentation technique.txt
-862ea856bbd2873d5bb72a7026cfcbda5a7b0fa6aaaaaca20e7de718b4f8d408  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-27 -- llm -- réponse sans documents externes (2).md
-55c21961428cb882cc488ddcb906883b28f8226beef90dc5099622d9602ce673  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-27 -- méthode -- vue intra fichier ou intra dossier.txt
-24b88ded84b91877bc4cb6b1f865b37ad32241501eae6df964e9ab9dfd6a9016  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-03 -- llm -- trouver des modèles excel professionnels.md
-e90952c61460544580275344fc4ea8e70b27248c1624a057d80f11323f5bc54c  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-04 -- llm -- trouver des modèles excel professionnels.md
-35f25d5af77c6d0bee2d16b55f1b93cf30469966e449ff5bb7c9892d23ff2d00  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- programme de formation en résolution de problèmes (1).md
-6e942e7e238acf92e09f9ddc7275207ab67f0c318218f95e98919c1bbeabd296  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - critical thinking 101.md
-01d1db4204c6f8c3adcddc6d384dba62cb2738c24485d76c8b0b8e5e1228b377  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - decision making 101.md
-ed922548073d1522c31ba0e533b5791cd36f6f42d92be4b2eb8ae1aaaff08830  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - problem solving 101.md
-01f3d8fdc8e31b4bb3f83d578a57556824d015616375420c7324b695389a5bb4  /media/veracrypt1/partition_laptop/a ranger/!methode/llm -- sommaire du cours truth-seeking 101.md
-f82e126cab2c8a688c693a8c77ae84c62f9fa5251420806fbb138d1fd6c19809  /media/veracrypt1/partition_laptop/a ranger/!methode/raccourci -- !a ranger.lnk
-9be0756aa1d2ec10c8a9aefd546153086ab8d534d0cb8eade14043eefef1ff6f  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- adresse samples.txt
-d9d6795348e604e72da11ca4b496c3674f3502d9f35219865003220499382c78  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- llm -- premiers pas avec openmpt.md
-bac1f4cb55d67135d2be02b40f6ae82757fca5a1c6e7c21677682737bcd39bb6  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.bak
-50677732c591a08a1968fea152e6cc16785f0ab4b48a3f9c6cc351a5a6cfc140  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.it
-936a972d1abf57343d0487fe9585c2fb5b9ae54be6d40c4eee6bb4113b547220  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.wav
-afd6ed8968fb6256dcf7c7cd04fdf1bac00a12ff78ef55ef8ece4952f26419b5  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- pas de son.txt
-8813524c4e8fd78206dbf01c1348a6a943bec671ddcf63057bb08e813ad742ed  /media/veracrypt1/partition_laptop/a ranger/!musique/raccourci -- !a ranger.lnk
-714d86766b49c2239a962c7e6a5b6ee49cf180284a6361a55a189870b9727df7  /media/veracrypt1/partition_laptop/a ranger/!news/2025-11-30 -- llm -- evolution de youtube.md
-33a806a8d3988a0cccd1718d6ab43a2f41d3af8d228ac59edf955db05e6ff2de  /media/veracrypt1/partition_laptop/a ranger/!news/2025-12-17 -- reddit -- piege raig bait reseaux.png
-724bf11a9ed571a1435586347401a72380af455bf62c4c65051902c77a44644e  /media/veracrypt1/partition_laptop/a ranger/!news/raccourci -- !a ranger.lnk
-3edeb7686e5bf08aafabb8374632d996d02156cbd0d8141c6d1d0e6fac4f9033  /media/veracrypt1/partition_laptop/a ranger/!relationel/raccourci -- !a ranger.lnk
-d6327fad6f5f245f57311f4d97f5fb5c4730168fcae80f770b671ff400629c44  /media/veracrypt1/partition_laptop/a ranger/!sante/10-02-2026 -- llm -- types de boutons cutanés (2).md
-f12f8faa7a6aaa4a203f99d779547029d4af13dcd6532e76db9be9d9baaacdf2  /media/veracrypt1/partition_laptop/a ranger/!sante/13-02-2026 -- llm -- aspirations rectales possibles.md
-7e097c5c8ae83ec76d86d1b4a905222c7073eb34b07bf850a775bc0ed183aa33  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm-coût réanimation en france.md
-297c06106653c8a3a9d119f9acdb64056efd7e5cf15a5f503a781bf9eeba64a1  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- néo-assureurs l'assurance réinventée.md
-494f553dc53da8933d3fe4e592df681026ea824b48dd881ecc97a4ad3cd293cb  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- santé mutuelle.md
-dd6e9b9b23ae8e3bfd68c87978ea879708f2e825cf8cc6ce506fc6006a78f91a  /media/veracrypt1/partition_laptop/a ranger/!sante/raccourci -- !a ranger.lnk
-dcf3ed4926e78e026bcc626374eef7a1600c4b0df22b03dd1a1bcdf566846647  /media/veracrypt1/partition_laptop/a ranger/!securite/2026-02-14 -- 14-02-2026 -- mort de quentin.pdf
-5581009cba0babc976b4ffdf2af42d3820fbee43124e86fc700c4251f7445505  /media/veracrypt1/partition_laptop/a ranger/!securite/raccourci -- !a ranger.lnk
-0962f63b8342bbabcd2fd2565389fbecffabf02325c5aa2d251d9b5f3d256d1a  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_annecy_inayabeurrette_98a9cc.jpg
-2a6c98f23c44a5dce385fc629cb6d7760439882156b815a8c7efe220e4c5fd0d  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_10c11d.jpg
-b526f941211c446bf3503c52973303a55cc8e62e33fd2defdb6d356d6078eede  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_3209bc.jpg
-0977b8d2dbb8499100fb3fc108c268b8386baf8a9ffdd0f8447178cf5c026159  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_7330ef.jpg
-ba3acf0ae21fa6e690260311c9e5ad088352b95f1193704800e5b3d6b7da8ca3  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_78938f.jpg
-ddf7cb84bc619903ac1c947ccc5e9f01275a52f025a25ba1ff3a861d32d4f38e  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_875ddf.jpg
-b0a1b9438733103669d1a6f1884cabc3f7c51b0628a42d681b8f37e1eabeaace  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_93f187.jpg
-55455704b3bd07762b91447c0a8e1e8faca7655fa6c59c4980cd255eab732e38  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_9ec9ca.jpg
-53e296809a791a730cbe077c69ff47e9746e7ef08be33f8a4b99da3279ac1af2  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/screencapture-sexemodel-escort-inayabeurrette-2291132-2026-02-11-02_17_12.pdf
-8c732412b8e9534ff4c6cafb95cf115c7a0e512821f05e259806fe9ee9cf3383  /media/veracrypt1/partition_laptop/a ranger/!vie publique et politique/raccourci -- !a ranger.lnk
-4e3800d45000f17e683b7d157739b186217417e7917563b72d8293d692e6c515  /media/veracrypt1/partition_laptop/a ranger/!voiture/raccourci -- !a ranger.lnk
-
-
---- Fichier : hash_2.b3 ---
-3de7652fb73e4dbe9a6555ba09730acc2e9daaacc1fda7155bedd6c7c9518be6  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- calcul green card.ods
-400e50a0c29d6f739fa6531fc2b2b366b691fa7421e44f7489a7118df0ae1ee1  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- calcul green card.txt
-2f8773ddf9208753af952ab167031db2e3ba6634f68ed7bd76bca10ba5dcdbcb  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- green card.txt
-646752e2cfc37487cb9d1db3de0f26cf20d54875cb3221185bee7cae23b78d02  /media/veracrypt1/partition_laptop/a ranger/2025-08-26 -- green card/2025 -- llm -- livres green card loterie.md
-4fb31f53bff948cd9a9b609970f094d1a34775ebe9fd39009f92236b2f9370f7  /media/veracrypt1/partition_laptop/a ranger/2025-10-26 -- note -- la patience.txt
-148ecbfab4f88bc6b63cdc2d6a68e6e397fb22fcb860387a1611f67c81aad2f5  /media/veracrypt1/partition_laptop/a ranger/2025-11-02 -- jeff bezos invent and think long term.mkv
-ba864626030b885bebb8e3ad80c0e7b4e848bd60dd75a03273a98519397a7917  /media/veracrypt1/partition_laptop/a ranger/2025-11-05 -- twitter -- francois chollet -- difference philosophie et ingenierie.png
-a8be7c3e5767db14e1fc457995ff6bbb1b2cc73014f957423908745e501421de  /media/veracrypt1/partition_laptop/a ranger/2025-11-14 -- wikipedia -- thesaurisation.pdf
-69020dd1faaffa27df56f08e086690528dc9709818224d5d0cc003846ecf842e  /media/veracrypt1/partition_laptop/a ranger/2025-11-20 -- enfance/2025-11-20 -- 2025-11-20 -- nan -- nan.png
-d980992c894fd421f3157ca1f775de092469938527991fe2de7022ab42f6c3f3  /media/veracrypt1/partition_laptop/a ranger/2025-11-20 -- enfance/2025-11-20 -- 2025-11-20 -- packard bell logo 1990.svg.png
-d85dcd32d9a6ffff910dd036190540ce58783f06ef83f5ec585d85da34d7e2b2  /media/veracrypt1/partition_laptop/a ranger/2025-12-23 -- note -- nul et bosse pas.txt
-a6b2a7f6b0111e2a45fa04e4cb38d1ed7f33bc6c47d1557e7e52de7f2d982df9  /media/veracrypt1/partition_laptop/a ranger/2025-12-23 -- twitter -- dokpepper -- multi pass porte.pdf
-dad1ecfa24916df9df413144c2ba05c91e1270067eaea36f2813fa6e7eef2838  /media/veracrypt1/partition_laptop/a ranger/2025-12-26 -- note -- audit perso.txt
-14064216907d7a22cb70c63aaa93774a4144b1882760ed346ed8608ec55a0926  /media/veracrypt1/partition_laptop/a ranger/2025-12-27 -- note -- perte de sens.txt
-a3e4875af51b8e62479c931a83fa026a9e7a7272e672177a629ff119727f8eab  /media/veracrypt1/partition_laptop/a ranger/2025-12-29 -- chaufage methode economie.pdf
-c6386d44e88ec60a0c21087af31f8c0f19a4f42e8276602dd19b635a8e7298fe  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- calcul differentiel -- andre avez.pdf
-08b1ca735e67688faa2f3080ed980d5e5bd09839cdad2900037b1fa50149c54c  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques 2.jpg
-c73562680eeae42f0d8620c3af95346b06b2cf2fbebe7ada15d0aa1b2b040258  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques (2).jpg
-5cab9d7df06a0f6e1c29ef4cb7aeed7f4e6e6ed0eee1d46677fcdf08200b2cb7  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques.jpg
-535127536ee3f3f42774472cb94564f7e070e259c03945dbf25d9e84297a84d2  /media/veracrypt1/partition_laptop/a ranger/2025-12-31 -- etudes - cours de maths a archiver/2025-12-23 -- 2025-12-23 -- cours de mathematiques.webp
-c807937075d8d0a64c2670ae03ceaf99b07fddc542d519ef7eb90b6e5f868ef1  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- France - morale et valeurs/2026-02-02 -- llm -- religions avant les monothéismes.md
-019ef2905a32dca906c0cee932003067012da1cc8d564659617c5ec41cb79166  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- France - morale et valeurs/g bjymuxcaa-jpd.jfif
-16fc9b46649ad4c5000628e2a570329ca463720cc9ad382c913498f90a78c8c8  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- style vestimentaire/llm -- alternatives moins chères au style barbour.md
-dd20de22129f518ac10828949be676e2b07b138729473024a70ce04fc8914340  /media/veracrypt1/partition_laptop/a ranger/2026-01-00 -- style vestimentaire/vetements fermier barbour.pdf
-990f81549e4f6313471b16b0f15db23927ea878cac873c387dcc850c8854c75b  /media/veracrypt1/partition_laptop/a ranger/2026-01-01 -- note -- mercure danger.txt
-dd41f084d9382e3eb00af26aec4d58ae82bea0baaeff5c07987b18ed6156d4f9  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- adresse coralie - trajet récupération voiture et séjour pays basque.txt
-7f2147f4b013aa0aa0e741531188beb9793206de31f6779ab3f096fb057db01b  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- créer de faux profils.txt
-6bc781ec2f9d710a3b833cd367c553fdaec8cb45755c0fba88956aca19c7ec35  /media/veracrypt1/partition_laptop/a ranger/2026-01-04 -- note -- todo -- test vih.txt
-889311789f43557390bada161baa3d310914ff5723ed6680610286419f256ba7  /media/veracrypt1/partition_laptop/a ranger/2026-01-05 -- note -- adresses email à faire.txt
-57d97d8176ded8c27216e15c73d39304ebf997870daabba44569e20f9fac0aa4  /media/veracrypt1/partition_laptop/a ranger/2026-01-08 -- note -- courroie de distribution.txt
-dd0ee5b7886402d956683637826e1b54671bebe4bdddb5f2a0b3a32bacc4a7c7  /media/veracrypt1/partition_laptop/a ranger/2026-01-09 -- note -- 2026 projets.txt
-9423abac9c08f00dbb220d37a8f9c9be41baeaa709b66264fcce803bafb9a06a  /media/veracrypt1/partition_laptop/a ranger/2026-01-14 -- note -- note voiture.txt
-679f3a384e6cfda26aa73b92de71e58d694068e5c10249727a4995e8bf64b955  /media/veracrypt1/partition_laptop/a ranger/2026-01-17 -- note -- démarches admin.txt
-d801c90937a7910f60c9aaafaa0f7eef166fcda624901531c1f49196d517f7ff  /media/veracrypt1/partition_laptop/a ranger/2026-01-20 -- note -- à faire.txt
-ee174290fa4eb7943dcc1326b865f92dc9def3826daa64b8bdbc6e1a39050ee4  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- à modifier.txt
-da06ddfa1fd6fbb74c85435663f6e9c6b8fc9bb337c937f384fc3750e1fba09a  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- election municipales.txt
-27f0e6603d7698e266178b1abacd4d6b7f80f3a5c687705484faa9855ff629dd  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- espoir de changement.txt
-ce7763cc61376c46ea4c7c97997894576b05ee6331a399fb8a5462735dc42820  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- ne pas devenir fou.txt
-ce98437926c4cfb8050b329eaa855ee8066d72420ed7f5db1eaad3cce518ee91  /media/veracrypt1/partition_laptop/a ranger/2026-01-21 -- note -- todo -- les mails de moreno rsa.txt
-3ac9778e2c88130820e5252621cce4010e2cb281c41bf20ad4082ed8a67709fb  /media/veracrypt1/partition_laptop/a ranger/2026-01-26 -- note -- changer assurance.txt
-d57b79a8eb7a5c3cc7cd3e12523b666904c5124c7780596553e90bcff7204aa7  /media/veracrypt1/partition_laptop/a ranger/2026-01-28 -- note -- nqt suivi.txt
-47ca309391159a6756a7647cbc0a1708b3672f2267a9d5e11fde87b203b2962f  /media/veracrypt1/partition_laptop/a ranger/2026-01-28 -- note -- todo maison.txt
-06d6f2b939c3cad74bb00f0af66439f72d9595bb684e28267a98cdf1ca46bee8  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Création de liens symboliques.md
-ec89bd4319943cd1d13df1a1fde217c533dfe928fc27623f00f433fa31da92ad  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Problème icônes et liens.md
-437488efd6b0d3a36179808ea2e58ac8bb0be3a17930f21ebc4e1fdabf302765  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/documentation/ChatGPT-Problème script Bash.md
-59eb5f67307877319e9a9fe1eb218e347c6598a29a9e20afe2b8a201db5a9d13  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/icons/icon_blue_star.png
-273b951528979f04007b3332e3815b3b10f8d399298a3378e8f7b445438866df  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/icons/icon_free_file_sync.png
-5e7346347cf59227ca8160b7c1a46d116a83c4800589340aa87377ce922a4077  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/liens.csv
-bdc6e97ca44eff6910121e6a21679297a3b6ea9c4f0e3838c5def4c933ef5ec3  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/liens.ods
-af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/README.md
-137e9ceef8763633ce1badccff10e1eae1b7de3dcd3e199582518ef93154fbb2  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- liens_symboliques_bureau/script.sh
-04e10e0705426d4f13c21dab233b1f666df31f32e60091d47bc211d86146a489  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/iconlayoutsforcm.ini
-2658eb2f6a9a326fb83f0ca41cc2c168a8464fbb14a8d4b5f64f3947180af313  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon.exe
-cb93693c6906e54a28c7bc7dc210b95424b4782d79516ad5582868222af9dffc  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon.ini
-a65abadb7afc2d3b02db6fc9c82ddd422659d6a6d894155c17948b3fd7b97f6c  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/reicon_x64.exe
-f23d1183986012e68747908d41a45667f6c87ab7f4af730d167bd9f93221ce86  /media/veracrypt1/partition_laptop/a ranger/2026-02-00 -- ReIcon/version_info.txt
-72a3ab9ec68d078909dc096d77c0a436cd8d558d737ad66ace0aeb8082364291  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/2026-02-06 -- la cité des taupes -- dlq.jfif
-d1b4afe035559de64329d77153f42b4b4567972d110d99c1c7dd716c98114b42  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/2026-02-06 -- la cité des taupes -- dlq.pdf
-391576b330f224f476ac84c93e16d0a6cf37bc2090d2cb8e4102bee1aa63d163  /media/veracrypt1/partition_laptop/a ranger/2026-02-06 -- la cité des taupes -- dlq/dox la cité des taupes.txt
-4d3397ee5c0339a5540a0fbaa3fd09802ea7bda76e3896da0e73208487477688  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- llm -- valorisation des stages sur le marché du travail.md
-bcd492dfd24662fc5533be695472423fa78018aa0d9c77374d9a851e7ffaef2b  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- todo claude.txt
-8180fc85d789dd5b07435cfd9270efe5db97030b8dd86c26e223911c6ccccd95  /media/veracrypt1/partition_laptop/a ranger/2026-02-10 -- 10-02-2026 -- voiture -- radar.png
-786f2ab3dd38d82f82320cbbd75a164143333e5de0c0b639789e2fbbe676059c  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- kant maîtrise et responsabilité de soi.md
-d0edc708fcd16332562e8fe37414a2a9466cd2fdf0d3e6ab4d9358b2f643c420  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- perception travail sexe classes sociales v1.md
-c530a4626f44f3eb3590a5e176ff173ef77104d0850ef66e4f308379cdf5e2f8  /media/veracrypt1/partition_laptop/a ranger/2026-02-11 -- 11-02-2026 -- llm -- perception travail sexe classes sociales v2.md
-f48bc09d0ca36fe7591ac65be60b8239dafa25bebd0757d13e70f250a9a09c84  /media/veracrypt1/partition_laptop/a ranger/2026-02-14 -- 14-02-2026 -- twitter -- pasvrmntpierre -- nan.pdf
-c377f6ff2c2efd422c3606c328eb058bf348b1fef7b5a69d71e8dd9c65087f02  /media/veracrypt1/partition_laptop/a ranger/2026-02-16 -- 16-02-2026 -- maman
-29303459a1d3d47a23a91e0a1a7d1fcf253da99842cbfbfc883f96a46eb0a733  /media/veracrypt1/partition_laptop/a ranger/2026-02-17 -- gestion des risques cassos emploi
-d580c94a44f30e1d1933d428f080c1e1cd01ca86120635439f5a3cb9cc5d2634  /media/veracrypt1/partition_laptop/a ranger/2026-02-18 -- llm -- Afficher fichiers cachés Nautilus (1).md
-da4b9648703684b1f9c996f71cf87867822ffd6ae69621e611b9a2c1d5c2a0e1  /media/veracrypt1/partition_laptop/a ranger/2026-02-18 -- llm -- Principes actifs prouvés.md
-6a0e40f80e8b9959334f0977cfc05e5d46490dc283b58f764995102d57bfd6cf  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- llm -- Holding patrimoniale et SCI.md
-3134c0fa479b065cfc1efaddeee0a58fe6612d2a79e713f267ffe5589fc01fb3  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- llm -- Redémarrer logiciel Linux.md
-d186e33ff58dcc4f8cbf2ae2f2cc041a91b33819b6aef245f401c726f4c8195a  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- twitter -- AnttonRouget -- nan.pdf
-32d080b92a3c068660dc23d8b1e84252fa48f2af8a4f223817ef3114cc8a76ad  /media/veracrypt1/partition_laptop/a ranger/2026-02-19 -- twitter -- bluetouff -- nan.pdf
-ecca58a96d0e5445917859bd1cc27ec3ca94950eadd6184886a35aeb4e307b6f  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_101_Cours_Complet.docx
-b45e3c87faea3d48f665b572e5f59fb979f90f0529867a284faac4ebba200f38  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_101_Cours_Complet.pdf
-e4d8189c79cac73c4188515242fd46297dd4a4917b0827c288f1a4971fe2bb75  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_102_Cours_Complet.docx
-a339470f2202220751c95b5698476eeda99803014fb5c16b63b99c1749da1ef5  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_102_Cours_Complet.pdf
-e960911762a6466c5146235afc89f6d375732eecfc1afedc956d1e310c0ae8fb  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_103_Cours_Complet.docx
-80b6fcda1e53a459c25d1911082b167318ec32e0a732c5f044dad3d95850b760  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_103_Cours_Complet.pdf
-c3bf9db6367548d1a1476d859c01bcdbe73db227d8d5a7a1f25d05c52d1b6a3b  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_104_Cours_Complet.docx
-ec5f0d1a42b5bbd73656b3c3eec967bcdc28b458c544ef66fa52695fdc8aadb2  /media/veracrypt1/partition_laptop/a ranger/2026-02-20 -- cours anglais claude/English_105_Cours_Complet.docx
-fdd3a783567e19f14857640c34e136e5152ac5d1cc4b6cbf9b74516100bd280f  /media/veracrypt1/partition_laptop/a ranger/!administratif/2026-01-21 -- date des impots.txt
-667ac19664cbfdcd2a2489d2f928ca9e37709467144ced0b4fe2a90fd0c336e2  /media/veracrypt1/partition_laptop/a ranger/!administratif/raccourci -- !a ranger.lnk
-2ffcd28d0c0e38d9680dbfbac8ff94af47676e375719c8392bc464b7a5487802  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 1.png
-31acaaeea69f3a58c32f2e5beb94b0582e9a2346299a3beb82aa009edab8e165  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 2.png
-6557a23716ca5edbf7fa72b10aca7350c2335a5a9c7b23b5094f788ac8c39234  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/2025-10-29 -- bureau amenagement interieur 3.png
-276e82bb73e6b10abd6ab9f6ea541c54bf598ef888f228e5cde2b1a604736159  /media/veracrypt1/partition_laptop/a ranger/!bureau aménagement intérieur/llm -- l'histoire des lampes waldmann.md
-c55f00fdf7576beb4c11fd9b80a480c09d0a5e1154fcdac90e1fa7b6da748372  /media/veracrypt1/partition_laptop/a ranger/!bureau/test mst.txt
-100b181024b91bfc5d6d828bd0fa52adb6ccd2804c738a64e7541725ba78448b  /media/veracrypt1/partition_laptop/a ranger/!bureau/todo.txt
-52fce69387f6eadb601f4ae71d56958430ae878908238a0c519ce0b06c217a87  /media/veracrypt1/partition_laptop/a ranger/!bureau/vitamines.txt
-2dd09ad2011221e41ae46346f4e77790b8867876b0cb9409ee2197b6f52367a8  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-14 -- 14-02-2026 -- j cloud et j wiki
-cedc09e3803553f45df439ee7db06eb6a3108bf0e4e512acabda18a1780adc07  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-14 -- 14-02-2026 -- plateformes ia pour données personnelles.odt
-a924472c9d009b8287e7d9b429fe68fd5ba8285081823d2d2cd1992d98eb206b  /media/veracrypt1/partition_laptop/a ranger/!config ordi et code/futur plateforme post ia/2026-02-16 -- llm -- Langage et interfaces numériques (1).md
-f934b328e1395f02d555d9542f090de0f761440bca18d93504d24bbc72540b08  /media/veracrypt1/partition_laptop/a ranger/!cuisine/2025-11-30 -- note -- cuisson pates.txt
-0c3e855339bbec24f26ceef618b77bb8097d9472f9e333c64428d64083eb2d1d  /media/veracrypt1/partition_laptop/a ranger/!emploi/10-02-2026 -- cnam.txt
-af40ddfcb5114cb86096bbe83b0b6131fca8b8c8d45237fda1cca1a5e09c15f9  /media/veracrypt1/partition_laptop/a ranger/!emploi/10-02-2026 -- llm -- financement formation cnam.md
-a76db2a72bda817647bc16b86066a107c14b3de678609e7e3c7260d3b7f1888b  /media/veracrypt1/partition_laptop/a ranger/!emploi/11-02-2026 -- twitter -- tanguylacr0ix -- ghost job - réalité honnête.pdf
-c179c9463f32d7c0160856e7a80d4fa8f841a1805cb4c6e8e45bb77800b48942  /media/veracrypt1/partition_laptop/a ranger/!emploi/2026-02-03 -- llm -- qui est responsable de quoi.md
-84c97504d07df7d57f1881ab6684b991255928859023fc651bd3f63102a0d2a1  /media/veracrypt1/partition_laptop/a ranger/!emploi/2026-02-08 -- twitter -- energieduvide -- nan.pdf
-98e15bdbc4c2aeb080c39bd5aad63e4214b59d76727bea576e98cdbc9b0f7ed1  /media/veracrypt1/partition_laptop/a ranger/!emploi/NQT/mail de bienvenu et info.pdf
-f65348224478a20e09b72a304467ca2259ae77ff4c05103d6b27ab816f14ed10  /media/veracrypt1/partition_laptop/a ranger/!emploi/raccourci -- !a ranger.lnk
-c1968f9a00ed33bf888574d897120dbf3b8c6c8b7e7a966ec42fe30039c6d561  /media/veracrypt1/partition_laptop/a ranger/!etudes/2026-01-19 -- le cube révélations sur les dérives de lenseignement supérieur privé -- claire marchal.epub
-c0cd70c9e441852a9dd86ac9046b04267a8c58bdf53471f6c5eda72ef1ab4a2a  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-02 -- twitter -- lukas ekwueme -- gain travailler plus , plateau - allemagne.pdf
-5fc5718ed4f5cb6b10b241dae288f131fb3abab730723643025e95b2fef5c72b  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-20 -- llm -- contrat de capitalisation fonctionnement et transmission.md
-18e8dad8ea5c42aa645c75035e19e2384e6dfc6ae01bf302622aeb8aaa768ac9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- llm -- imposition revenus de l'étranger.md
-86fc9d1e9da6bda40b142085b1da983637c12b68bd71386c495bb5ca7f278537  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- twitter -- bayesreality - gain marginal du travail en france.pdf
-bc775d811e2a466318303c754ac8cb63ba6ad965cde5a4038bc7772b285181ad  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-21 -- twitter -- kerguennecp - utilisation des llm anti pièges.pdf
-f3a8a15aa4fc5cf3956950a8475d06166356ae08f26845b8da20e600a0d27e32  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-23 -- twitter -- boringbiz - immobilier politique économique.pdf
-3ff22993ebdf17a68e33bc7ae014338c2d3a4cf36af9c85b1b69b5f25b7e470d  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-01-30 -- twitter -- tradeform -- a reflechir.pdf
-fa7fd4b3c52d9bf0f3cdb4a7e95833192253c8b8808057d030bc3e5286a4460d  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-02-03 -- twitter -- cortisquared -- explication conséquence austérité.pdf
-bc17436ce6009b73b9021f2356543bbd87769a722fab648d5c1be343d8ced762  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/2026-02-06 -- différence niveau de vie retraite actif.png
-4a52c06fb7e4e3574bd903bd119ec8df32c7b0a62b25dec6490c880f4241f576  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- autre/raccourci -- !a ranger - politique economique.lnk
-e91a5f115890208ea7ad102354931692255314a18a561200124761152bfad2da  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/08-02-2026 --  danger squat immobilier.png
-11427c5119666656d59ab4f6d3ce3469f9b9d2c39bf2212b7065040423b990a9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/14-02-2026 -- asset breakdown by wealth level.jpeg
-2c945df5457a8cf3ffe3ab23ebc705cf2e25d526cdccab17336609e8837e20ab  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/14-02-2026 -- scf23.pdf
-47056278813c4b39902d02e613d0b232052c681c9af2f785a070decb5985442e  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/2026-01-30 -- 100331-brinson determinants portfolio performance.pdf
-e08b8b904bdae9457e91e9115f3de4a748b8c203aa6d57db2face739e7e412d6  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/2026-02-01 -- minimum veilliesse retraite.jfif
-d1486b50cffc92041890cc4b0af99b4b726c894551de4031f956a1ee885b5fe9  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/capture d’écran 2026-02-10 190008.png
-515e40a5ce54231709b7c83c4bade55db86120492358cf66d9b5c835ca5e5f96  /media/veracrypt1/partition_laptop/a ranger/!finance economie -- invest/raccourci -- !a ranger - invest.lnk
-907fdf51e9520465ac3dd7349b5dd782728acb602fca8a1d67691a17d4cd85a6  /media/veracrypt1/partition_laptop/a ranger/!methode/2025-12-31 -- llm -- lois de puissance et pareto.md
-3be9a70905415cd6619c50575ea3545e1e13b2caef802254040353e01d01f07f  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- unknown unknown.md
-5115980df5d067184eb641dbf134afd7c8964ca93f094309476890405cb3f1fa  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-24 -- méthode rédaction de documentation technique.txt
-862ea856bbd2873d5bb72a7026cfcbda5a7b0fa6aaaaaca20e7de718b4f8d408  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-27 -- llm -- réponse sans documents externes (2).md
-55c21961428cb882cc488ddcb906883b28f8226beef90dc5099622d9602ce673  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-01-27 -- méthode -- vue intra fichier ou intra dossier.txt
-24b88ded84b91877bc4cb6b1f865b37ad32241501eae6df964e9ab9dfd6a9016  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-03 -- llm -- trouver des modèles excel professionnels.md
-e90952c61460544580275344fc4ea8e70b27248c1624a057d80f11323f5bc54c  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-04 -- llm -- trouver des modèles excel professionnels.md
-35f25d5af77c6d0bee2d16b55f1b93cf30469966e449ff5bb7c9892d23ff2d00  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- programme de formation en résolution de problèmes (1).md
-6e942e7e238acf92e09f9ddc7275207ab67f0c318218f95e98919c1bbeabd296  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - critical thinking 101.md
-01d1db4204c6f8c3adcddc6d384dba62cb2738c24485d76c8b0b8e5e1228b377  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - decision making 101.md
-ed922548073d1522c31ba0e533b5791cd36f6f42d92be4b2eb8ae1aaaff08830  /media/veracrypt1/partition_laptop/a ranger/!methode/2026-02-07 -- llm -- sommaire du cours - problem solving 101.md
-01f3d8fdc8e31b4bb3f83d578a57556824d015616375420c7324b695389a5bb4  /media/veracrypt1/partition_laptop/a ranger/!methode/llm -- sommaire du cours truth-seeking 101.md
-f82e126cab2c8a688c693a8c77ae84c62f9fa5251420806fbb138d1fd6c19809  /media/veracrypt1/partition_laptop/a ranger/!methode/raccourci -- !a ranger.lnk
-9be0756aa1d2ec10c8a9aefd546153086ab8d534d0cb8eade14043eefef1ff6f  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- adresse samples.txt
-d9d6795348e604e72da11ca4b496c3674f3502d9f35219865003220499382c78  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- llm -- premiers pas avec openmpt.md
-bac1f4cb55d67135d2be02b40f6ae82757fca5a1c6e7c21677682737bcd39bb6  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.bak
-50677732c591a08a1968fea152e6cc16785f0ab4b48a3f9c6cc351a5a6cfc140  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.it
-936a972d1abf57343d0487fe9585c2fb5b9ae54be6d40c4eee6bb4113b547220  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- module2.wav
-afd6ed8968fb6256dcf7c7cd04fdf1bac00a12ff78ef55ef8ece4952f26419b5  /media/veracrypt1/partition_laptop/a ranger/!musique/2026-01-17 -- open MPT tuto/2026-01-17 -- pas de son.txt
-8813524c4e8fd78206dbf01c1348a6a943bec671ddcf63057bb08e813ad742ed  /media/veracrypt1/partition_laptop/a ranger/!musique/raccourci -- !a ranger.lnk
-714d86766b49c2239a962c7e6a5b6ee49cf180284a6361a55a189870b9727df7  /media/veracrypt1/partition_laptop/a ranger/!news/2025-11-30 -- llm -- evolution de youtube.md
-33a806a8d3988a0cccd1718d6ab43a2f41d3af8d228ac59edf955db05e6ff2de  /media/veracrypt1/partition_laptop/a ranger/!news/2025-12-17 -- reddit -- piege raig bait reseaux.png
-724bf11a9ed571a1435586347401a72380af455bf62c4c65051902c77a44644e  /media/veracrypt1/partition_laptop/a ranger/!news/raccourci -- !a ranger.lnk
-3edeb7686e5bf08aafabb8374632d996d02156cbd0d8141c6d1d0e6fac4f9033  /media/veracrypt1/partition_laptop/a ranger/!relationel/raccourci -- !a ranger.lnk
-d6327fad6f5f245f57311f4d97f5fb5c4730168fcae80f770b671ff400629c44  /media/veracrypt1/partition_laptop/a ranger/!sante/10-02-2026 -- llm -- types de boutons cutanés (2).md
-f12f8faa7a6aaa4a203f99d779547029d4af13dcd6532e76db9be9d9baaacdf2  /media/veracrypt1/partition_laptop/a ranger/!sante/13-02-2026 -- llm -- aspirations rectales possibles.md
-7e097c5c8ae83ec76d86d1b4a905222c7073eb34b07bf850a775bc0ed183aa33  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm-coût réanimation en france.md
-297c06106653c8a3a9d119f9acdb64056efd7e5cf15a5f503a781bf9eeba64a1  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- néo-assureurs l'assurance réinventée.md
-494f553dc53da8933d3fe4e592df681026ea824b48dd881ecc97a4ad3cd293cb  /media/veracrypt1/partition_laptop/a ranger/!sante/2026-01-05 -- probable doublon -- 2026-01-01 -- llm -- santé mutuelle.md
-dd6e9b9b23ae8e3bfd68c87978ea879708f2e825cf8cc6ce506fc6006a78f91a  /media/veracrypt1/partition_laptop/a ranger/!sante/raccourci -- !a ranger.lnk
-dcf3ed4926e78e026bcc626374eef7a1600c4b0df22b03dd1a1bcdf566846647  /media/veracrypt1/partition_laptop/a ranger/!securite/2026-02-14 -- 14-02-2026 -- mort de quentin.pdf
-5581009cba0babc976b4ffdf2af42d3820fbee43124e86fc700c4251f7445505  /media/veracrypt1/partition_laptop/a ranger/!securite/raccourci -- !a ranger.lnk
-0962f63b8342bbabcd2fd2565389fbecffabf02325c5aa2d251d9b5f3d256d1a  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_annecy_inayabeurrette_98a9cc.jpg
-2a6c98f23c44a5dce385fc629cb6d7760439882156b815a8c7efe220e4c5fd0d  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_10c11d.jpg
-b526f941211c446bf3503c52973303a55cc8e62e33fd2defdb6d356d6078eede  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_3209bc.jpg
-0977b8d2dbb8499100fb3fc108c268b8386baf8a9ffdd0f8447178cf5c026159  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_7330ef.jpg
-ba3acf0ae21fa6e690260311c9e5ad088352b95f1193704800e5b3d6b7da8ca3  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_78938f.jpg
-ddf7cb84bc619903ac1c947ccc5e9f01275a52f025a25ba1ff3a861d32d4f38e  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_875ddf.jpg
-b0a1b9438733103669d1a6f1884cabc3f7c51b0628a42d681b8f37e1eabeaace  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_93f187.jpg
-55455704b3bd07762b91447c0a8e1e8faca7655fa6c59c4980cd255eab732e38  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/escort_toulouse_inayabeurrette_9ec9ca.jpg
-53e296809a791a730cbe077c69ff47e9746e7ef08be33f8a4b99da3279ac1af2  /media/veracrypt1/partition_laptop/a ranger/!sensible/5Inayabeurrette profil 2 escorte/screencapture-sexemodel-escort-inayabeurrette-2291132-2026-02-11-02_17_12.pdf
-8c732412b8e9534ff4c6cafb95cf115c7a0e512821f05e259806fe9ee9cf3383  /media/veracrypt1/partition_laptop/a ranger/!vie publique et politique/raccourci -- !a ranger.lnk
-4e3800d45000f17e683b7d157739b186217417e7917563b72d8293d692e6c515  /media/veracrypt1/partition_laptop/a ranger/!voiture/raccourci -- !a ranger.lnk
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- `run_tests.sh` : 15 cas T00–T14 — compute, verify, compare, `--quiet`, horodatage, robustesse.
+- `run_tests_pipeline.sh` : 12 cas TP01–TP12 — parsing JSON, exécution des 3 modes, erreurs.
 
 --- Fichier : integrity.sh ---
+
 #!/usr/bin/env bash
 # integrity.sh — vérification d'intégrité par hachage BLAKE3
 #
@@ -984,23 +764,29 @@ run_compare() {
   # Nettoyage garanti même en cas d'erreur intermédiaire
   trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
 
-  # sort -k2,2 : clé limitée au seul champ 2 (chemin), sans déborder sur le hash
-  sort -k2,2 "$old" > "$tmp_old"
-  sort -k2,2 "$new" > "$tmp_new"
+  # Convertit "hash  chemin" → "chemin\thash"
+  # substr(0,64) = hash fixe ; substr(67) = chemin (robuste aux espaces)
+  b3_to_path_hash() {
+    awk '{ print substr($0,67) "\t" substr($0,1,64) }' "$1" | sort -t $'\t' -k1,1
+  }
 
-  # modifies.b3 : fichiers présents dans les deux bases avec hash différent
-  join -1 2 -2 2 "$tmp_old" "$tmp_new" \
-    | awk '$2 != $3 {print $3, $1}' \
+  b3_to_path_hash "$old" > "$tmp_old"
+  b3_to_path_hash "$new" > "$tmp_new"
+
+  # modifies.b3 : présents dans les deux bases avec hash différent
+  # join sur champ 1 (chemin), compare champ 2 (hash)
+  join -t $'\t' -1 1 -2 1 "$tmp_old" "$tmp_new" \
+    | awk -F $'\t' '$2 != $3 { print $3 "  " $1 }' \
     > "${outdir}/modifies.b3"
 
-  # disparus.txt : fichiers dans A absents de B
-  comm -23 <(awk '{print $2}' "$tmp_old") \
-           <(awk '{print $2}' "$tmp_new") \
+  # disparus.txt : chemins dans A absents de B
+  comm -23 <(cut -f1 "$tmp_old") \
+           <(cut -f1 "$tmp_new") \
     > "${outdir}/disparus.txt"
 
-  # nouveaux.txt : fichiers dans B absents de A
-  comm -13 <(awk '{print $2}' "$tmp_old") \
-           <(awk '{print $2}' "$tmp_new") \
+  # nouveaux.txt : chemins dans B absents de A
+  comm -13 <(cut -f1 "$tmp_old") \
+           <(cut -f1 "$tmp_new") \
     > "${outdir}/nouveaux.txt"
 
   local nb_modifies nb_disparus nb_nouveaux
@@ -1077,45 +863,194 @@ esac
 
 
 
+--- Fichier : pipeline full.json ---
+{
+    "pipeline": [
+
+        {
+            "op": "compute",
+            "source": "/mnt/a/dossier_disque_1",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op": "compute",
+            "source": "/mnt/i/dossier_disque_2",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op": "compute",
+            "source": "/mnt/h/dossier_disque_3",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_3.b3"
+        },
+
+        {
+            "op":   "verify",
+            "source": "/mnt/a/dossier_disque_1",
+            "base": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
+        }
+
+    ]
+}
+
+--- Fichier : pipeline.json ---
 
 
+{
+    "pipeline": [
 
+        {
+            "op": "compute",
+            "source": "./mon_dossier/source",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
 
+        {
+            "op": "compute",
+            "source": "./mon_dossier/destination",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
 
+        {
+            "op":     "compare",
+            "base_a": "./mon_dossier/bases/hashes_dossier_1.b3",
+            "base_b": "./mon_dossier/bases/hashes_dossier_2.b3"
+        }
 
+    ]
+}
 
+--- Fichier : runner.sh ---
+#!/usr/bin/env bash
+# runner.sh — Exécuteur de pipeline integrity.sh depuis pipeline.json
+#
+# Usage :
+#   ./runner.sh                   # lit pipeline.json dans le même dossier
+#   ./runner.sh /chemin/pipeline.json
+#
+# Dépendances : bash >= 4, jq, integrity.sh (même dossier)
 
+set -euo pipefail
 
+# ── Chemins ───────────────────────────────────────────────────────────────────
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTEGRITY="$SCRIPT_DIR/integrity.sh"
+CONFIG="${1:-$SCRIPT_DIR/pipeline.json}"
 
+# ── Prérequis ─────────────────────────────────────────────────────────────────
 
+(( BASH_VERSINFO[0] >= 4 )) || { echo "ERREUR : bash >= 4 requis" >&2; exit 1; }
 
+command -v jq &>/dev/null    || { echo "ERREUR : jq non trouvé (apt install jq)" >&2; exit 1; }
+[ -f "$INTEGRITY" ]          || { echo "ERREUR : integrity.sh introuvable : $INTEGRITY" >&2; exit 1; }
+[ -f "$CONFIG" ]             || { echo "ERREUR : pipeline.json introuvable : $CONFIG" >&2; exit 1; }
 
+# ── Validation JSON ───────────────────────────────────────────────────────────
 
+jq empty "$CONFIG" 2>/dev/null || { echo "ERREUR : JSON invalide : $CONFIG" >&2; exit 1; }
 
+# Vérifier que .pipeline est un tableau non vide
+nb_ops=$(jq '.pipeline | length' "$CONFIG")
+(( nb_ops > 0 )) || { echo "ERREUR : pipeline.json — tableau .pipeline vide ou absent" >&2; exit 1; }
 
+# ── Fonctions ─────────────────────────────────────────────────────────────────
 
+die() { echo "ERREUR : $*" >&2; exit 1; }
 
+require_field() {
+    local op_index="$1"
+    local field="$2"
+    local val
+    val=$(jq -r --argjson i "$op_index" '.pipeline[$i].'"$field" "$CONFIG")
+    [ "$val" != "null" ] && [ -n "$val" ] || die "Bloc #$((op_index+1)) : champ '$field' manquant ou vide."
+    echo "$val"
+}
 
+run_compute() {
+    local i="$1"
+    local source bases nom
+    source=$(require_field "$i" "source")
+    bases=$(require_field "$i" "bases")
+    nom=$(require_field "$i" "nom")
 
+    echo "=== COMPUTE : $source ==="
+    [ -d "$source" ] || die "Bloc #$((i+1)) compute : dossier source introuvable : $source"
 
+    mkdir -p "$bases"
+    cd "$source"
+    "$INTEGRITY" compute . "$bases/$nom"
+}
 
+run_verify() {
+    local i="$1"
+    local source base
+    source=$(require_field "$i" "source")
+    base=$(require_field "$i" "base")
 
+    echo "=== VERIFY : $source ==="
+    [ -d "$source" ] || die "Bloc #$((i+1)) verify : dossier source introuvable : $source"
+    [ -f "$base" ]   || die "Bloc #$((i+1)) verify : base .b3 introuvable : $base"
 
+    cd "$source"
+    "$INTEGRITY" verify "$base"
+}
 
+run_compare() {
+    local i="$1"
+    local base_a base_b
+    base_a=$(require_field "$i" "base_a")
+    base_b=$(require_field "$i" "base_b")
 
+    echo "=== COMPARE : $(basename "$base_a") vs $(basename "$base_b") ==="
+    [ -f "$base_a" ] || die "Bloc #$((i+1)) compare : base_a introuvable : $base_a"
+    [ -f "$base_b" ] || die "Bloc #$((i+1)) compare : base_b introuvable : $base_b"
 
+    "$INTEGRITY" compare "$base_a" "$base_b"
+}
 
+# ── Main ──────────────────────────────────────────────────────────────────────
 
+echo "=== PIPELINE DÉMARRÉ : $(date) ==="
+echo "=== Config : $CONFIG ($nb_ops opération(s)) ==="
+echo ""
 
+for (( i=0; i<nb_ops; i++ )); do
+    op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
+    [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
 
+    case "$op" in
+        compute) run_compute "$i" ;;
+        verify)  run_verify  "$i" ;;
+        compare) run_compare "$i" ;;
+        *)       die "Bloc #$((i+1)) : opération inconnue : '$op'" ;;
+    esac
+
+    echo ""
+done
+
+echo "=== PIPELINE TERMINÉ : $(date) ==="
 
 --- Fichier : temp.txt ---
 
-bash ./integrity.sh compute "/media/veracrypt1/partition_laptop/a ranger" hashes_2026-02-21.b3
 
+bash ./integrity.sh compute "/media/veracrypt1/partition_laptop/a ranger" hash_1.b3
 
 bash ./integrity.sh compare hash_1.b3 hash_2.b3
+
+
 
 --- Fichier : mon_dossier/destination/fichier (1).txt ---
 Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
@@ -1505,813 +1440,415 @@ echo ""
 
 [ "$FAIL" -eq 0 ]
 
---- Fichier : docs/explication-run-tests.md ---
-# Explication du code — run_tests.sh
+--- Fichier : tests/run_tests_pipeline.sh ---
+#!/usr/bin/env bash
+# run_tests_pipeline.sh — Tests automatisés pour runner.sh + pipeline.json
+#
+# Couvre : parsing JSON, compute, verify, compare, erreurs (dossier absent, JSON invalide)
+#
+# Prérequis : bash >= 4, jq, b3sum, integrity.sh et runner.sh dans le répertoire parent
+# Usage     : cd tests && ./run_tests_pipeline.sh
 
----
+set -euo pipefail
 
-## Vue d'ensemble
+# ── Chemins ───────────────────────────────────────────────────────────────────
 
-`run_tests.sh` est une suite de tests automatisée pour `integrity.sh`. Elle n'utilise aucun framework externe — uniquement du bash pur. Elle crée un environnement isolé, exécute 14 cas de test (T00–T14), restaure l'état entre chaque cas, puis nettoie.
-
-```
-run_tests.sh
-├── Vérification des prérequis   (b3sum, integrity.sh)
-├── setup()                      création de l'environnement de test
-├── run_tests()                  exécution des 14 cas T00–T14
-├── teardown()                   suppression de l'environnement
-└── Rapport final                compteurs PASS/FAIL + exit code
-```
-
----
-
-## 1. Configuration et chemins
-
-```bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER="$SCRIPT_DIR/../runner.sh"
 INTEGRITY="$SCRIPT_DIR/../integrity.sh"
-WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
-```
+WORKDIR="$(mktemp -d /tmp/integrity-pipeline-test.XXXXXX)"
+export RESULTATS_DIR="$WORKDIR/resultats"
 
-- `SCRIPT_DIR` : répertoire absolu du script lui-même, indépendant du répertoire depuis lequel on l'appelle.
-- `INTEGRITY` : chemin vers `integrity.sh` calculé relativement à `run_tests.sh` — les deux scripts peuvent être déplacés ensemble sans modifier les chemins en dur.
-- `WORKDIR` : répertoire temporaire unique créé par `mktemp`. Le suffixe `XXXXXX` est remplacé par 6 caractères aléatoires — garantit l'isolation entre deux exécutions simultanées.
+# ── Couleurs ──────────────────────────────────────────────────────────────────
 
----
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+NC='\033[0m'
 
-## 2. Système de comptage
+# ── Compteurs ─────────────────────────────────────────────────────────────────
 
-```bash
 PASS=0
 FAIL=0
 TOTAL=0
 
-pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
-fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
-```
+pass() { echo -e "${GREEN}  PASS${NC} — $1"; (( PASS++ )); (( TOTAL++ )); }
+fail() { echo -e "${RED}  FAIL${NC} — $1"; (( FAIL++ )); (( TOTAL++ )); }
 
-Deux compteurs indépendants `PASS` et `FAIL`, incrémentés par les fonctions `pass()` et `fail()`. Chaque assertion appelle l'une ou l'autre — jamais les deux. `TOTAL` permet de vérifier qu'aucun test n'a été sauté silencieusement.
+# ── Assertions ────────────────────────────────────────────────────────────────
 
----
-
-## 3. Fonctions d'assertion
-
-Chaque assertion encapsule un test élémentaire et appelle `pass()` ou `fail()` selon le résultat.
-
-### `assert_exit_zero` / `assert_exit_nonzero`
-
-```bash
 assert_exit_zero() {
-  local label="$1"; shift
-  if "$@" > /dev/null 2>&1; then pass "$label"; else fail "$label"; fi
+    local label="$1"; shift
+    if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi
 }
-```
 
-Exécute une commande et vérifie son code de retour. `> /dev/null 2>&1` supprime stdout et stderr — seul le code de retour importe ici. `shift` consomme le premier argument (`label`) pour que `"$@"` ne contienne que la commande à exécuter.
+assert_exit_nonzero() {
+    local label="$1"; shift
+    if ! "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi
+}
 
-`assert_exit_nonzero` fait l'inverse : il attend un échec (code ≠ 0). Utilisé pour vérifier que `b3sum --check` détecte bien une corruption.
-
-### `assert_contains` / `assert_not_contains`
-
-```bash
 assert_contains() {
-  local label="$1"
-  local pattern="$2"
-  local output="$3"
-  if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
+    local label="$1" pattern="$2" output="$3"
+    if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
 }
-```
 
-Cherche un pattern dans une chaîne déjà capturée (pas dans un fichier). Le résultat de la commande est capturé avant l'appel via `local out=$(commande)` — ce qui permet de l'inspecter plusieurs fois sans relancer la commande.
-
-### `assert_line_count`
-
-```bash
-assert_line_count() {
-  local expected="$2"
-  local actual; actual=$(wc -l < "$3")
-  if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label"; fi
+assert_not_contains() {
+    local label="$1" pattern="$2" output="$3"
+    if ! echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
 }
-```
 
-Compte les lignes d'un fichier avec `wc -l`. La redirection `< fichier` (sans passer le nom à `wc`) évite que `wc` affiche le nom du fichier dans sa sortie.
-
-### `assert_file_exists` / `assert_file_absent`
-
-```bash
 assert_file_exists() {
-  local label="$1"
-  local file="$2"
-  if [ -f "$file" ]; then pass "$label"; else fail "$label (fichier absent : $file)"; fi
+    local label="$1" file="$2"
+    if [ -f "$file" ]; then pass "$label"; else fail "$label (absent : $file)"; fi
 }
 
 assert_file_absent() {
-  local label="$1"
-  local file="$2"
-  if [ ! -f "$file" ]; then pass "$label"; else fail "$label (fichier présent à tort : $file)"; fi
+    local label="$1" file="$2"
+    if [ ! -f "$file" ]; then pass "$label"; else fail "$label (présent à tort : $file)"; fi
 }
-```
 
-Vérifient la présence ou l'absence d'un fichier. `assert_file_absent` est utilisé pour confirmer qu'un fichier comme `failed.txt` n'est pas créé inutilement après une vérification réussie.
+assert_line_count() {
+    local label="$1" expected="$2" file="$3"
+    local actual
+    actual=$(wc -l < "$file")
+    if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label (attendu $expected, obtenu $actual)"; fi
+}
 
----
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-## 4. Setup et teardown
+# Écrit un pipeline.json dans WORKDIR et retourne son chemin
+write_config() {
+    local path="$WORKDIR/pipeline.json"
+    cat > "$path"
+    echo "$path"
+}
 
-```bash
+# ── Setup / Teardown ──────────────────────────────────────────────────────────
+
 setup() {
-  mkdir -p "$WORKDIR/data/sub"
-  echo "contenu alpha"  > "$WORKDIR/data/alpha.txt"
-  echo "contenu beta"   > "$WORKDIR/data/beta.txt"
-  echo "contenu gamma"  > "$WORKDIR/data/gamma.txt"
-  echo "contenu delta"  > "$WORKDIR/data/sub/delta.txt"
+    mkdir -p "$WORKDIR"/{src_a,src_b,src_absent,bases,resultats}
+
+    echo "alpha content" > "$WORKDIR/src_a/alpha.txt"
+    echo "beta content"  > "$WORKDIR/src_a/beta.txt"
+    mkdir -p "$WORKDIR/src_a/sub"
+    echo "delta content" > "$WORKDIR/src_a/sub/delta.txt"
+
+    echo "gamma content" > "$WORKDIR/src_b/gamma.txt"
+    echo "delta content" > "$WORKDIR/src_b/delta.txt"
 }
 
 teardown() {
-  rm -rf "$WORKDIR"
+    rm -rf "$WORKDIR"
 }
-```
 
-`setup()` crée 4 fichiers avec contenu connu et déterministe — leurs hashes sont donc reproductibles d'une exécution à l'autre. `sub/delta.txt` teste la récursivité de `find` dans les sous-dossiers.
+# ── Tests ─────────────────────────────────────────────────────────────────────
 
-`teardown()` supprime le `WORKDIR` entier. Appelé en fin de script, même en cas d'échec partiel (voir section 7).
+run_tests() {
+    cd "$WORKDIR"
 
----
+    # ── TP01 : JSON invalide — runner doit échouer proprement ────────────────
+    echo "TP01 — JSON invalide : runner échoue avec message explicite"
+    local cfg_invalid="$WORKDIR/invalid.json"
+    echo "{ pipeline: [ BROKEN" > "$cfg_invalid"
+    local out_tp01
+    out_tp01=$(bash "$RUNNER" "$cfg_invalid" 2>&1 || true)
+    assert_contains    "exit non nul sur JSON invalide"    "ERREUR"  "$out_tp01"
+    assert_not_contains "pas de stacktrace jq brute"       "parse error" "$out_tp01"
+    echo ""
 
-## 5. Structure d'un cas de test
+    # ── TP02 : tableau .pipeline absent ──────────────────────────────────────
+    echo "TP02 — .pipeline absent : runner échoue"
+    local cfg_no_pipeline
+    cfg_no_pipeline=$(write_config <<'EOF'
+{ "config": [] }
+EOF
+)
+    local out_tp02
+    out_tp02=$(bash "$RUNNER" "$cfg_no_pipeline" 2>&1 || true)
+    assert_contains "erreur si .pipeline absent" "ERREUR" "$out_tp02"
+    echo ""
 
-Chaque cas suit le même schéma :
+    # ── TP03 : champ manquant dans un bloc compute ────────────────────────────
+    echo "TP03 — Champ 'nom' manquant dans compute : erreur explicite"
+    local cfg_missing_field
+    cfg_missing_field=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_a",
+            "bases":  "$WORKDIR/bases"
+        }
+    ]
+}
+EOF
+)
+    local out_tp03
+    out_tp03=$(bash "$RUNNER" "$cfg_missing_field" 2>&1 || true)
+    assert_contains "erreur si champ 'nom' absent" "ERREUR" "$out_tp03"
+    assert_contains "mention du champ manquant"    "nom"    "$out_tp03"
+    echo ""
 
-```bash
-echo "T0X — Description"
+    # ── TP04 : opération inconnue ─────────────────────────────────────────────
+    echo "TP04 — Opération inconnue : erreur explicite"
+    local cfg_unknown_op
+    cfg_unknown_op=$(write_config <<'EOF'
+{
+    "pipeline": [
+        { "op": "migrate", "source": "/tmp" }
+    ]
+}
+EOF
+)
+    local out_tp04
+    out_tp04=$(bash "$RUNNER" "$cfg_unknown_op" 2>&1 || true)
+    assert_contains "erreur si op inconnue" "ERREUR"   "$out_tp04"
+    assert_contains "nom de l'op dans l'erreur" "migrate" "$out_tp04"
+    echo ""
 
-# 1. Préparer l'état (modifier fichiers, créer bases...)
-# 2. Exécuter la commande testée, capturer la sortie
-local out; out=$(commande 2>&1 || true)
-# 3. Lancer les assertions
-assert_xxx "label" "pattern" "$out"
-# 4. Restaurer l'état pour les tests suivants
-echo "contenu original" > data/fichier.txt
-echo ""
-```
+    # ── TP05 : compute — cd correct, chemin relatif dans la base ─────────────
+    echo "TP05 — Compute : cd correct, chemins relatifs dans la base"
+    local cfg_compute
+    cfg_compute=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_a",
+            "bases":  "$WORKDIR/bases",
+            "nom":    "hashes_a.b3"
+        }
+    ]
+}
+EOF
+)
+    bash "$RUNNER" "$cfg_compute" >/dev/null 2>&1
+    assert_file_exists "base hashes_a.b3 créée" "$WORKDIR/bases/hashes_a.b3"
 
-Le `|| true` après la commande capturée est critique : sans lui, si la commande retourne un code non nul (ex: `b3sum --check` sur un fichier corrompu), le mode `-euo pipefail` du script parent interromprait l'exécution avant que l'assertion puisse enregistrer le résultat.
+    # Vérifier que les chemins dans la base sont relatifs (commencent par ./)
+    local first_path
+    first_path=$(awk '{print $2}' "$WORKDIR/bases/hashes_a.b3" | head -1)
+    assert_contains    "chemin relatif dans la base (./))" "./" "$first_path"
+    assert_not_contains "pas de chemin absolu dans la base" "$WORKDIR" "$first_path"
 
----
+    # 3 fichiers indexés (alpha.txt, beta.txt, sub/delta.txt)
+    assert_line_count "3 fichiers indexés" 3 "$WORKDIR/bases/hashes_a.b3"
+    echo ""
 
-## 6. Cas de test spécifiques
+    # ── TP06 : compute — dossier source absent ────────────────────────────────
+    echo "TP06 — Compute : dossier source absent → erreur explicite"
+    local cfg_absent
+    cfg_absent=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_absent_inexistant",
+            "bases":  "$WORKDIR/bases",
+            "nom":    "hashes_absent.b3"
+        }
+    ]
+}
+EOF
+)
+    local out_tp06
+    out_tp06=$(bash "$RUNNER" "$cfg_absent" 2>&1 || true)
+    assert_contains     "erreur si source absente"       "ERREUR"  "$out_tp06"
+    assert_file_absent  "pas de base créée si source KO" "$WORKDIR/bases/hashes_absent.b3"
+    echo ""
 
-### T00 — ShellCheck (analyse statique)
+    # ── TP07 : verify — bon répertoire de travail ─────────────────────────────
+    echo "TP07 — Verify : répertoire de travail correct, vérification OK"
+    # Prérequis : base hashes_a.b3 créée en TP05
+    local cfg_verify
+    cfg_verify=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "verify",
+            "source": "$WORKDIR/src_a",
+            "base":   "$WORKDIR/bases/hashes_a.b3"
+        }
+    ]
+}
+EOF
+)
+    local out_tp07
+    out_tp07=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
+    assert_contains     "verify retourne OK"     "OK"     "$out_tp07"
+    assert_not_contains "aucun FAILED"           "FAILED" "$out_tp07"
 
-Premier test exécuté. Invoque ShellCheck sur `integrity.sh` et `run_tests.sh` pour détecter les bugs bash courants (variables non quotées, globbing non contrôlé, problèmes de portabilité).
+    # recap.txt produit
+    local outdir_tp07
+    outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists "recap.txt produit par verify" "${outdir_tp07}/recap.txt"
+    echo ""
 
-Si ShellCheck n'est pas installé, le test affiche `SKIP` sans bloquer l'exécution — c'est une vérification additionnelle, pas une dépendance stricte.
+    # ── TP08 : verify — détection de corruption ───────────────────────────────
+    echo "TP08 — Verify : détection de corruption"
+    echo "contenu corrompu" > "$WORKDIR/src_a/alpha.txt"
+    local out_tp08
+    out_tp08=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
+    assert_contains "corruption détectée" "ECHEC" "$out_tp08"
+    # Restauration
+    echo "alpha content" > "$WORKDIR/src_a/alpha.txt"
+    echo ""
 
-```bash
-if command -v shellcheck &> /dev/null; then
-  assert_exit_zero "ShellCheck integrity.sh" shellcheck "$INTEGRITY"
-  assert_exit_zero "ShellCheck run_tests.sh" shellcheck "$0"
+    # ── TP09 : verify — base .b3 absente ─────────────────────────────────────
+    echo "TP09 — Verify : base .b3 absente → erreur explicite"
+    local cfg_verify_bad_base
+    cfg_verify_bad_base=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "verify",
+            "source": "$WORKDIR/src_a",
+            "base":   "$WORKDIR/bases/inexistante.b3"
+        }
+    ]
+}
+EOF
+)
+    local out_tp09
+    out_tp09=$(bash "$RUNNER" "$cfg_verify_bad_base" 2>&1 || true)
+    assert_contains "erreur si base absente" "ERREUR" "$out_tp09"
+    echo ""
+
+    # ── TP10 : compare — appel correct, résultats produits ───────────────────
+    echo "TP10 — Compare : appel correct, fichiers de résultats produits"
+    # Créer une seconde base (src_b)
+    local cfg_compute_b
+    cfg_compute_b=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_b",
+            "bases":  "$WORKDIR/bases",
+            "nom":    "hashes_b.b3"
+        }
+    ]
+}
+EOF
+)
+    bash "$RUNNER" "$cfg_compute_b" >/dev/null 2>&1
+
+    local cfg_compare
+    cfg_compare=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compare",
+            "base_a": "$WORKDIR/bases/hashes_a.b3",
+            "base_b": "$WORKDIR/bases/hashes_b.b3"
+        }
+    ]
+}
+EOF
+)
+    bash "$RUNNER" "$cfg_compare" >/dev/null 2>&1
+
+    local outdir_tp10
+    outdir_tp10=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists "recap.txt produit"     "${outdir_tp10}/recap.txt"
+    assert_file_exists "modifies.b3 produit"   "${outdir_tp10}/modifies.b3"
+    assert_file_exists "disparus.txt produit"  "${outdir_tp10}/disparus.txt"
+    assert_file_exists "nouveaux.txt produit"  "${outdir_tp10}/nouveaux.txt"
+    echo ""
+
+    # ── TP11 : compare — base_a absente ──────────────────────────────────────
+    echo "TP11 — Compare : base_a absente → erreur explicite"
+    local cfg_compare_bad
+    cfg_compare_bad=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compare",
+            "base_a": "$WORKDIR/bases/fantome.b3",
+            "base_b": "$WORKDIR/bases/hashes_b.b3"
+        }
+    ]
+}
+EOF
+)
+    local out_tp11
+    out_tp11=$(bash "$RUNNER" "$cfg_compare_bad" 2>&1 || true)
+    assert_contains "erreur si base_a absente" "ERREUR" "$out_tp11"
+    echo ""
+
+    # ── TP12 : pipeline multi-opérations — exécution séquentielle complète ───
+    echo "TP12 — Pipeline complet : compute + verify + compare"
+    # Recalcul propre
+    rm -f "$WORKDIR/bases/hashes_a.b3" "$WORKDIR/bases/hashes_b.b3"
+
+    local cfg_full
+    cfg_full=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_a",
+            "bases":  "$WORKDIR/bases",
+            "nom":    "hashes_a.b3"
+        },
+        {
+            "op":     "compute",
+            "source": "$WORKDIR/src_b",
+            "bases":  "$WORKDIR/bases",
+            "nom":    "hashes_b.b3"
+        },
+        {
+            "op":     "verify",
+            "source": "$WORKDIR/src_a",
+            "base":   "$WORKDIR/bases/hashes_a.b3"
+        },
+        {
+            "op":     "compare",
+            "base_a": "$WORKDIR/bases/hashes_a.b3",
+            "base_b": "$WORKDIR/bases/hashes_b.b3"
+        }
+    ]
+}
+EOF
+)
+    local out_tp12
+    out_tp12=$(bash "$RUNNER" "$cfg_full" 2>&1 || true)
+    assert_contains     "COMPUTE src_a mentionné" "COMPUTE" "$out_tp12"
+    assert_contains     "VERIFY mentionné"        "VERIFY"  "$out_tp12"
+    assert_contains     "COMPARE mentionné"       "COMPARE" "$out_tp12"
+    assert_file_exists  "hashes_a.b3 créée"       "$WORKDIR/bases/hashes_a.b3"
+    assert_file_exists  "hashes_b.b3 créée"       "$WORKDIR/bases/hashes_b.b3"
+    assert_not_contains "pas d'ERREUR dans pipeline complet" "ERREUR" "$out_tp12"
+    echo ""
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+
+for dep in jq b3sum; do
+    command -v "$dep" &>/dev/null || {
+        echo -e "${RED}ERREUR${NC} : $dep non trouvé."
+        exit 1
+    }
+done
+
+[ -f "$RUNNER" ]    || { echo -e "${RED}ERREUR${NC} : runner.sh introuvable : $RUNNER";    exit 1; }
+[ -f "$INTEGRITY" ] || { echo -e "${RED}ERREUR${NC} : integrity.sh introuvable : $INTEGRITY"; exit 1; }
+
+setup
+run_tests
+teardown
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+if [ "$FAIL" -eq 0 ]; then
+    echo -e "  ${GREEN}$PASS/$TOTAL tests passés${NC}"
 else
-  echo "  SKIP — shellcheck non installé"
+    echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés — ${RED}$FAIL échec(s)${NC}"
 fi
-```
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
 
-### T11 — Intégrité de la base produite par `compute_with_progress`
-
-Test critique post-intégration ETA. Vérifie trois choses indépendantes :
-
-1. La base produite par `compute_with_progress` est **bit-à-bit identique** à une base de référence produite par `find | sort | xargs b3sum` — via `diff`. Si un fichier est manquant, dupliqué, ou dans le mauvais ordre, `diff` le détecte.
-2. La base ne contient **aucune ligne "ETA"** parasite — le `printf "\r..."` écrit sur le terminal (stderr implicite via `/dev/tty`), pas dans le fichier.
-3. La base ne contient **aucun caractère `\r`** — garantit que la progression n'a pas pollué le flux d'écriture.
-
-```bash
-assert_exit_zero    "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
-assert_not_contains "aucune ligne ETA dans la base"             "ETA"  "$(cat base_eta.b3)"
-assert_not_contains "aucun caractère de contrôle dans la base"  $'\r'  "$(cat base_eta.b3)"
-```
-
-### T12 — Mode `--quiet`
-
-Couverture exhaustive du flag `--quiet` :
-
-- **Verify OK en mode `--quiet`** : stdout vide, fichiers de résultats produits (`recap.txt`).
-- **Verify ECHEC en mode `--quiet`** : stdout vide, `failed.txt` créé, exit code non nul propagé.
-- **Compute en mode `--quiet`** : pas de ligne "Base enregistrée", pas d'ETA dans la sortie.
-
-La résolution des dossiers de résultats (`outdir`) utilise `ls -d ... | tail -1` pour récupérer le dernier dossier créé, compatible avec l'horodatage automatique introduit dans cette version.
-
-### T13 — Horodatage des dossiers de résultats
-
-Vérifie qu'exécuter deux fois `verify` sur la même base `.b3` ne produit pas un écrasement silencieux des résultats. Deux dossiers distincts doivent être créés :
-
-- `resultats_base_t13/`
-- `resultats_base_t13_YYYYMMDD-HHMMSS/`
-
-Un `sleep 1` entre les deux appels garantit un timestamp différent.
-
-### T14 — Détection d'argument invalide pour `verify [dossier]`
-
-Confirme que `verify` détecte et rejette un argument `[dossier]` invalide (chemin inexistant ou non-dossier) avec un message d'erreur explicite.
-
----
-
-## 7. Vérification des prérequis
-
-```bash
-if ! command -v b3sum &> /dev/null; then
-  echo -e "${RED}ERREUR${NC} : b3sum non trouvé."
-  exit 1
-fi
-
-if [ ! -f "$INTEGRITY" ]; then
-  echo -e "${RED}ERREUR${NC} : integrity.sh introuvable à : $INTEGRITY"
-  exit 1
-fi
-```
-
-Vérifié avant `setup()` — inutile de créer l'environnement de test si les outils sont absents. `command -v` est la méthode portable pour tester la présence d'un exécutable (préférable à `which`).
-
----
-
-## 8. Exit code et intégration CI
-
-```bash
 [ "$FAIL" -eq 0 ]
-```
 
-Dernière ligne du script. Si `FAIL` vaut 0, l'expression est vraie → exit code 0. Si au moins un test a échoué → exit code 1. Ce comportement est exploitable directement dans un pipeline :
-
-```bash
-# Hook pre-commit git
-./tests/run_tests.sh || exit 1
-
-# CI/CD pipeline
-./tests/run_tests.sh && deploy_artifacts
-
-# Crontab — alerte si régression
-0 3 * * * /opt/integrity/tests/run_tests.sh >> /var/log/integrity-tests.log 2>&1 || mail -s "Tests failed" admin@example.com
-```
-
----
-
-## 9. Couverture de test
-
-Les 14 cas couvrent :
-
-| Cas | Périmètre |
-|---|---|
-| T00 | Analyse statique ShellCheck |
-| T01 | Compute de base, format de sortie |
-| T02 | Verify sans modification, absence de `failed.txt` |
-| T03 | Verify après corruption, présence de `failed.txt` |
-| T04 | Verify après suppression de fichier |
-| T05 | Compare sans différence |
-| T06 | Compare avec fichier modifié |
-| T07 | Compare avec fichier supprimé + ajouté |
-| T08 | Noms de fichiers avec espaces |
-| T09 | Dossiers vides ignorés (limite documentée) |
-| T10 | Chemins absolus vs relatifs |
-| T11 | Intégrité de la base avec ETA |
-| T12 | Mode `--quiet` (stdout vide, exit code) |
-| T13 | Horodatage anti-écrasement |
-| T14 | Détection argument invalide |
-
-**Aucun mocking.** Tous les tests exécutent réellement `b3sum` et `integrity.sh` sur des fichiers réels dans un environnement isolé.
-
---- Fichier : docs/manuel.md ---
-# Manuel technique — Vérification d'intégrité de données
-
-**Périmètre :** détection d'erreurs de transfert et de corruption silencieuse sur disque, sans adversaire.  
-**Outils couverts :** b3sum (BLAKE3) · xxHash3 · find · diff · bash
-
----
-
-## Table des matières
-
-1. [Algorithmes de hachage](#1-algorithmes-de-hachage)
-2. [Structure du fichier .b3](#2-structure-du-fichier-b3)
-3. [Workflow : calcul, stockage, comparaison](#3-workflow--calcul-stockage-comparaison)
-4. [Explication du script integrity.sh](#4-explication-du-script-integritysh)
-5. [Performances et optimisation disque](#5-performances-et-optimisation-disque)
-6. [Limites et angles morts](#6-limites-et-angles-morts)
-7. [Référence rapide](#7-référence-rapide)
-8. [Annexe — Alternatives et extensions](#8-annexe--alternatives-et-extensions)
-
----
-
-## 1. Algorithmes de hachage
-
-### Taxonomie
-
-Deux familles distinctes, usages mutuellement exclusifs :
-
-| Propriété | Cryptographique (BLAKE3) | Non-cryptographique (xxHash3) |
-|---|---|---|
-| Résistance collision intentionnelle | Oui — infaisable calculatoirement | Non — collisions construisibles |
-| Résistance préimage | Oui | Non |
-| Débit CPU (1 cœur) | ~1 Go/s | ~50 Go/s |
-| Débit sur HDD (150 Mo/s) | Identique — disque impose le rythme | Identique |
-| Débit sur SATA SSD (500 Mo/s) | Identique | Identique |
-| Détection corruption accidentelle | Oui | Oui |
-| Utilisable en sécurité | Oui | Non |
-
-### Pourquoi BLAKE3 plutôt que xxHash3
-
-xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** — les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
-
-```bash
-# Si xxHash3 est préféré — workflow identique à b3sum
-find ./dossier -type f -print0 | sort -z | xargs -0 xxh128sum > base.xxh
-```
-
-### Limitations spécifiques à ce workflow
-
-- Ne hache pas les métadonnées (mtime, permissions) — comportement voulu ici, mais à connaître.
-- Ne hache pas les dossiers vides : `find -type f` ne remonte que les fichiers réguliers.
-- Sensible aux chemins : le fichier `.b3` encode les chemins tels qu'ils ont été passés à `b3sum`. Chemin absolu vs relatif → deux bases incompatibles pour la même donnée.
-
----
-
-## 2. Structure du fichier .b3
-
-b3sum produit un format texte simple, une ligne par fichier :
-
-```
-# Format : <hash>  <chemin>
-# Deux espaces séparent le hash du chemin (convention b3sum/sha256sum)
-
-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2  ./dossier/fichier.txt
-e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6  ./dossier/sous/autre.bin
-```
-
-**Taille du fichier .b3 :** chaque ligne fait ~130–200 octets selon la longueur des chemins.
-
-| Nombre de fichiers | Taille approximative |
-|---|---|
-| 10 000 | ~2 Mo |
-| 100 000 | ~20 Mo |
-| 1 000 000 | ~200 Mo |
-
-> **Règle absolue : chemins relatifs.** Toujours utiliser `find ./dossier` et non `find /chemin/absolu/dossier`. Un chemin absolu rend la base inutilisable après déplacement, remontage à un point différent, ou copie sur une autre machine.
-
----
-
-## 3. Workflow : calcul, stockage, comparaison
-
-### Calcul et enregistrement de la base
-
-```bash
-# Calcul de base — commande de référence
-find ./mon_dossier -type f -print0 \
-  | sort -z \
-  | xargs -0 b3sum \
-  > hashes_2024-01-15.b3
-
-# Vérification immédiate : nombre de fichiers indexés
-wc -l hashes_2024-01-15.b3
-```
-
-**Pourquoi `sort -z` :** `find` ne garantit pas un ordre déterministe — il dépend de l'ordre de parcours du filesystem (inode order sur ext4). Sans tri, deux exécutions consécutives peuvent produire des fichiers `.b3` dans des ordres différents, rendant la comparaison par `diff` bruyante et inutilisable.
-
-**Pourquoi `-print0` / `-0` :** les noms de fichiers peuvent contenir des espaces, des retours à la ligne, ou des caractères spéciaux. `-print0` utilise le caractère nul comme séparateur, et `-0` dans `xargs` l'interprète. C'est la seule approche robuste.
-
-### Vérification directe
-
-`b3sum --check` relit les fichiers sur disque et compare leurs hashes à la base enregistrée.
-
-```bash
-# Lancer depuis le même répertoire de travail qu'au calcul
-b3sum --check hashes_2024-01-15.b3
-
-# Sortie en cas de succès :
-# ./mon_dossier/fichier.txt: OK
-# ./mon_dossier/sous/autre.bin: OK
-
-# Sortie en cas d'échec :
-# ./mon_dossier/sous/corrompu.bin: FAILED
-# b3sum: WARNING: 1 computed checksum did NOT match
-
-# Filtrer uniquement les échecs
-b3sum --check hashes_2024-01-15.b3 2>&1 | grep FAILED
-```
-
-> **Contrainte critique : répertoire de travail.** `b3sum --check` résout les chemins relatifs depuis `pwd`. Si la base a été créée depuis `/data` et que la vérification est lancée depuis `/home`, tous les fichiers apparaissent manquants. Toujours exécuter depuis le répertoire parent du dossier à vérifier.
-
-### Comparaison de deux bases .b3
-
-Utile pour comparer deux états historiques sans avoir accès aux fichiers originaux (archive froide, backup distant).
-
-```bash
-# Diff brut — suffisant si les bases sont triées
-diff <(sort hashes_2024-01-15.b3) <(sort hashes_2024-02-01.b3)
-
-# Comparaison propre par fichier
-sort -k2 hashes_2024-01-15.b3 > /tmp/_old.b3
-sort -k2 hashes_2024-02-01.b3 > /tmp/_new.b3
-
-# Fichiers dont le hash a changé
-join -1 2 -2 2 /tmp/_old.b3 /tmp/_new.b3 \
-  | awk '$2 != $3 {print $1, "\n  ancien:", $3, "\n  nouveau:", $2}'
-
-# Fichiers disparus
-comm -23 <(awk '{print $2}' /tmp/_old.b3) \
-         <(awk '{print $2}' /tmp/_new.b3)
-
-# Fichiers nouveaux
-comm -13 <(awk '{print $2}' /tmp/_old.b3) \
-         <(awk '{print $2}' /tmp/_new.b3)
-```
-
-**`join -1 2 -2 2` :** joint les deux fichiers sur la colonne 2 (nom de fichier), puis compare les colonnes 1 (hash). Les lignes où `$2 != $3` sont les fichiers dont le contenu a changé.
-
-**`comm` :** compare deux flux triés ligne par ligne. `-23` retient les lignes exclusives au premier flux (disparus). `-13` retient les lignes exclusives au second (nouveaux).
-
----
-
-## 4. Explication du script integrity.sh
-
-### En-tête et mode strict
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-```
-
-`set -euo pipefail` est le mode strict Bash :
-
-- `-e` : le script s'arrête si une commande échoue.
-- `-u` : erreur si une variable non initialisée est utilisée.
-- `-o pipefail` : si une commande dans un pipeline échoue, le pipeline entier échoue.
-
-### Lecture des arguments
-
-```bash
-MODE=${1:-}
-ARG2=${2:-}
-ARG3=${3:-}
-```
-
-Récupère les 3 arguments positionnels. `:-` donne une valeur vide par défaut si l'argument n'est pas fourni — évite une erreur en mode `-u`.
-
-### Mode `compute`
-
-Le mode `compute` délègue à `compute_with_progress`, fonction dédiée à l'indexation fichier par fichier avec affichage de la progression.
-
-```bash
-TARGET=$ARG2
-HASHFILE=$ARG3
-compute_with_progress "$TARGET" "$HASHFILE"
-echo "Base enregistrée : $HASHFILE ($(wc -l < "$HASHFILE") fichiers)"
-```
-
-**Pourquoi une fonction séparée :** la logique de progression représente ~20 lignes. Les inliner dans le `case` dégraderait la lisibilité du dispatch sans apport. La fonction est nommée explicitement — son rôle est lisible sans lire son corps.
-
-**Corps de `compute_with_progress` :**
-
-```bash
-compute_with_progress() {
-  local target="$1"
-  local hashfile="$2"
-
-  local -a files
-  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
-
-  local total_files=${#files[@]}
-  local total_bytes
-  total_bytes=$(du -sb "$target" | awk '{print $1}')
-
-  local bytes_done=0
-  local t_start
-  t_start=$(date +%s)
-
-  local i=0
-  for file in "${files[@]}"; do
-    b3sum "$file" >> "$hashfile"
-
-    bytes_done=$(( bytes_done + $(stat -c%s "$file") ))
-    i=$(( i + 1 ))
-
-    local t_now elapsed
-    t_now=$(date +%s)
-    elapsed=$(( t_now - t_start ))
-
-    if (( bytes_done > 0 && elapsed > 0 )); then
-      local speed remaining
-      speed=$(( bytes_done / elapsed ))
-      remaining=$(( (total_bytes - bytes_done) / speed ))
-      printf "\r[%d/%d] ETA : %dm %02ds   " \
-        "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 ))
-    fi
-  done
-
-  printf "\r%*s\r" 40 ""  # effacer la ligne de progression
-}
-```
-
-Points clés :
-
-- `mapfile -d ''` charge les chemins dans un tableau en respectant le séparateur nul — gère les noms de fichiers avec espaces ou caractères spéciaux.
-- `>> "$hashfile"` en append : chaque `b3sum "$file"` ajoute une ligne. Le fichier est créé vide implicitement à la première écriture.
-- `stat -c%s` lit la taille en octets du fichier traité — opération metadata uniquement, sans relecture du contenu.
-- `printf "\r..."` écrase la ligne courante sans sauter de ligne — la progression ne pollue pas stdout.
-- `printf "\r%*s\r" 40 ""` efface proprement la ligne de progression avant le message final.
-
-### Mode `verify`
-
-```bash
-HASHFILE=$ARG2
-# ARG3 optionnel : si fourni, cd dans ce dossier avant b3sum --check
-if [ -n "$ARG3" ]; then cd "$ARG3"; fi
-run_verify "$HASHFILE"
-```
-
-Le paramètre `[dossier]` est optionnel. Il résout le cas où la base `.b3` a été calculée depuis un répertoire différent du répertoire courant : plutôt que de naviguer manuellement avant de lancer le script, on passe le dossier directement.
-
-```bash
-# Sans dossier — doit être lancé depuis le répertoire d'origine du compute
-./integrity.sh verify hashes.b3
-
-# Avec dossier — spécifie explicitement le répertoire de travail
-# Le dossier passé doit être le répertoire DEPUIS LEQUEL le compute a été lancé,
-# pas le dossier cible qui a été haché.
-#
-# Exemple : compute lancé depuis /data → chemins dans le .b3 : ./mon_dossier/...
-#   Correct   : ./integrity.sh verify hashes.b3 /data
-#   Incorrect : ./integrity.sh verify hashes.b3 /data/mon_dossier
-./integrity.sh verify hashes.b3 /data
-```
-
-### Mode `compare`
-
-Délègue à `run_compare` qui trie les deux bases, produit quatre fichiers dans `$RESULTATS_DIR/resultats_<nom_base_ancienne>/` :
-
-- `recap.txt` — commande, date, compteurs modifiés/disparus/nouveaux
-- `modifies.b3` — lignes b3sum des fichiers dont le hash a changé (format hash + chemin, réutilisable)
-- `disparus.txt` — chemins présents dans A absents de B
-- `nouveaux.txt` — chemins présents dans B absents de A
-
-Les fichiers temporaires de tri passent par `mktemp` et sont supprimés après usage — pas de résidu dans `/tmp`.
-
----
-
-## 5. Performances et optimisation disque
-
-### Le goulot est le disque, pas l'algorithme
-
-Sur toute configuration réaliste, l'I/O disque est le facteur limitant. BLAKE3 (~1 Go/s/cœur) ne sera jamais le goulot sur HDD ou SATA SSD.
-
-| Support | Débit typique | Temps lecture 2 To | BLAKE3 est goulot ? |
-|---|---|---|---|
-| HDD 7200 rpm | 100–150 Mo/s | 4–6 heures | Non |
-| SATA SSD | 500 Mo/s | ~1 heure | Non |
-| NVMe Gen3 | 2–3 Go/s | 12–17 min | Non (1 Go/s/cœur) |
-| NVMe Gen4+ | 5–7 Go/s | 5–7 min | Possible |
-
-**RAM :** b3sum + find + xargs consomment quelques mégaoctets. BLAKE3 traite les fichiers en streaming par chunks de 1 Ko — la taille des fichiers n'influence pas la consommation mémoire. 1 Go de RAM est largement suffisant.
-
-### Stratégie HDD — séquentiel obligatoire
-
-Un HDD est optimisé pour les accès séquentiels. Les accès concurrents cassent la séquentialité de lecture et imposent des déplacements mécaniques de tête coûteux. `xargs -P 4` sur HDD dégrade typiquement les performances de 30 à 50 %. La boucle fichier par fichier de `compute_with_progress` est séquentielle par construction — comportement optimal sur HDD.
-
-Le disque est systématiquement le goulot. BLAKE3 (~1 Go/s/cœur) ne limite jamais sur HDD (100–150 Mo/s) ni sur SATA SSD (500 Mo/s). Sur NVMe Gen4+ (5–7 Go/s), BLAKE3 monothread peut devenir limitant — cas hors périmètre de ce workflow.
-
-### Estimations de durée par volume
-
-| Volume | HDD (150 Mo/s) | SATA SSD (500 Mo/s) | NVMe (3 Go/s) |
-|---|---|---|---|
-| 100 Go | ~11 min | ~3 min | ~34 sec |
-| 500 Go | ~56 min | ~17 min | ~3 min |
-| 1 To | ~1h 51min | ~34 min | ~6 min |
-| 2 To | ~3h 42min | ~1h 8min | ~11 min |
-| 10 To | ~18h 30min | ~5h 40min | ~57 min |
-
-Durées indicatives, pipeline monothread. Sur SSD avec `-P 4`, diviser par 2–3.
-
----
-
-## 6. Limites et angles morts
-
-### Ce que ce workflow ne couvre pas
-
-| Scénario | Détecté ? | Explication |
-|---|---|---|
-| Fichier corrompu (contenu modifié) | **Oui** | Hash différent → FAILED ou divergence dans compare |
-| Fichier manquant | **Oui** | Absent de la nouvelle base ou FAILED (No such file) |
-| Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
-| Dossier vide ajouté/supprimé | **Non** | `find -type f` ignore les dossiers vides |
-| Modification de permissions/timestamps | **Non** | b3sum ne hache que le contenu binaire |
-| Fichier remplacé par un clone identique | **Non** | Hash identique — indétectable par définition |
-| Corruption de la base .b3 elle-même | **Non** | La base n'est pas auto-protégée |
-| Corruption pendant la lecture pour hachage | **Non** | Le hash reflète la donnée lue, corrompue ou non |
-
-### Protéger la base de hash
-
-La base `.b3` est le référentiel de confiance. Si elle est corrompue ou altérée, toute comparaison ultérieure est sans valeur.
-
-- Stocker la base sur un support distinct des données à vérifier.
-- Hacher la base elle-même et stocker ce méta-hash sur un troisième support (email, cloud, papier imprimé).
-- Horodater les bases avec un schéma de nommage explicite : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
-- En contexte critique, signer la base avec GPG.
-
-```bash
-# Protéger la base par son propre hash
-b3sum hashes_2024-01-15.b3 > hashes_2024-01-15.b3.check
-
-# Vérification ultérieure de l'intégrité de la base elle-même
-b3sum --check hashes_2024-01-15.b3.check
-```
-
-### Le problème des renommages et changements de chemin
-
-`b3sum --check` compare les chemins littéralement. Tout renommage de dossier ou changement de structure rompt la correspondance, même si les données sont intactes.
-
-```bash
-# Situation : dossier renommé entre compute et verify
-# Calcul depuis :  ./mon_projet/
-# Vérification :   ./projet_final/
-
-b3sum --check base.b3
-# Résultat : FAILED (No such file or directory) sur TOUS les fichiers
-# Le hash est correct — c'est le chemin qui a changé.
-
-# Solution : corriger les chemins dans la base avant vérification
-sed 's|./mon_projet/|./projet_final/|g' base.b3 > base_corrigee.b3
-b3sum --check base_corrigee.b3
-```
-
----
-
-## 7. Référence rapide
-
-### Commandes essentielles
-
-```bash
-# Calcul de base (universel, HDD)
-find ./dossier -type f -print0 | sort -z | xargs -0 b3sum > base.b3
-
-# Vérification directe (état actuel vs base) → résultats dans RESULTATS_DIR
-./integrity.sh verify base.b3
-
-# Filtrer uniquement les échecs en terminal
-./integrity.sh verify base.b3 2>&1 | grep FAILED
-
-# Comparaison deux bases → résultats dans RESULTATS_DIR
-./integrity.sh compare ancienne.b3 nouvelle.b3
-
-# Compter les fichiers indexés
-wc -l base.b3
-
-# Hacher un fichier unique
-b3sum fichier.bin
-
-# Protéger la base elle-même
-b3sum base.b3 > base.b3.check
-```
-
-### Arbre de décision
-
-| Situation | Mode | Commande |
-|---|---|---|
-| Première indexation | compute | `./integrity.sh compute ./dossier base.b3` |
-| Vérifier après transfert/stockage | verify | `./integrity.sh verify base.b3` |
-| Comparer deux archives | compare | `./integrity.sh compare old.b3 new.b3` |
-| Contrôle rapide d'un seul fichier | ad hoc | `b3sum fichier.bin` |
-
----
-
-## 8. Annexe — Alternatives et extensions
-
-### A.1 Outils FIM si le besoin évolue vers la sécurité
-
-Si le périmètre évolue vers une surveillance continue ou un contexte de sécurité active, les outils FIM dédiés remplacent ce workflow artisanal.
-
-| Outil | Usage | Complexité | Pertinent si… |
-|---|---|---|---|
-| Tripwire | Audit système local, détection compromissions post-intrusion | Moyenne | Serveur Linux, conformité PCI-DSS/HIPAA |
-| Samhain | FIM distribué, parc multi-hôtes, alertes SIEM | Élevée | Infrastructure d'entreprise |
-| AIDE | Alternative open source à Tripwire | Moyenne | Remplacement direct de Tripwire |
-| ZFS | Filesystem avec checksum natif sur chaque bloc | Faible (si migration possible) | Protection transparente sans workflow explicite |
-
-La ligne de démarcation structurante : b3sum/xxHash3 sont des **primitives** — ils font ce qu'on leur demande, sans contexte. Tripwire et Samhain sont des **systèmes** — ils maintiennent un état de référence et détectent les dérives.
-
-### A.2 Intégration dans un pipeline automatisé
-
-```bash
-# Crontab — vérification hebdomadaire automatique
-0 2 * * 0 /opt/integrity.sh verify ./donnees /var/lib/integrity/base.b3 >> /var/log/integrity.log 2>&1
-
-# Post-transfert rsync — vérification immédiate après copie
-rsync -av source/ dest/ && b3sum --check base.b3
-
-# Alerte email si des fichiers ont échoué
-b3sum --check base.b3 2>&1 | grep FAILED | mail -s 'Alerte intégrité' admin@example.com
-```
-
---- Fichier : docs/progression-eta.md ---
-# Progression temps réel et estimation ETA
-
-## Le problème
-
-Le pipeline `find | sort | xargs b3sum` est une boîte noire : `b3sum` ne remonte aucune progression. Par défaut, le mode `compute` s'exécute en silence jusqu'à complétion - aucun indicateur de durée ni d'avancement.
-
----
-
-## Pourquoi l'ETA nécessite de casser le pipeline `xargs`
-
-Intercaler `pv` dans le pipeline existant est techniquement possible mais inutilisable ici : mesurer le débit sur un flux `cat | pv | b3sum` produit un hash global du flux concaténé, pas une ligne par fichier. Le fichier `.b3` résultant est invalide pour `--check` ou `compare`.
-
-```bash
-# Cette approche est invalide - ne pas utiliser
-TOTAL=$(find "$TARGET" -type f -print0 | xargs -0 du -sb | awk '{sum+=$1} END {print sum}')
-find "$TARGET" -type f -print0 | sort -z \
-  | xargs -0 cat \
-  | pv -s "$TOTAL" \
-  | b3sum \
-  > "$HASHFILE"
-# Produit un hash unique du flux concaténé - inutilisable
-```
-
-La seule approche compatible avec le format `.b3` : remplacer `xargs` par une boucle bash explicite, fichier par fichier. Le contrôle de progression devient trivial. Le coût en performance est négligeable - le disque est le goulot, pas le shell.
-
----
-
-## Implémentation finale : `compute_with_progress`
-
-```bash
-compute_with_progress() {
-  local target="$1"
-  local hashfile="$2"
-
-  local -a files
-  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
-
-  local total_files=${#files[@]}
-  local total_bytes
-  total_bytes=$(du -sb "$target" | awk '{print $1}')
-
-  local bytes_done=0
-  local t_start
-  t_start=$(date +%s)
-
-  local i=0
-  for file in "${files[@]}"; do
-    b3sum "$file" >> "$hashfile"
-
-    bytes_done=$(( bytes_done + $(stat -c%s "$file") ))
-    i=$(( i + 1 ))
-
-    local t_now elapsed
-    t_now=$(date +%s)
-    elapsed=$(( t_now - t_start ))
-
-    if (( bytes_done > 0 && elapsed > 0 )); then
-      local speed remaining
-      speed=$(( bytes_done / elapsed ))
-      remaining=$(( (total_bytes - bytes_done) / speed ))
-      printf "\r[%d/%d] ETA : %dm %02ds   " \
-        "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 ))
-    fi
-  done
-
-  printf "\r%*s\r" 40 ""  # effacer la ligne de progression
-}
-```
-
-**`mapfile -d ''`** au lieu de `FILES=($(find ...))` : la substitution de commande `$(...)` découpe sur les espaces et les retours à la ligne - les noms de fichiers avec espaces seraient cassés en plusieurs éléments. `mapfile -d ''` lit le flux nul-séparé produit par `-print0` et charge chaque chemin comme un élément distinct du tableau, sans ambiguïté.
-
----
-
-## Mécanique de l'estimation
-
-L'ETA repose sur trois mesures :
-
-- **octets traités** - cumulés après chaque fichier via `stat -c%s`
-- **octets totaux** - calculés une fois avant la boucle via `du -sb`
-- **débit instantané** - `octets_traités / secondes_écoulées`
-
-```
-ETA = (octets_restants) / débit_moyen
-    = (total - fait) / (fait / elapsed)
-```
-
-Le débit moyen converge après ~10–20 secondes de traitement. Avant ce seuil, l'ETA est instable - comportement identique à `rsync`, `cp --progress`, ou tout outil du même type. Ce n'est pas un défaut d'implémentation, c'est une contrainte statistique inhérente à toute estimation par extrapolation linéaire sur fenêtre courte.
-
----
-
-## Coût du changement de stratégie
-
-| | Pipeline `xargs` | Boucle bash (avec progression) |
-|---|---|---|
-| Débit sur HDD | Optimal | Identique - I/O impose le rythme |
-| Débit sur SSD séquentiel | Optimal | Identique |
-| Débit sur SSD `-P 4` | +20–40 % | Non applicable - boucle séquentielle |
-| Progression temps réel | Non | Oui |
-| ETA | Non | Oui |
-
-**Cas où la boucle dégrade les performances :** SSD avec `-P 4`. Le parallélisme par `xargs` n'est pas reproductible en boucle bash sans complexité significative. Sur HDD - cas le plus courant pour de gros volumes - la différence est nulle.
-
-
---- Fichier : docs/validation.md ---
+--- Fichier : tests/validation.md ---
 # Tests et validation - integrity.sh
 
 **Niveau d'exigence :** production, admin système. Chaque cas doit être exécuté et son résultat vérifié explicitement.
@@ -2521,5 +2058,684 @@ rm -rf /tmp/integrity-test
 | Rapport compare | Sauvegardé sur disque, horodaté (T05–T07) |
 | Exit code | Non nul si au moins un FAILED (T03, T04) |
 | Mode strict `-euo pipefail` | Le script s'arrête sur toute erreur non gérée |
+
+
+--- Fichier : docs/explication-run-tests.md ---
+# Explication du code — run_tests.sh + run_tests_pipeline.sh
+
+---
+
+## Vue d'ensemble
+
+Deux suites de tests indépendantes, bash pur, sans framework externe.
+
+```
+tests/
+├── run_tests.sh            ← integrity.sh — 15 cas T00–T14
+└── run_tests_pipeline.sh   ← runner.sh + pipeline.json — 12 cas TP01–TP12
+```
+
+Chaque suite : prérequis → setup → tests → teardown → rapport + exit code CI.
+
+---
+
+## PARTIE 1 — run_tests.sh (integrity.sh)
+
+### 1.1 Configuration et chemins
+
+```bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTEGRITY="$SCRIPT_DIR/../integrity.sh"
+WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
+```
+
+- `SCRIPT_DIR` : répertoire absolu du script, indépendant du `pwd` appelant.
+- `INTEGRITY` : chemin relatif à `run_tests.sh` — déplaçables ensemble sans modifier les chemins.
+- `WORKDIR` : répertoire temporaire isolé par `mktemp`, suffix aléatoire 6 chars.
+
+### 1.2 Système de comptage
+
+```bash
+PASS=0; FAIL=0; TOTAL=0
+pass() { echo -e "${GREEN}  PASS${NC} — $1"; (( PASS++ )); (( TOTAL++ )); }
+fail() { echo -e "${RED}  FAIL${NC} — $1"; (( FAIL++ )); (( TOTAL++ )); }
+```
+
+`TOTAL` permet de détecter un test sauté silencieusement.
+
+### 1.3 Fonctions d'assertion
+
+**`assert_exit_zero` / `assert_exit_nonzero`** : exécute une commande, vérifie le code de retour. `> /dev/null 2>&1` supprime toute sortie. `shift` consomme le label pour que `"$@"` ne contienne que la commande.
+
+**`assert_contains` / `assert_not_contains`** : cherche un pattern dans une chaîne capturée. La capture via `local out=$(commande)` avant l'assertion permet plusieurs inspections sans relancer la commande.
+
+**`assert_line_count`** : `wc -l < fichier` (sans le nom) — pas d'affichage du nom par `wc`.
+
+**`assert_file_exists` / `assert_file_absent`** : présence ou absence d'un fichier régulier.
+
+### 1.4 Setup / Teardown
+
+4 fichiers déterministes (contenu connu → hashes reproductibles). `sub/delta.txt` valide la récursivité de `find`. `teardown()` supprime `WORKDIR` entier.
+
+### 1.5 Pattern || true
+
+```bash
+local out
+out=$(commande 2>&1 || true)
+```
+
+Critique : sans `|| true`, un code de retour non nul sous `-euo pipefail` interrompt le script avant que l'assertion enregistre l'échec.
+
+### 1.6 Cas de test spécifiques
+
+**T00 — ShellCheck** : analyse statique sur `integrity.sh` et `run_tests.sh`. `SKIP` propre si non installé.
+
+**T11 — Intégrité base avec ETA** : vérifie que `compute_with_progress` produit une base bit-à-bit identique à `find | sort | xargs b3sum`, sans artefact `ETA` ni `\r`.
+
+**T12 — Mode `--quiet`** : stdout vide sur verify OK, verify ECHEC, et compute. Exit code non nul propagé. Fichiers de résultats produits malgré `--quiet`.
+
+**T13 — Horodatage** : deux `verify` successifs sur la même base → deux dossiers distincts (pas d'écrasement). `sleep 1` garantit des timestamps différents.
+
+**T14 — Argument invalide** : `verify base.b3 /chemin/inexistant` → `ERREUR` explicite.
+
+### 1.7 Tableau des cas
+
+| Cas | Description |
+|---|---|
+| T00 | ShellCheck (analyse statique) |
+| T01 | Compute de base |
+| T02 | Verify sans modification |
+| T03 | Verify après corruption |
+| T04 | Verify après suppression |
+| T05 | Compare sans différence |
+| T06 | Compare avec fichier modifié |
+| T07 | Compare avec fichier supprimé + ajouté |
+| T08 | Noms de fichiers avec espaces |
+| T09 | Dossiers vides ignorés |
+| T10 | Chemins absolus vs relatifs |
+| T11 | Intégrité base avec ETA |
+| T12 | Mode `--quiet` |
+| T13 | Horodatage anti-écrasement |
+| T14 | Argument invalide pour verify |
+
+---
+
+## PARTIE 2 — run_tests_pipeline.sh (runner.sh + pipeline.json)
+
+### 2.1 Configuration et chemins
+
+```bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER="$SCRIPT_DIR/../runner.sh"
+INTEGRITY="$SCRIPT_DIR/../integrity.sh"
+WORKDIR="$(mktemp -d /tmp/integrity-pipeline-test.XXXXXX)"
+export RESULTATS_DIR="$WORKDIR/resultats"
+```
+
+`RESULTATS_DIR` est exporté pour que `integrity.sh` (appelé par `runner.sh`) redirige ses résultats dans le `WORKDIR` isolé — pas dans `~/integrity_resultats`.
+
+### 2.2 Helper write_config
+
+```bash
+write_config() {
+    local path="$WORKDIR/pipeline.json"
+    cat > "$path"
+    echo "$path"
+}
+```
+
+Lit le JSON depuis stdin (heredoc), l'écrit dans `WORKDIR/pipeline.json`, retourne le chemin. Permet de générer un `pipeline.json` différent par test sans fichiers temporaires nommés à la main.
+
+Usage :
+
+```bash
+local cfg
+cfg=$(write_config <<EOF
+{ "pipeline": [ { "op": "compute", ... } ] }
+EOF
+)
+bash "$RUNNER" "$cfg"
+```
+
+### 2.3 Stratégie de test par cas
+
+**TP01–TP04 (parsing)** : tests négatifs — chaque test passe un JSON ou une config invalide et vérifie que `runner.sh` échoue avec un message `ERREUR` explicite, sans stacktrace `jq` brute ni crash silencieux.
+
+**TP05–TP06 (compute)** : TP05 vérifie trois invariants sur la base produite — existence, chemins relatifs (`./ `en début de chemin), comptage exact de fichiers. TP06 vérifie l'échec propre sur source absente.
+
+**TP07–TP09 (verify)** : TP07 vérifie le bon répertoire de travail (vérification OK, `recap.txt` produit). TP08 vérifie la détection de corruption. TP09 vérifie l'échec propre sur base absente.
+
+**TP10–TP11 (compare)** : TP10 vérifie les quatre fichiers de résultats produits. TP11 vérifie l'échec propre sur `base_a` absente.
+
+**TP12 (pipeline complet)** : test d'intégration — compute × 2 + verify + compare dans un seul `pipeline.json`. Vérifie les labels dans la sortie, les bases créées, et l'absence d'erreur.
+
+### 2.4 Résolution des dossiers de résultats
+
+```bash
+outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+```
+
+`tail -1` récupère le dossier le plus récent — compatible avec l'horodatage automatique de `make_result_dir()`. Sans `tail -1`, si un dossier `resultats_hashes_a` existe déjà d'un test précédent, `ls` retourne plusieurs lignes et l'assertion porte sur la mauvaise.
+
+### 2.5 Prérequis et exécution
+
+```bash
+cd tests
+./run_tests_pipeline.sh
+```
+
+Prérequis : `jq`, `b3sum`, `bash >= 4`, `runner.sh` et `integrity.sh` dans le répertoire parent. Exit code CI-compatible : 0 si tous passent, 1 si au moins un échec.
+
+### 2.6 Tableau des cas
+
+| Cas | Description |
+|---|---|
+| TP01 | JSON invalide — erreur propre sans stacktrace jq |
+| TP02 | Clé `.pipeline` absente |
+| TP03 | Champ `nom` manquant dans compute |
+| TP04 | Opération inconnue |
+| TP05 | Compute — cd correct, chemins relatifs, comptage |
+| TP06 | Compute — dossier source absent |
+| TP07 | Verify — bon répertoire de travail, OK |
+| TP08 | Verify — corruption détectée |
+| TP09 | Verify — base .b3 absente |
+| TP10 | Compare — fichiers de résultats produits |
+| TP11 | Compare — base_a absente |
+| TP12 | Pipeline complet compute + verify + compare |
+
+---
+
+## Prérequis globaux
+
+```bash
+# run_tests.sh
+apt install b3sum shellcheck   # shellcheck optionnel
+
+# run_tests_pipeline.sh
+apt install b3sum jq
+```
+
+Les deux suites sont indépendantes et peuvent être lancées séparément.
+
+--- Fichier : docs/manuel.md ---
+# Manuel technique — Vérification d'intégrité de données
+
+**Périmètre :** détection d'erreurs de transfert et de corruption silencieuse sur disque, sans adversaire.  
+**Outils couverts :** b3sum (BLAKE3) · xxHash3 · find · diff · bash · jq
+
+---
+
+## Table des matières
+
+1. [Algorithmes de hachage](#1-algorithmes-de-hachage)
+2. [Structure du fichier .b3](#2-structure-du-fichier-b3)
+3. [Workflow : calcul, stockage, comparaison](#3-workflow--calcul-stockage-comparaison)
+4. [Explication du script integrity.sh](#4-explication-du-script-integritysh)
+5. [Pipeline batch : runner.sh + pipeline.json](#5-pipeline-batch--runnersh--pipelinejson)
+6. [Performances et optimisation disque](#6-performances-et-optimisation-disque)
+7. [Limites et angles morts](#7-limites-et-angles-morts)
+8. [Référence rapide](#8-référence-rapide)
+9. [Annexe — Alternatives et extensions](#9-annexe--alternatives-et-extensions)
+
+---
+
+## 1. Algorithmes de hachage
+
+### Taxonomie
+
+Deux familles distinctes, usages mutuellement exclusifs :
+
+| Propriété | Cryptographique (BLAKE3) | Non-cryptographique (xxHash3) |
+|---|---|---|
+| Résistance collision intentionnelle | Oui — infaisable calculatoirement | Non — collisions construisibles |
+| Résistance préimage | Oui | Non |
+| Débit CPU (1 cœur) | ~1 Go/s | ~50 Go/s |
+| Débit sur HDD (150 Mo/s) | Identique — disque impose le rythme | Identique |
+| Débit sur SATA SSD (500 Mo/s) | Identique | Identique |
+| Détection corruption accidentelle | Oui | Oui |
+| Utilisable en sécurité | Oui | Non |
+
+### Pourquoi BLAKE3 plutôt que xxHash3
+
+xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : **le coût marginal sur disque est nul** — les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.
+
+```bash
+# Si xxHash3 est préféré — workflow identique à b3sum
+find ./dossier -type f -print0 | sort -z | xargs -0 xxh128sum > base.xxh
+```
+
+### Limitations spécifiques à ce workflow
+
+- Ne hache pas les métadonnées (mtime, permissions).
+- Ne hache pas les dossiers vides : `find -type f` ne remonte que les fichiers réguliers.
+- Sensible aux chemins : chemin absolu vs relatif → deux bases incompatibles pour la même donnée.
+
+---
+
+## 2. Structure du fichier .b3
+
+b3sum produit un format texte simple, une ligne par fichier :
+
+```
+# Format : <hash>  <chemin>
+# Deux espaces séparent le hash du chemin (convention b3sum/sha256sum)
+
+a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2  ./dossier/fichier.txt
+e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6  ./dossier/sous/autre.bin
+```
+
+| Nombre de fichiers | Taille approximative |
+|---|---|
+| 10 000 | ~2 Mo |
+| 100 000 | ~20 Mo |
+| 1 000 000 | ~200 Mo |
+
+> **Règle absolue : chemins relatifs.** Toujours `find ./dossier`, jamais `find /chemin/absolu`. Un chemin absolu rend la base inutilisable après déplacement ou remontage.
+
+---
+
+## 3. Workflow : calcul, stockage, comparaison
+
+### Calcul et enregistrement de la base
+
+```bash
+find ./mon_dossier -type f -print0 \
+  | sort -z \
+  | xargs -0 b3sum \
+  > hashes_2024-01-15.b3
+
+wc -l hashes_2024-01-15.b3
+```
+
+**`sort -z`** : `find` ne garantit pas un ordre déterministe. Sans tri, `diff` entre deux bases est inutilisable.
+
+**`-print0` / `-0`** : robuste aux noms de fichiers avec espaces ou caractères spéciaux.
+
+### Vérification directe
+
+```bash
+b3sum --check hashes_2024-01-15.b3
+
+# Sortie OK :
+# ./mon_dossier/fichier.txt: OK
+
+# Sortie ECHEC :
+# ./mon_dossier/sous/corrompu.bin: FAILED
+# b3sum: WARNING: 1 computed checksum did NOT match
+
+b3sum --check hashes_2024-01-15.b3 2>&1 | grep FAILED
+```
+
+> **Contrainte critique : répertoire de travail.** `b3sum --check` résout les chemins relatifs depuis `pwd`. Toujours exécuter depuis le répertoire où `compute` a été lancé.
+
+### Comparaison de deux bases .b3
+
+```bash
+diff <(sort hashes_2024-01-15.b3) <(sort hashes_2024-02-01.b3)
+```
+
+`run_compare()` dans `integrity.sh` automatise cette comparaison avec `join`, `comm`, et un rapport structuré.
+
+---
+
+## 4. Explication du script integrity.sh
+
+### En-tête et mode strict
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+```
+
+- `-e` : arrêt sur échec de commande.
+- `-u` : erreur sur variable non initialisée.
+- `-o pipefail` : échec du pipeline si une commande intermédiaire échoue.
+
+### Parsing des arguments
+
+```bash
+QUIET=0
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    *)       ARGS+=("$arg") ;;
+  esac
+done
+MODE="${ARGS[0]:-}"
+ARG2="${ARGS[1]:-}"
+ARG3="${ARGS[2]:-}"
+```
+
+`--quiet` filtré avant la lecture positionnelle. `:-` donne une valeur vide par défaut en mode `-u`.
+
+### Mode compute
+
+```bash
+compute_with_progress() {
+  local -a files
+  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
+
+  for file in "${files[@]}"; do
+    b3sum "$file" >> "$hashfile"
+    # ETA calculé et affiché sur /dev/tty — jamais dans le pipe
+    printf "\r[%d/%d] ETA : %dm %02ds   " ... > /dev/tty
+  done
+}
+```
+
+**`mapfile -d ''`** : charge les chemins en tableau depuis flux nul-séparé. Robuste aux espaces et caractères spéciaux.
+
+**`> /dev/tty`** : progression écrite directement sur le terminal, ne peut pas polluer la base `.b3`.
+
+### Mode verify
+
+```bash
+hashfile_abs=$(realpath "$ARG2")
+[ -n "${ARG3:-}" ] && cd "$ARG3"
+run_verify "$hashfile_abs"
+```
+
+Le chemin absolu est résolu **avant** le `cd` — un chemin relatif deviendrait invalide après changement de répertoire.
+
+### Mode compare
+
+`run_compare()` convertit `hash  chemin` → `chemin\thash` via `awk` (offset fixe 64 chars pour le hash), puis utilise `sort`, `join`, `comm` avec `-t $'\t'` — robuste aux chemins avec espaces.
+
+---
+
+## 5. Pipeline batch : runner.sh + pipeline.json
+
+### Problème résolu
+
+Lancer `integrity.sh` manuellement sur plusieurs dossiers depuis des partitions différentes (VeraCrypt, disques externes) est error-prone : répertoire de travail incorrect, chemins absolus dans les bases, oubli de `cd`. `runner.sh` automatise et sécurise ces étapes.
+
+**Dépendance supplémentaire :** `jq` (`apt install jq` dans WSL).
+
+### pipeline.json — format
+
+```json
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier_disque_1",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "/mnt/i/dossier_disque_2",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier_disque_1",
+            "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
+        }
+
+    ]
+}
+```
+
+Champs requis par opération :
+
+| `op` | Champs |
+|---|---|
+| `compute` | `source` — dossier à hacher · `bases` — dossier de destination · `nom` — nom du `.b3` |
+| `verify` | `source` — répertoire de travail d'origine · `base` — chemin complet du `.b3` |
+| `compare` | `base_a` — ancienne base · `base_b` — nouvelle base |
+
+### runner.sh — comportement
+
+**compute** : `cd "$source"` puis `integrity.sh compute . "$bases/$nom"`. Le `.` garantit des chemins relatifs dans la base.
+
+**verify** : `cd "$source"` puis `integrity.sh verify "$base"`. Le `cd` reproduit le répertoire de travail d'origine du compute.
+
+**compare** : appel direct sans `cd`. `base_a` et `base_b` sont des chemins absolus vers les `.b3`.
+
+**Validation** : `jq empty` vérifie la syntaxe JSON à l'entrée. Champs manquants et opérations inconnues produisent un message `ERREUR` avec numéro de bloc, sans stacktrace `jq`.
+
+### Lancement Windows (double-clic)
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/runner.sh
+pause
+```
+
+### Chemins WSL — partitions VeraCrypt
+
+| Windows | WSL |
+|---|---|
+| `A:\` | `/mnt/a/` |
+| `C:\` | `/mnt/c/` |
+| `H:\` | `/mnt/h/` |
+| `I:\` | `/mnt/i/` |
+
+Si VeraCrypt remonte une partition sur une lettre différente, seul le champ `source` dans `pipeline.json` est à modifier. La base `.b3` reste valide car ses chemins sont relatifs.
+
+---
+
+## 6. Performances et optimisation disque
+
+Sur HDD (150 Mo/s), SSD SATA (500 Mo/s) ou SSD NVMe séquentiel, le disque est systématiquement le goulot. b3sum à 1 Go/s sur un cœur ne sera jamais le facteur limitant.
+
+La boucle séquentielle de `compute_with_progress` est légèrement moins efficace que `xargs -P 4` sur SSD NVMe avec de nombreux petits fichiers, mais identique sur HDD — cas principal pour gros volumes. Le gain ETA justifie le choix.
+
+Pour SSD NVMe + pas besoin d'ETA :
+
+```bash
+find ./dossier -type f -print0 | sort -z | xargs -0 -P 4 b3sum > base.b3
+```
+
+---
+
+## 7. Limites et angles morts
+
+| Scénario | Détecté ? | Explication |
+|---|---|---|
+| Fichier corrompu | **Oui** | Hash différent → FAILED ou divergence compare |
+| Fichier manquant | **Oui** | FAILED (No such file) ou section DISPARUS |
+| Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
+| Dossier vide | **Non** | `find -type f` ignore les dossiers vides |
+| Permissions/timestamps | **Non** | b3sum ne hache que le contenu binaire |
+| Clone identique | **Non** | Hash identique — indétectable par définition |
+| Corruption de la base .b3 | **Non** | La base n'est pas auto-protégée |
+
+### Protéger la base
+
+```bash
+b3sum hashes_2024-01-15.b3 > hashes_2024-01-15.b3.check
+b3sum --check hashes_2024-01-15.b3.check
+```
+
+Stocker la base sur un support distinct. Sur VeraCrypt : stocker les `.b3` sur `C:`, jamais sur la partition vérifiée.
+
+### Renommages et changements de chemin
+
+`b3sum --check` compare les chemins littéralement. Tout renommage de dossier produit des FAILED sur tous les fichiers, même si le contenu est intact.
+
+```bash
+sed 's|./ancien_nom/|./nouveau_nom/|g' base.b3 > base_corrigee.b3
+b3sum --check base_corrigee.b3
+```
+
+---
+
+## 8. Référence rapide
+
+```bash
+# Calcul
+find ./dossier -type f -print0 | sort -z | xargs -0 b3sum > base.b3
+
+# Vérification
+./integrity.sh verify base.b3
+
+# Comparaison
+./integrity.sh compare ancienne.b3 nouvelle.b3
+
+# Pipeline multi-dossiers
+./runner.sh                        # lit pipeline.json dans le même dossier
+./runner.sh /chemin/pipeline.json  # config explicite
+
+# Compter les fichiers indexés
+wc -l base.b3
+
+# Fichier unique
+b3sum fichier.bin
+
+# Protéger la base
+b3sum base.b3 > base.b3.check
+```
+
+| Situation | Mode | Commande |
+|---|---|---|
+| Première indexation | compute | `./integrity.sh compute ./dossier base.b3` |
+| Multi-dossiers / VeraCrypt | runner | `./runner.sh` |
+| Vérifier après transfert | verify | `./integrity.sh verify base.b3` |
+| Comparer deux archives | compare | `./integrity.sh compare old.b3 new.b3` |
+| Fichier unique | ad hoc | `b3sum fichier.bin` |
+
+---
+
+## 9. Annexe — Alternatives et extensions
+
+### A.1 Outils FIM
+
+| Outil | Usage | Complexité | Pertinent si… |
+|---|---|---|---|
+| Tripwire | Audit système local | Moyenne | Serveur Linux, conformité PCI-DSS/HIPAA |
+| Samhain | FIM distribué, alertes SIEM | Élevée | Infrastructure d'entreprise |
+| AIDE | Alternative open source à Tripwire | Moyenne | Remplacement direct de Tripwire |
+| ZFS | Checksum natif sur chaque bloc | Faible (si migration possible) | Protection transparente |
+
+b3sum/xxHash3 sont des **primitives**. Tripwire et Samhain sont des **systèmes** qui maintiennent un état de référence et détectent les dérives.
+
+### A.2 Intégration automatisée
+
+```bash
+# Crontab — vérification hebdomadaire
+0 2 * * 0 /opt/integrity.sh --quiet verify /var/lib/integrity/base.b3 >> /var/log/integrity.log 2>&1
+
+# Post-transfert rsync
+rsync -av source/ dest/ && b3sum --check base.b3
+
+# Alerte email
+b3sum --check base.b3 2>&1 | grep FAILED | mail -s 'Alerte intégrité' admin@example.com
+```
+
+--- Fichier : docs/progression-eta.md ---
+# Progression temps réel et estimation ETA
+
+## Le problème
+
+Le pipeline `find | sort | xargs b3sum` est une boîte noire : `b3sum` ne remonte aucune progression. Par défaut, le mode `compute` s'exécute en silence jusqu'à complétion - aucun indicateur de durée ni d'avancement.
+
+---
+
+## Pourquoi l'ETA nécessite de casser le pipeline `xargs`
+
+Intercaler `pv` dans le pipeline existant est techniquement possible mais inutilisable ici : mesurer le débit sur un flux `cat | pv | b3sum` produit un hash global du flux concaténé, pas une ligne par fichier. Le fichier `.b3` résultant est invalide pour `--check` ou `compare`.
+
+```bash
+# Cette approche est invalide - ne pas utiliser
+TOTAL=$(find "$TARGET" -type f -print0 | xargs -0 du -sb | awk '{sum+=$1} END {print sum}')
+find "$TARGET" -type f -print0 | sort -z \
+  | xargs -0 cat \
+  | pv -s "$TOTAL" \
+  | b3sum \
+  > "$HASHFILE"
+# Produit un hash unique du flux concaténé - inutilisable
+```
+
+La seule approche compatible avec le format `.b3` : remplacer `xargs` par une boucle bash explicite, fichier par fichier. Le contrôle de progression devient trivial. Le coût en performance est négligeable - le disque est le goulot, pas le shell.
+
+---
+
+## Implémentation finale : `compute_with_progress`
+
+```bash
+compute_with_progress() {
+  local target="$1"
+  local hashfile="$2"
+
+  local -a files
+  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
+
+  local total_files=${#files[@]}
+  local total_bytes
+  total_bytes=$(du -sb "$target" | awk '{print $1}')
+
+  local bytes_done=0
+  local t_start
+  t_start=$(date +%s)
+
+  local i=0
+  for file in "${files[@]}"; do
+    b3sum "$file" >> "$hashfile"
+
+    bytes_done=$(( bytes_done + $(stat -c%s "$file") ))
+    i=$(( i + 1 ))
+
+    local t_now elapsed
+    t_now=$(date +%s)
+    elapsed=$(( t_now - t_start ))
+
+    if (( bytes_done > 0 && elapsed > 0 )); then
+      local speed remaining
+      speed=$(( bytes_done / elapsed ))
+      remaining=$(( (total_bytes - bytes_done) / speed ))
+      printf "\r[%d/%d] ETA : %dm %02ds   " \
+        "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 ))
+    fi
+  done
+
+  printf "\r%*s\r" 40 ""  # effacer la ligne de progression
+}
+```
+
+**`mapfile -d ''`** au lieu de `FILES=($(find ...))` : la substitution de commande `$(...)` découpe sur les espaces et les retours à la ligne - les noms de fichiers avec espaces seraient cassés en plusieurs éléments. `mapfile -d ''` lit le flux nul-séparé produit par `-print0` et charge chaque chemin comme un élément distinct du tableau, sans ambiguïté.
+
+---
+
+## Mécanique de l'estimation
+
+L'ETA repose sur trois mesures :
+
+- **octets traités** - cumulés après chaque fichier via `stat -c%s`
+- **octets totaux** - calculés une fois avant la boucle via `du -sb`
+- **débit instantané** - `octets_traités / secondes_écoulées`
+
+```
+ETA = (octets_restants) / débit_moyen
+    = (total - fait) / (fait / elapsed)
+```
+
+Le débit moyen converge après ~10–20 secondes de traitement. Avant ce seuil, l'ETA est instable - comportement identique à `rsync`, `cp --progress`, ou tout outil du même type. Ce n'est pas un défaut d'implémentation, c'est une contrainte statistique inhérente à toute estimation par extrapolation linéaire sur fenêtre courte.
+
+---
+
+## Coût du changement de stratégie
+
+| | Pipeline `xargs` | Boucle bash (avec progression) |
+|---|---|---|
+| Débit sur HDD | Optimal | Identique - I/O impose le rythme |
+| Débit sur SSD séquentiel | Optimal | Identique |
+| Débit sur SSD `-P 4` | +20–40 % | Non applicable - boucle séquentielle |
+| Progression temps réel | Non | Oui |
+| ETA | Non | Oui |
+
+**Cas où la boucle dégrade les performances :** SSD avec `-P 4`. Le parallélisme par `xargs` n'est pas reproductible en boucle bash sans complexité significative. Sur HDD - cas le plus courant pour de gros volumes - la différence est nulle.
 
 

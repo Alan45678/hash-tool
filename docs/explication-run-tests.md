@@ -1,23 +1,24 @@
-# Explication du code — run_tests.sh
+# Explication du code — run_tests.sh + run_tests_pipeline.sh
 
 ---
 
 ## Vue d'ensemble
 
-`run_tests.sh` est une suite de tests automatisée pour `integrity.sh`. Elle n'utilise aucun framework externe — uniquement du bash pur. Elle crée un environnement isolé, exécute 14 cas de test (T00–T14), restaure l'état entre chaque cas, puis nettoie.
+Deux suites de tests indépendantes, bash pur, sans framework externe.
 
 ```
-run_tests.sh
-├── Vérification des prérequis   (b3sum, integrity.sh)
-├── setup()                      création de l'environnement de test
-├── run_tests()                  exécution des 14 cas T00–T14
-├── teardown()                   suppression de l'environnement
-└── Rapport final                compteurs PASS/FAIL + exit code
+tests/
+├── run_tests.sh            ← integrity.sh — 15 cas T00–T14
+└── run_tests_pipeline.sh   ← runner.sh + pipeline.json — 12 cas TP01–TP12
 ```
+
+Chaque suite : prérequis → setup → tests → teardown → rapport + exit code CI.
 
 ---
 
-## 1. Configuration et chemins
+## PARTIE 1 — run_tests.sh (integrity.sh)
+
+### 1.1 Configuration et chemins
 
 ```bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,247 +26,170 @@ INTEGRITY="$SCRIPT_DIR/../integrity.sh"
 WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
 ```
 
-- `SCRIPT_DIR` : répertoire absolu du script lui-même, indépendant du répertoire depuis lequel on l'appelle.
-- `INTEGRITY` : chemin vers `integrity.sh` calculé relativement à `run_tests.sh` — les deux scripts peuvent être déplacés ensemble sans modifier les chemins en dur.
-- `WORKDIR` : répertoire temporaire unique créé par `mktemp`. Le suffixe `XXXXXX` est remplacé par 6 caractères aléatoires — garantit l'isolation entre deux exécutions simultanées.
+- `SCRIPT_DIR` : répertoire absolu du script, indépendant du `pwd` appelant.
+- `INTEGRITY` : chemin relatif à `run_tests.sh` — déplaçables ensemble sans modifier les chemins.
+- `WORKDIR` : répertoire temporaire isolé par `mktemp`, suffix aléatoire 6 chars.
 
----
-
-## 2. Système de comptage
+### 1.2 Système de comptage
 
 ```bash
-PASS=0
-FAIL=0
-TOTAL=0
-
-pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
-fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
+PASS=0; FAIL=0; TOTAL=0
+pass() { echo -e "${GREEN}  PASS${NC} — $1"; (( PASS++ )); (( TOTAL++ )); }
+fail() { echo -e "${RED}  FAIL${NC} — $1"; (( FAIL++ )); (( TOTAL++ )); }
 ```
 
-Deux compteurs indépendants `PASS` et `FAIL`, incrémentés par les fonctions `pass()` et `fail()`. Chaque assertion appelle l'une ou l'autre — jamais les deux. `TOTAL` permet de vérifier qu'aucun test n'a été sauté silencieusement.
+`TOTAL` permet de détecter un test sauté silencieusement.
 
----
+### 1.3 Fonctions d'assertion
 
-## 3. Fonctions d'assertion
+**`assert_exit_zero` / `assert_exit_nonzero`** : exécute une commande, vérifie le code de retour. `> /dev/null 2>&1` supprime toute sortie. `shift` consomme le label pour que `"$@"` ne contienne que la commande.
 
-Chaque assertion encapsule un test élémentaire et appelle `pass()` ou `fail()` selon le résultat.
+**`assert_contains` / `assert_not_contains`** : cherche un pattern dans une chaîne capturée. La capture via `local out=$(commande)` avant l'assertion permet plusieurs inspections sans relancer la commande.
 
-### `assert_exit_zero` / `assert_exit_nonzero`
+**`assert_line_count`** : `wc -l < fichier` (sans le nom) — pas d'affichage du nom par `wc`.
+
+**`assert_file_exists` / `assert_file_absent`** : présence ou absence d'un fichier régulier.
+
+### 1.4 Setup / Teardown
+
+4 fichiers déterministes (contenu connu → hashes reproductibles). `sub/delta.txt` valide la récursivité de `find`. `teardown()` supprime `WORKDIR` entier.
+
+### 1.5 Pattern || true
 
 ```bash
-assert_exit_zero() {
-  local label="$1"; shift
-  if "$@" > /dev/null 2>&1; then pass "$label"; else fail "$label"; fi
-}
+local out
+out=$(commande 2>&1 || true)
 ```
 
-Exécute une commande et vérifie son code de retour. `> /dev/null 2>&1` supprime stdout et stderr — seul le code de retour importe ici. `shift` consomme le premier argument (`label`) pour que `"$@"` ne contienne que la commande à exécuter.
+Critique : sans `|| true`, un code de retour non nul sous `-euo pipefail` interrompt le script avant que l'assertion enregistre l'échec.
 
-`assert_exit_nonzero` fait l'inverse : il attend un échec (code ≠ 0). Utilisé pour vérifier que `b3sum --check` détecte bien une corruption.
+### 1.6 Cas de test spécifiques
 
-### `assert_contains` / `assert_not_contains`
+**T00 — ShellCheck** : analyse statique sur `integrity.sh` et `run_tests.sh`. `SKIP` propre si non installé.
 
-```bash
-assert_contains() {
-  local label="$1"
-  local pattern="$2"
-  local output="$3"
-  if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
-}
-```
+**T11 — Intégrité base avec ETA** : vérifie que `compute_with_progress` produit une base bit-à-bit identique à `find | sort | xargs b3sum`, sans artefact `ETA` ni `\r`.
 
-Cherche un pattern dans une chaîne déjà capturée (pas dans un fichier). Le résultat de la commande est capturé avant l'appel via `local out=$(commande)` — ce qui permet de l'inspecter plusieurs fois sans relancer la commande.
+**T12 — Mode `--quiet`** : stdout vide sur verify OK, verify ECHEC, et compute. Exit code non nul propagé. Fichiers de résultats produits malgré `--quiet`.
 
-### `assert_line_count`
+**T13 — Horodatage** : deux `verify` successifs sur la même base → deux dossiers distincts (pas d'écrasement). `sleep 1` garantit des timestamps différents.
 
-```bash
-assert_line_count() {
-  local expected="$2"
-  local actual; actual=$(wc -l < "$3")
-  if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label"; fi
-}
-```
+**T14 — Argument invalide** : `verify base.b3 /chemin/inexistant` → `ERREUR` explicite.
 
-Compte les lignes d'un fichier avec `wc -l`. La redirection `< fichier` (sans passer le nom à `wc`) évite que `wc` affiche le nom du fichier dans sa sortie.
+### 1.7 Tableau des cas
 
-### `assert_file_exists` / `assert_file_absent`
-
-```bash
-assert_file_exists() {
-  local label="$1"
-  local file="$2"
-  if [ -f "$file" ]; then pass "$label"; else fail "$label (fichier absent : $file)"; fi
-}
-
-assert_file_absent() {
-  local label="$1"
-  local file="$2"
-  if [ ! -f "$file" ]; then pass "$label"; else fail "$label (fichier présent à tort : $file)"; fi
-}
-```
-
-Vérifient la présence ou l'absence d'un fichier. `assert_file_absent` est utilisé pour confirmer qu'un fichier comme `failed.txt` n'est pas créé inutilement après une vérification réussie.
-
----
-
-## 4. Setup et teardown
-
-```bash
-setup() {
-  mkdir -p "$WORKDIR/data/sub"
-  echo "contenu alpha"  > "$WORKDIR/data/alpha.txt"
-  echo "contenu beta"   > "$WORKDIR/data/beta.txt"
-  echo "contenu gamma"  > "$WORKDIR/data/gamma.txt"
-  echo "contenu delta"  > "$WORKDIR/data/sub/delta.txt"
-}
-
-teardown() {
-  rm -rf "$WORKDIR"
-}
-```
-
-`setup()` crée 4 fichiers avec contenu connu et déterministe — leurs hashes sont donc reproductibles d'une exécution à l'autre. `sub/delta.txt` teste la récursivité de `find` dans les sous-dossiers.
-
-`teardown()` supprime le `WORKDIR` entier. Appelé en fin de script, même en cas d'échec partiel (voir section 7).
-
----
-
-## 5. Structure d'un cas de test
-
-Chaque cas suit le même schéma :
-
-```bash
-echo "T0X — Description"
-
-# 1. Préparer l'état (modifier fichiers, créer bases...)
-# 2. Exécuter la commande testée, capturer la sortie
-local out; out=$(commande 2>&1 || true)
-# 3. Lancer les assertions
-assert_xxx "label" "pattern" "$out"
-# 4. Restaurer l'état pour les tests suivants
-echo "contenu original" > data/fichier.txt
-echo ""
-```
-
-Le `|| true` après la commande capturée est critique : sans lui, si la commande retourne un code non nul (ex: `b3sum --check` sur un fichier corrompu), le mode `-euo pipefail` du script parent interromprait l'exécution avant que l'assertion puisse enregistrer le résultat.
-
----
-
-## 6. Cas de test spécifiques
-
-### T00 — ShellCheck (analyse statique)
-
-Premier test exécuté. Invoque ShellCheck sur `integrity.sh` et `run_tests.sh` pour détecter les bugs bash courants (variables non quotées, globbing non contrôlé, problèmes de portabilité).
-
-Si ShellCheck n'est pas installé, le test affiche `SKIP` sans bloquer l'exécution — c'est une vérification additionnelle, pas une dépendance stricte.
-
-```bash
-if command -v shellcheck &> /dev/null; then
-  assert_exit_zero "ShellCheck integrity.sh" shellcheck "$INTEGRITY"
-  assert_exit_zero "ShellCheck run_tests.sh" shellcheck "$0"
-else
-  echo "  SKIP — shellcheck non installé"
-fi
-```
-
-### T11 — Intégrité de la base produite par `compute_with_progress`
-
-Test critique post-intégration ETA. Vérifie trois choses indépendantes :
-
-1. La base produite par `compute_with_progress` est **bit-à-bit identique** à une base de référence produite par `find | sort | xargs b3sum` — via `diff`. Si un fichier est manquant, dupliqué, ou dans le mauvais ordre, `diff` le détecte.
-2. La base ne contient **aucune ligne "ETA"** parasite — le `printf "\r..."` écrit sur le terminal (stderr implicite via `/dev/tty`), pas dans le fichier.
-3. La base ne contient **aucun caractère `\r`** — garantit que la progression n'a pas pollué le flux d'écriture.
-
-```bash
-assert_exit_zero    "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
-assert_not_contains "aucune ligne ETA dans la base"             "ETA"  "$(cat base_eta.b3)"
-assert_not_contains "aucun caractère de contrôle dans la base"  $'\r'  "$(cat base_eta.b3)"
-```
-
-### T12 — Mode `--quiet`
-
-Couverture exhaustive du flag `--quiet` :
-
-- **Verify OK en mode `--quiet`** : stdout vide, fichiers de résultats produits (`recap.txt`).
-- **Verify ECHEC en mode `--quiet`** : stdout vide, `failed.txt` créé, exit code non nul propagé.
-- **Compute en mode `--quiet`** : pas de ligne "Base enregistrée", pas d'ETA dans la sortie.
-
-La résolution des dossiers de résultats (`outdir`) utilise `ls -d ... | tail -1` pour récupérer le dernier dossier créé, compatible avec l'horodatage automatique introduit dans cette version.
-
-### T13 — Horodatage des dossiers de résultats
-
-Vérifie qu'exécuter deux fois `verify` sur la même base `.b3` ne produit pas un écrasement silencieux des résultats. Deux dossiers distincts doivent être créés :
-
-- `resultats_base_t13/`
-- `resultats_base_t13_YYYYMMDD-HHMMSS/`
-
-Un `sleep 1` entre les deux appels garantit un timestamp différent.
-
-### T14 — Détection d'argument invalide pour `verify [dossier]`
-
-Confirme que `verify` détecte et rejette un argument `[dossier]` invalide (chemin inexistant ou non-dossier) avec un message d'erreur explicite.
-
----
-
-## 7. Vérification des prérequis
-
-```bash
-if ! command -v b3sum &> /dev/null; then
-  echo -e "${RED}ERREUR${NC} : b3sum non trouvé."
-  exit 1
-fi
-
-if [ ! -f "$INTEGRITY" ]; then
-  echo -e "${RED}ERREUR${NC} : integrity.sh introuvable à : $INTEGRITY"
-  exit 1
-fi
-```
-
-Vérifié avant `setup()` — inutile de créer l'environnement de test si les outils sont absents. `command -v` est la méthode portable pour tester la présence d'un exécutable (préférable à `which`).
-
----
-
-## 8. Exit code et intégration CI
-
-```bash
-[ "$FAIL" -eq 0 ]
-```
-
-Dernière ligne du script. Si `FAIL` vaut 0, l'expression est vraie → exit code 0. Si au moins un test a échoué → exit code 1. Ce comportement est exploitable directement dans un pipeline :
-
-```bash
-# Hook pre-commit git
-./tests/run_tests.sh || exit 1
-
-# CI/CD pipeline
-./tests/run_tests.sh && deploy_artifacts
-
-# Crontab — alerte si régression
-0 3 * * * /opt/integrity/tests/run_tests.sh >> /var/log/integrity-tests.log 2>&1 || mail -s "Tests failed" admin@example.com
-```
-
----
-
-## 9. Couverture de test
-
-Les 14 cas couvrent :
-
-| Cas | Périmètre |
+| Cas | Description |
 |---|---|
-| T00 | Analyse statique ShellCheck |
-| T01 | Compute de base, format de sortie |
-| T02 | Verify sans modification, absence de `failed.txt` |
-| T03 | Verify après corruption, présence de `failed.txt` |
-| T04 | Verify après suppression de fichier |
+| T00 | ShellCheck (analyse statique) |
+| T01 | Compute de base |
+| T02 | Verify sans modification |
+| T03 | Verify après corruption |
+| T04 | Verify après suppression |
 | T05 | Compare sans différence |
 | T06 | Compare avec fichier modifié |
 | T07 | Compare avec fichier supprimé + ajouté |
 | T08 | Noms de fichiers avec espaces |
-| T09 | Dossiers vides ignorés (limite documentée) |
+| T09 | Dossiers vides ignorés |
 | T10 | Chemins absolus vs relatifs |
-| T11 | Intégrité de la base avec ETA |
-| T12 | Mode `--quiet` (stdout vide, exit code) |
+| T11 | Intégrité base avec ETA |
+| T12 | Mode `--quiet` |
 | T13 | Horodatage anti-écrasement |
-| T14 | Détection argument invalide |
+| T14 | Argument invalide pour verify |
 
-**Aucun mocking.** Tous les tests exécutent réellement `b3sum` et `integrity.sh` sur des fichiers réels dans un environnement isolé.
+---
+
+## PARTIE 2 — run_tests_pipeline.sh (runner.sh + pipeline.json)
+
+### 2.1 Configuration et chemins
+
+```bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RUNNER="$SCRIPT_DIR/../runner.sh"
+INTEGRITY="$SCRIPT_DIR/../integrity.sh"
+WORKDIR="$(mktemp -d /tmp/integrity-pipeline-test.XXXXXX)"
+export RESULTATS_DIR="$WORKDIR/resultats"
+```
+
+`RESULTATS_DIR` est exporté pour que `integrity.sh` (appelé par `runner.sh`) redirige ses résultats dans le `WORKDIR` isolé — pas dans `~/integrity_resultats`.
+
+### 2.2 Helper write_config
+
+```bash
+write_config() {
+    local path="$WORKDIR/pipeline.json"
+    cat > "$path"
+    echo "$path"
+}
+```
+
+Lit le JSON depuis stdin (heredoc), l'écrit dans `WORKDIR/pipeline.json`, retourne le chemin. Permet de générer un `pipeline.json` différent par test sans fichiers temporaires nommés à la main.
+
+Usage :
+
+```bash
+local cfg
+cfg=$(write_config <<EOF
+{ "pipeline": [ { "op": "compute", ... } ] }
+EOF
+)
+bash "$RUNNER" "$cfg"
+```
+
+### 2.3 Stratégie de test par cas
+
+**TP01–TP04 (parsing)** : tests négatifs — chaque test passe un JSON ou une config invalide et vérifie que `runner.sh` échoue avec un message `ERREUR` explicite, sans stacktrace `jq` brute ni crash silencieux.
+
+**TP05–TP06 (compute)** : TP05 vérifie trois invariants sur la base produite — existence, chemins relatifs (`./ `en début de chemin), comptage exact de fichiers. TP06 vérifie l'échec propre sur source absente.
+
+**TP07–TP09 (verify)** : TP07 vérifie le bon répertoire de travail (vérification OK, `recap.txt` produit). TP08 vérifie la détection de corruption. TP09 vérifie l'échec propre sur base absente.
+
+**TP10–TP11 (compare)** : TP10 vérifie les quatre fichiers de résultats produits. TP11 vérifie l'échec propre sur `base_a` absente.
+
+**TP12 (pipeline complet)** : test d'intégration — compute × 2 + verify + compare dans un seul `pipeline.json`. Vérifie les labels dans la sortie, les bases créées, et l'absence d'erreur.
+
+### 2.4 Résolution des dossiers de résultats
+
+```bash
+outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+```
+
+`tail -1` récupère le dossier le plus récent — compatible avec l'horodatage automatique de `make_result_dir()`. Sans `tail -1`, si un dossier `resultats_hashes_a` existe déjà d'un test précédent, `ls` retourne plusieurs lignes et l'assertion porte sur la mauvaise.
+
+### 2.5 Prérequis et exécution
+
+```bash
+cd tests
+./run_tests_pipeline.sh
+```
+
+Prérequis : `jq`, `b3sum`, `bash >= 4`, `runner.sh` et `integrity.sh` dans le répertoire parent. Exit code CI-compatible : 0 si tous passent, 1 si au moins un échec.
+
+### 2.6 Tableau des cas
+
+| Cas | Description |
+|---|---|
+| TP01 | JSON invalide — erreur propre sans stacktrace jq |
+| TP02 | Clé `.pipeline` absente |
+| TP03 | Champ `nom` manquant dans compute |
+| TP04 | Opération inconnue |
+| TP05 | Compute — cd correct, chemins relatifs, comptage |
+| TP06 | Compute — dossier source absent |
+| TP07 | Verify — bon répertoire de travail, OK |
+| TP08 | Verify — corruption détectée |
+| TP09 | Verify — base .b3 absente |
+| TP10 | Compare — fichiers de résultats produits |
+| TP11 | Compare — base_a absente |
+| TP12 | Pipeline complet compute + verify + compare |
+
+---
+
+## Prérequis globaux
+
+```bash
+# run_tests.sh
+apt install b3sum shellcheck   # shellcheck optionnel
+
+# run_tests_pipeline.sh
+apt install b3sum jq
+```
+
+Les deux suites sont indépendantes et peuvent être lancées séparément.

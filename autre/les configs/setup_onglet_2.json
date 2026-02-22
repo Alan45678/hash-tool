@@ -1,5 +1,0 @@
-{
-    "base1": "fichiers_test/hash_source.db",
-    "base2": "fichiers_test/hash_destination.db",
-    "report": "fichiers_test/rapport.html"
-}
