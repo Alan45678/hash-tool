@@ -1,5 +1,17 @@
 # Changelog — hash_tool / integrity.sh
 
+## [0.13] — Débug de la dockerisation et documentation 
+
+### Ajouté
+
+- `hash_tool-positionnement-open-source.docx` : positionnement du projet dans l'environnement open source actuel, preuve de valeur du projet.
+- `hash_tool-presentation.docx` : présentation macro du projet, sans rentrer dans les details de l'implémentation. 
+
+### Modifié
+
+- Modification du `Dockerfile` pour debug : Installer b3sum depuis Alpine community. b3sum est disponible dans les packages Alpine Linux Alpine Linux, ce qui est plus propre et évite le wget GitHub. Plus de multi-stage, plus de wget, plus de problème de nom. La version fournie par Alpine 3.19 est stable et maintenue. C'est la solution la plus robuste.
+
+
 ## [0.12] — Dockerisation
 
 ### Ajouté

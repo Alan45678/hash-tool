@@ -8,6 +8,10 @@ hash_tool
 │   ├── explication-run-tests.md
 │   ├── hash_tool-docker-documentation.docx
 │   ├── hash_tool-docker-documentation.pdf
+│   ├── hash_tool-positionnement-open-source.docx
+│   ├── hash_tool-positionnement-open-source.pdf
+│   ├── hash_tool-presentation.docx
+│   ├── hash_tool-presentation.pdf
 │   ├── manuel.md
 │   └── progression-eta.md
 ├── mon_dossier
@@ -570,6 +574,9 @@ pipeline = {
 # Image Alpine légère (~15 Mo) avec b3sum et jq.
 # Supporte linux/amd64 et linux/arm64 (NAS Synology, Raspberry Pi, etc.)
 #
+# b3sum est installé depuis les packages Alpine (community) — plus fiable
+# que le téléchargement manuel depuis GitHub Releases.
+#
 # Build :
 #   docker build -t hash_tool .
 #   docker build --platform linux/arm64 -t hash_tool:arm64 .
@@ -582,54 +589,21 @@ pipeline = {
 #              hash_tool runner /pipelines/pipeline.json
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── Stage 1 : téléchargement et vérification du binaire b3sum ────────────────
-FROM alpine:3.19 AS fetcher
-
-# Version b3sum — mettre à jour ici lors des nouvelles releases
-ARG B3SUM_VERSION=1.5.4
-
-# Détection architecture pour sélectionner le bon binaire musl
-RUN set -eux; \
-    ARCH="$(uname -m)"; \
-    case "$ARCH" in \
-      x86_64)  B3SUM_ARCH="linux_amd64_musl"   ;; \
-      aarch64) B3SUM_ARCH="linux_aarch64_musl"  ;; \
-      armv7l)  B3SUM_ARCH="linux_armv7_musl"    ;; \
-      *)       echo "Architecture non supportée : $ARCH" >&2; exit 1 ;; \
-    esac; \
-    \
-    apk add --no-cache wget ca-certificates; \
-    \
-    BASE_URL="https://github.com/BLAKE3-team/BLAKE3/releases/download/${B3SUM_VERSION}"; \
-    wget -q -O /usr/local/bin/b3sum "${BASE_URL}/b3sum_${B3SUM_ARCH}"; \
-    wget -q -O /tmp/b3sum.b3        "${BASE_URL}/b3sum_${B3SUM_ARCH}.b3"; \
-    \
-    chmod +x /usr/local/bin/b3sum; \
-    \
-    # Auto-vérification : b3sum vérifie sa propre signature de téléchargement
-    # On travaille depuis /usr/local/bin pour que le chemin dans le .b3 corresponde
-    cd /usr/local/bin && b3sum --check /tmp/b3sum.b3; \
-    \
-    echo "b3sum ${B3SUM_VERSION} (${B3SUM_ARCH}) installé et vérifié."
-
-# ── Stage 2 : image finale ───────────────────────────────────────────────────
 FROM alpine:3.19
 
 LABEL maintainer="hash_tool" \
       description="Vérification d'intégrité BLAKE3 — integrity.sh + runner.sh" \
       org.opencontainers.image.source="https://github.com/hash_tool"
 
-# Dépendances runtime uniquement : jq + outils POSIX (inclus dans busybox Alpine)
-# bash est requis (bash >= 4 pour integrity.sh)
+# Toutes les dépendances depuis apk — pas de wget, pas de binaire externe
+# b3sum est dans Alpine community depuis v3.15
 RUN apk add --no-cache \
       bash \
       jq \
+      b3sum \
       coreutils \
       findutils \
     && rm -rf /var/cache/apk/*
-
-# b3sum depuis le stage fetcher
-COPY --from=fetcher /usr/local/bin/b3sum /usr/local/bin/b3sum
 
 # ── Copie des scripts ────────────────────────────────────────────────────────
 
@@ -660,7 +634,6 @@ ENV RESULTATS_DIR=/resultats
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["help"]
-
 
 --- Fichier : README.md ---
 # integrity.sh — Vérification d'intégrité BLAKE3
@@ -4172,6 +4145,18 @@ Les deux suites sont indépendantes et peuvent être lancées séparément.
 [Fichier binaire ou illisible, contenu ignoré]
 
 --- Fichier : docs/hash_tool-docker-documentation.pdf ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : docs/hash_tool-positionnement-open-source.docx ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : docs/hash_tool-positionnement-open-source.pdf ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : docs/hash_tool-presentation.docx ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : docs/hash_tool-presentation.pdf ---
 [Fichier binaire ou illisible, contenu ignoré]
 
 --- Fichier : docs/manuel.md ---
