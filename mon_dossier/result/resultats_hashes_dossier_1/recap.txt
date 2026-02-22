@@ -1,0 +1,8 @@
+Commande      : integrity.sh compare hashes_dossier_1.b3 hashes_dossier_2.b3
+Date          : dim. 22 févr. 2026 10:05:31 CET
+Ancienne base : ./mon_dossier/bases/hashes_dossier_1.b3
+Nouvelle base : ./mon_dossier/bases/hashes_dossier_2.b3
+
+Modifiés      : 4
+Disparus      : 0
+Nouveaux      : 0

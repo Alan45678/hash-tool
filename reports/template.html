@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport — [BASE_A] vs [BASE_B]</title>
+  <!--
+    ══════════════════════════════════════════════════════════════════
+    reports/template.html — Barebone rapport de comparaison hash_tool
+    ══════════════════════════════════════════════════════════════════
+
+    Ce fichier est un template statique de référence.
+    Le rapport réel est généré automatiquement par src/lib/report.sh
+    dans le dossier "resultats" défini dans pipeline.json.
+
+    Structure du rapport généré :
+      <resultats>/
+        ├── report.html      ← rapport visuel (ce template rempli)
+        ├── recap.txt        ← résumé texte
+        ├── modifies.b3      ← fichiers avec hash différent
+        ├── disparus.txt     ← fichiers présents dans A, absents de B
+        └── nouveaux.txt     ← fichiers absents de A, présents dans B
+
+    Pour personnaliser le rendu HTML : modifier src/lib/report.sh
+    (fonction generate_compare_html).
+
+    Placeholders utilisés dans report.sh :
+      [BASE_A]       nom du fichier .b3 ancienne base
+      [BASE_B]       nom du fichier .b3 nouvelle base
+      [DATE]         date de génération
+      [STATUT]       IDENTIQUES | DIFFÉRENCES DÉTECTÉES
+      [NB_MODIFIES]  nombre de fichiers modifiés
+      [NB_DISPARUS]  nombre de fichiers disparus
+      [NB_NOUVEAUX]  nombre de nouveaux fichiers
+      [LIST_*]       listes HTML injectées par _render_file_list()
+    ══════════════════════════════════════════════════════════════════
+  -->
+  <style>
+    /* → Voir src/lib/report.sh pour le CSS complet injecté dans les rapports générés */
+
+    :root {
+      --bg:       #0f1117;
+      --bg-card:  #161b27;
+      --border:   #252d3f;
+      --text:     #c8d4e8;
+      --text-dim: #5a6a85;
+      --mono:     monospace;
+      --sans:     system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .placeholder {
+      max-width: 560px;
+      text-align: center;
+    }
+
+    .placeholder h1 {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 24px;
+    }
+
+    .placeholder p {
+      color: var(--text-dim);
+      line-height: 1.7;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="placeholder">
+    <h1>hash_tool · template.html</h1>
+    <p>Ce fichier est le template de référence du rapport de comparaison.</p>
+    <p>
+      Les rapports réels sont générés automatiquement dans le dossier
+      <code>resultats</code> défini par le champ
+      <code>"resultats"</code> dans <code>pipeline.json</code>.
+    </p>
+    <p>
+      Pour personnaliser le rendu : modifier
+      <code>src/lib/report.sh</code> → fonction
+      <code>generate_compare_html()</code>.
+    </p>
+  </div>
+</body>
+</html>

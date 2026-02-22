@@ -1,26 +1,25 @@
-
-
 {
     "pipeline": [
 
         {
-            "op": "compute",
+            "op":     "compute",
             "source": "./mon_dossier/source",
             "bases":  "./mon_dossier/bases",
             "nom":    "hashes_dossier_1.b3"
         },
 
         {
-            "op": "compute",
+            "op":     "compute",
             "source": "./mon_dossier/destination",
             "bases":  "./mon_dossier/bases",
             "nom":    "hashes_dossier_2.b3"
         },
 
         {
-            "op":     "compare",
-            "base_a": "./mon_dossier/bases/hashes_dossier_1.b3",
-            "base_b": "./mon_dossier/bases/hashes_dossier_2.b3"
+            "op":       "compare",
+            "base_a":   "./mon_dossier/bases/hashes_dossier_1.b3",
+            "base_b":   "./mon_dossier/bases/hashes_dossier_2.b3",
+            "resultats": "./mon_dossier/result"
         }
 
     ]

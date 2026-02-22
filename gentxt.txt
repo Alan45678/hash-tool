@@ -7,26 +7,46 @@ hash_tool
 │   └── progression-eta.md
 ├── mon_dossier
 │   ├── bases
+│   │   ├── hashes_dossier_1.b3
+│   │   └── hashes_dossier_2.b3
 │   ├── destination
 │   │   ├── fichier (1).txt
 │   │   ├── fichier (2).txt
 │   │   ├── fichier (3).txt
 │   │   └── fichier (4).txt
 │   ├── result
+│   │   ├── resultats_hashes_dossier_1
+│   │   │   ├── disparus.txt
+│   │   │   ├── modifies.b3
+│   │   │   ├── nouveaux.txt
+│   │   │   ├── recap.txt
+│   │   │   └── report.html
+│   │   └── resultats_hashes_dossier_1_20260222-100613
+│   │       ├── disparus.txt
+│   │       ├── modifies.b3
+│   │       ├── nouveaux.txt
+│   │       ├── recap.txt
+│   │       └── report.html
 │   └── source
 │       ├── fichier (1).txt
 │       ├── fichier (2).txt
 │       ├── fichier (3).txt
 │       └── fichier (4).txt
+├── pipelines
+│   ├── pipeline full.json
+│   └── pipeline.json
+├── reports
+│   └── template.html
+├── src
+│   ├── lib
+│   │   └── report.sh
+│   └── integrity.sh
 ├── tests
 │   ├── run_tests.sh
 │   ├── run_tests_pipeline.sh
 │   └── validation.md
 ├── CHANGELOG.md
 ├── README.md
-├── integrity.sh
-├── pipeline full.json
-├── pipeline.json
 ├── runner.sh
 └── temp.txt
 
@@ -37,7 +57,74 @@ hash_tool
 # Changelog — hash_tool / integrity.sh
 
 
-# Changelog — hash_tool / integrity.sh
+## [0.11] — Restructuration + rapport HTML compare
+
+### Restructuration du projet
+
+```
+hash_tool/
+├── runner.sh                  ← inchangé (point d'entrée)
+├── src/
+│   ├── integrity.sh           ← déplacé depuis la racine
+│   └── lib/
+│       └── report.sh          ← nouveau, extrait de integrity.sh
+├── pipelines/
+│   ├── pipeline.json          ← déplacé depuis la racine
+│   └── pipeline-full.json     ← renommé depuis "pipeline full.json"
+└── reports/
+    └── template.html          ← nouveau, barebone HTML de référence
+```
+
+Motivations :
+- `src/` isole le code des fichiers de configuration et de données.
+- `src/lib/` prépare l'extension à d'autres modules (ex. `notify.sh`, `export.sh`).
+- `pipelines/` centralise les configurations de pipeline, évite la pollution de la racine.
+- `reports/` documente la structure HTML attendue, sert de référence pour la personnalisation.
+
+### Modifié
+
+- `runner.sh`
+  - Chemin `INTEGRITY` mis à jour : `$SCRIPT_DIR/src/integrity.sh`.
+  - Chemin `CONFIG` par défaut mis à jour : `$SCRIPT_DIR/pipelines/pipeline.json`.
+  - `run_compare()` : lecture du champ optionnel `resultats` dans le bloc JSON. Si présent, exporte `RESULTATS_DIR` avec cette valeur pour le seul appel à `integrity.sh compare`. Isolation par sous-shell : le `RESULTATS_DIR` global du processus parent n'est pas modifié.
+  - `run_compute()` et `run_verify()` : isolation du `cd` dans un sous-shell `( )` — le répertoire courant ne fuite plus vers les blocs suivants du pipeline.
+
+- `src/integrity.sh`
+  - Chargement de `src/lib/report.sh` via `source` au démarrage.
+  - `run_compare()` : délègue la génération HTML à `generate_compare_html()` (définie dans `lib/report.sh`).
+
+### Ajouté
+
+- `src/lib/report.sh` : bibliothèque de génération de rapports.
+  - `generate_compare_html()` : produit `report.html` autonome (CSS inline, sans dépendance externe) à partir des fichiers `modifies.b3`, `disparus.txt`, `nouveaux.txt`. Thème sombre, police monospace, compteurs par catégorie, badge statut IDENTIQUES / DIFFÉRENCES DÉTECTÉES.
+
+- `reports/template.html` : barebone HTML statique de référence. Documente les placeholders injectés par `generate_compare_html()` et la structure attendue du dossier de résultats.
+
+- `pipeline.json` (et `pipeline-full.json`) : champ optionnel `"resultats"` sur les blocs `compare`.
+
+  ```json
+  {
+      "op":       "compare",
+      "base_a":   "/chemin/hashes_1.b3",
+      "base_b":   "/chemin/hashes_2.b3",
+      "resultats": "/chemin/vers/dossier_resultats"
+  }
+  ```
+
+  Sans ce champ, comportement inchangé : résultats dans `RESULTATS_DIR` (défaut `~/integrity_resultats`).
+
+- `tests/run_tests_pipeline.sh` : cas TP10b — vérifie que le champ `resultats` redirige bien les résultats dans le dossier personnalisé et n'écrit rien dans `RESULTATS_DIR` par défaut.
+
+### Couverture tests mise à jour
+
+| Suite | Cas | Description |
+|---|---|---|
+| `run_tests.sh` | T00–T14 | Inchangée — `INTEGRITY` mis à jour vers `../src/integrity.sh` |
+| `run_tests_pipeline.sh` | TP01–TP12 | Inchangée dans la logique |
+| `run_tests_pipeline.sh` | **TP10b** | Nouveau — champ `resultats` personnalisé et isolation |
+
+---
+
 
 
 ## [0.10] — Pipeline JSON + tests pipeline
@@ -307,19 +394,19 @@ Détection de corruption silencieuse et d'erreurs de transfert sur disque, par h
 
 ```bash
 # Créer une base de hachage pour un dossier
-./integrity.sh compute ./mon_dossier hashes_2024-01-15.b3
+./src/integrity.sh compute ./mon_dossier hashes_2024-01-15.b3
 
 # Vérifier l'intégrité — lancer depuis le répertoire où le compute a été fait
-./integrity.sh verify hashes_2024-01-15.b3
+./src/integrity.sh verify hashes_2024-01-15.b3
 
 # Idem depuis un répertoire différent — passer le répertoire de travail d'origine
-./integrity.sh verify /data/hashes_2024-01-15.b3 /data
+./src/integrity.sh verify /data/hashes_2024-01-15.b3 /data
 
-# Comparer deux bases (états historiques) → résultats dans $RESULTATS_DIR/
-./integrity.sh compare hashes_2024-01-15.b3 hashes_2024-02-01.b3
+# Comparer deux bases → résultats dans $RESULTATS_DIR/
+./src/integrity.sh compare hashes_2024-01-15.b3 hashes_2024-02-01.b3
 
 # Mode silencieux pour CI/cron
-./integrity.sh --quiet verify hashes_2024-01-15.b3
+./src/integrity.sh --quiet verify hashes_2024-01-15.b3
 ```
 
 ---
@@ -328,9 +415,14 @@ Détection de corruption silencieuse et d'erreurs de transfert sur disque, par h
 
 Pour lancer plusieurs opérations en une seule commande. Dépendance supplémentaire : `jq`.
 
+```bash
+./runner.sh                              # lit pipelines/pipeline.json
+./runner.sh /chemin/vers/pipeline.json   # config explicite
+```
+
 **Dépendance :** `jq` (`apt install jq`)
 
-### pipeline.json
+### pipelines/pipeline.json
 
 ```json
 {
@@ -350,9 +442,10 @@ Pour lancer plusieurs opérations en une seule commande. Dépendance supplément
         },
 
         {
-            "op":     "compare",
-            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
-            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
+            "op":       "compare",
+            "base_a":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3",
+            "resultats": "/mnt/c/Users/TonNom/Desktop/rapports/compare_1_vs_2"
         }
 
     ]
@@ -361,72 +454,54 @@ Pour lancer plusieurs opérations en une seule commande. Dépendance supplément
 
 Champs par opération :
 
-| `op` | Champs requis |
-|---|---|
-| `compute` | `source`, `bases`, `nom` |
-| `verify` | `source`, `base` |
-| `compare` | `base_a`, `base_b` |
+| `op` | Champs requis | Champs optionnels |
+|---|---|---|
+| `compute` | `source`, `bases`, `nom` | — |
+| `verify` | `source`, `base` | — |
+| `compare` | `base_a`, `base_b` | `resultats` — dossier de destination des résultats |
+
+Le champ `resultats` sur `compare` surcharge `RESULTATS_DIR` pour ce seul bloc. Sans ce champ, les résultats sont créés dans `RESULTATS_DIR` (défaut : `~/integrity_resultats`).
 
 ### Lancement depuis Windows (double-clic)
 
 ```bat
 @echo off
-wsl bash /mnt/c/Users/TonNom/Desktop/runner.sh
+wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
 pause
 ```
-
-`runner.sh`, `pipeline.json` et `integrity.sh` doivent être dans le même dossier.
 
 ---
 
 ## Mode `--quiet`
 
-Supprime toute sortie terminal et écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`). Exit code propagé : 0 si OK, non-nul en cas d'échec.
+Supprime toute sortie terminal, écrit uniquement dans les fichiers de résultats. Exit code propagé.
 
 ```bash
 # Hook pre-commit git
-./integrity.sh --quiet verify base.b3 || { echo "Corruption détectée"; exit 1; }
+./src/integrity.sh --quiet verify base.b3 || { echo "Corruption détectée"; exit 1; }
 
 # Monitoring cron
-0 3 * * * /opt/integrity.sh --quiet verify /data/base.b3 || mail -s "ALERT" admin@example.com
+0 3 * * * /opt/hash_tool/src/integrity.sh --quiet verify /data/base.b3 || mail -s "ALERT" admin@example.com
 ```
-
-Compatible avec `compute`, `verify`, et `compare`.
 
 ---
 
 ## Configuration
 
-`RESULTATS_DIR` dans `integrity.sh` définit où sont créés les dossiers de résultats (défaut : `~/integrity_resultats`).
+`RESULTATS_DIR` dans `src/integrity.sh` définit le dossier racine des résultats (défaut : `~/integrity_resultats`). Peut être surchargé par variable d'environnement, ou par le champ `resultats` dans `pipeline.json` pour un bloc `compare` spécifique.
 
-```bash
-RESULTATS_DIR="/mon/chemin/resultats"
-```
-
-Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le dossier existe déjà :
+Chaque exécution `verify` ou `compare` crée un sous-dossier horodaté si le dossier existe déjà :
 
 ```
-~/integrity_resultats/
-├── resultats_hashes_2024-01-15/
-│   ├── recap.txt
-│   ├── failed.txt
-│   ├── modifies.b3
-│   ├── disparus.txt
-│   └── nouveaux.txt
-└── resultats_hashes_2024-01-15_20250215-143022/
-    └── ...
+<resultats>/
+└── resultats_hashes_2024-01-15/
+    ├── recap.txt
+    ├── failed.txt        ← verify uniquement, absent si 0 échec
+    ├── modifies.b3       ← compare uniquement
+    ├── disparus.txt      ← compare uniquement
+    ├── nouveaux.txt      ← compare uniquement
+    └── report.html       ← compare uniquement, rapport visuel
 ```
-
----
-
-| Situation | Commande |
-|---|---|
-| Première indexation | `compute` |
-| Vérifier après transfert / stockage | `verify` |
-| Comparer deux snapshots | `compare` |
-| Pipeline multi-dossiers | `runner.sh` + `pipeline.json` |
-| Contrôle ad hoc d'un fichier unique | `b3sum fichier.bin` |
-| Intégration CI/cron | `--quiet verify` |
 
 ---
 
@@ -434,17 +509,25 @@ Chaque exécution de `verify` ou `compare` crée un sous-dossier horodaté si le
 
 ```
 hash_tool/
+├── runner.sh                      ← point d'entrée pipeline
 ├── README.md
-├── integrity.sh           ← script principal
-├── runner.sh              ← exécuteur de pipeline
-├── pipeline.json          ← déclaration du pipeline
+├── CHANGELOG.md
+├── src/
+│   ├── integrity.sh               ← script principal (compute / verify / compare)
+│   └── lib/
+│       └── report.sh              ← génération rapports (HTML)
+├── pipelines/
+│   ├── pipeline.json              ← pipeline de test local
+│   └── pipeline-full.json         ← pipeline VeraCrypt multi-disques
+├── reports/
+│   └── template.html              ← barebone HTML de référence
 ├── docs/
 │   ├── manuel.md
 │   ├── progression-eta.md
 │   └── explication-run-tests.md
 └── tests/
     ├── run_tests.sh               ← tests integrity.sh (T00–T14)
-    ├── run_tests_pipeline.sh      ← tests runner.sh (TP01–TP12)
+    ├── run_tests_pipeline.sh      ← tests runner.sh (TP01–TP12b)
     └── validation.md
 ```
 
@@ -452,573 +535,153 @@ hash_tool/
 
 ## Règles d'utilisation critiques
 
-- Toujours des **chemins relatifs** dans les bases `.b3`. `runner.sh` gère le `cd` automatiquement.
-- Lancer `verify` depuis le **même répertoire de travail** qu'au `compute`, ou passer ce répertoire en second argument.
-- Stocker les `.b3` sur un **support distinct** des données — sur VeraCrypt, stocker sur `C:` ou un support tiers.
-- Nommer les bases avec une **date explicite** : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
+- **Chemins relatifs** dans les bases `.b3`. `runner.sh` gère le `cd` automatiquement.
+- **Répertoire de travail** : lancer `verify` depuis le même répertoire qu'au `compute`, ou passer ce répertoire en second argument.
+- **Stockage séparé** : stocker les `.b3` sur un support distinct des données — sur VeraCrypt, stocker sur `C:`.
+- **Nommage daté** : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
 
 ---
 
 ## Tests
 
 ```bash
-# Tests integrity.sh (bash >= 4, b3sum requis)
-cd tests
-./run_tests.sh
+# Tests integrity.sh
+cd tests && ./run_tests.sh
 
-# Tests runner.sh + pipeline.json (jq requis en plus)
-./run_tests_pipeline.sh
+# Tests runner.sh + pipeline.json
+cd tests && ./run_tests_pipeline.sh
 
 # Avec ShellCheck (recommandé)
-apt install shellcheck
-./run_tests.sh
+apt install shellcheck && ./run_tests.sh
 ```
 
-- `run_tests.sh` : 15 cas T00–T14 — compute, verify, compare, `--quiet`, horodatage, robustesse.
-- `run_tests_pipeline.sh` : 12 cas TP01–TP12 — parsing JSON, exécution des 3 modes, erreurs.
-
---- Fichier : integrity.sh ---
-
-#!/usr/bin/env bash
-# integrity.sh — vérification d'intégrité par hachage BLAKE3
-#
-# Usage :
-#   ./integrity.sh compute <dossier> <base.b3>
-#   ./integrity.sh verify  <base.b3> [dossier]
-#   ./integrity.sh compare <ancienne.b3> <nouvelle.b3>
-#
-# Options :
-#   --quiet   Supprime toute sortie terminal ; écrit uniquement dans les
-#             fichiers de résultats (recap.txt, failed.txt, etc.).
-#             Utile pour usage en CI/cron/script parent.
-#
-# Dépendances : b3sum, find, sort, awk, comm, join, stat, du
-
-set -euo pipefail
-
-# ── Vérification version bash ──────────────────────────────────────────────────
-
-(( BASH_VERSINFO[0] >= 4 )) || {
-  echo "ERREUR : bash >= 4 requis (actuel : $BASH_VERSION)" >&2
-  exit 1
-}
-
-# ── Parsing des arguments ──────────────────────────────────────────────────────
-
-QUIET=0
-ARGS=()
-
-for arg in "$@"; do
-  case "$arg" in
-    --quiet) QUIET=1 ;;
-    *)       ARGS+=("$arg") ;;
-  esac
-done
-
-MODE="${ARGS[0]:-}"
-ARG2="${ARGS[1]:-}"
-ARG3="${ARGS[2]:-}"
-
-# ── Configuration ──────────────────────────────────────────────────────────────
-
-# Dossier racine où seront créés les sous-dossiers de résultats.
-# Modifier ce chemin selon l'environnement.
-RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
-
-# ── Fonctions utilitaires ──────────────────────────────────────────────────────
-
-# Affiche un message d'erreur sur stderr et quitte.
-die() {
-  echo "ERREUR : $*" >&2
-  exit 1
-}
-
-# Affiche sur stdout uniquement si --quiet n'est pas actif.
-say() {
-  (( QUIET )) || echo "$@"
-}
-
-# Vérifie qu'un fichier .b3 est valide : existe, est un fichier, non vide,
-# contient au moins une ligne au format b3sum (<hash>  <chemin>).
-assert_b3_valid() {
-  local file="$1"
-  local label="${2:-$file}"
-
-  [ -e "$file" ] || die "$label : fichier introuvable."
-  [ -f "$file" ] || die "$label : est un dossier, pas un fichier .b3."
-  [ -s "$file" ] || die "$label : fichier vide — aucun hash à traiter."
-
-  local first_valid
-  first_valid=$(grep -m1 -E '^[0-9a-f]{64}  .+' "$file" || true)
-  [ -n "$first_valid" ] || die "$label : format invalide — aucune ligne au format b3sum détectée."
-}
-
-# Vérifie qu'un dossier cible est valide et contient au moins un fichier.
-assert_target_valid() {
-  local dir="$1"
-
-  [ -e "$dir" ] || die "Dossier cible introuvable : $dir"
-  [ -d "$dir" ] || die "Le chemin cible n'est pas un dossier : $dir"
-
-  local nb_files
-  # -print0 + grep -zc : robuste aux noms de fichiers contenant des newlines
-  nb_files=$(find "$dir" -type f -print0 | grep -zc '' || echo 0)
-  (( nb_files > 0 )) || die "Le dossier $dir ne contient aucun fichier — rien à hacher."
-}
-
-# Taille d'un fichier en octets — abstraction GNU/BSD
-file_size() {
-  local f="$1"
-  if stat -c%s "$f" 2>/dev/null; then
-    return
-  fi
-  # BSD/macOS fallback
-  stat -f%z "$f"
-}
-
-# ── Fonctions principales ──────────────────────────────────────────────────────
-
-# Calcule le hash BLAKE3 de chaque fichier du dossier cible, fichier par fichier,
-# en affichant la progression et une estimation du temps restant (ETA).
-# La progression est écrite sur le terminal (/dev/tty) uniquement si --quiet
-# n'est pas actif, jamais dans le fichier de hashes.
-# Usage : compute_with_progress <dossier> <hashfile>
-compute_with_progress() {
-  local target="$1"
-  local hashfile="$2"
-
-  local -a files
-  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
-
-  local total_files=${#files[@]}
-  local total_bytes
-  total_bytes=$(du -sb "$target" | awk '{print $1}')
-
-  local bytes_done=0
-  local t_start
-  t_start=$(date +%s)
-
-  local i=0
-  for file in "${files[@]}"; do
-    b3sum "$file" >> "$hashfile"
-
-    bytes_done=$(( bytes_done + $(file_size "$file") ))
-    i=$(( i + 1 ))
-
-    if (( ! QUIET )); then
-      local t_now elapsed
-      t_now=$(date +%s)
-      elapsed=$(( t_now - t_start ))
-
-      if (( bytes_done > 0 && elapsed > 0 )); then
-        local speed remaining
-        speed=$(( bytes_done / elapsed ))
-        remaining=$(( (total_bytes - bytes_done) / speed ))
-        printf "\r[%d/%d] ETA : %dm %02ds   " \
-          "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 )) > /dev/tty
-      fi
-    fi
-  done
-
-  if (( ! QUIET )); then
-    printf "\r%*s\r" 40 "" > /dev/tty  # effacer la ligne de progression
-  fi
-}
-
-# Crée le dossier de résultats nommé d'après le fichier .b3 fourni.
-# Horodaté si le dossier existe déjà, pour éviter l'écrasement silencieux.
-# Usage : outdir=$(make_result_dir <fichier.b3>)
-make_result_dir() {
-  local b3file="$1"
-  local basename
-  basename=$(basename "$b3file" .b3)
-  local outdir="${RESULTATS_DIR}/resultats_${basename}"
-
-  if [ -d "$outdir" ]; then
-    outdir="${outdir}_$(date +%Y%m%d-%H%M%S)"
-  fi
-
-  mkdir -p "$outdir"
-  echo "$outdir"
-}
-
-# Produit les fichiers de résultats pour le mode verify.
-# Usage : run_verify <hashfile_absolu>
-run_verify() {
-  local hashfile="$1"
-  local outdir
-  outdir=$(make_result_dir "$hashfile")
-
-  local raw exit_code
-  raw=$(b3sum --check "$hashfile" 2>&1) && exit_code=0 || exit_code=$?
-
-  # Séparer les lignes OK, FAILED, et les erreurs b3sum (ni OK ni FAILED)
-  local lines_ok lines_failed lines_error
-  lines_ok=$(echo    "$raw" | grep ': OK$'     || true)
-  lines_failed=$(echo "$raw" | grep ': FAILED'  || true)
-  lines_error=$(echo  "$raw" | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
-
-  # Comptage robuste : grep -c '^' compte toutes les lignes non vides du flux
-  local nb_ok nb_failed
-  if [ -n "$lines_ok" ]; then
-    nb_ok=$(echo "$lines_ok" | grep -c '^')
-  else
-    nb_ok=0
-  fi
-  if [ -n "$lines_failed" ]; then
-    nb_failed=$(echo "$lines_failed" | grep -c '^')
-  else
-    nb_failed=0
-  fi
-
-  local statut
-  if [ -n "$lines_error" ]; then
-    statut="ERREUR"
-  elif (( nb_failed > 0 )); then
-    statut="ECHEC"
-  else
-    statut="OK"
-  fi
-
-  # ── recap.txt ────────────────────────────────────────────────────────────────
-  {
-    echo "════════════════════════════════════════"
-    echo "  STATUT : $statut"
-    echo "════════════════════════════════════════"
-    echo ""
-    echo "Commande  : integrity.sh verify $(basename "$hashfile")"
-    echo "Date      : $(date)"
-    echo "Base      : $hashfile"
-    echo ""
-    echo "OK        : $nb_ok"
-    if (( nb_failed > 0 )); then
-      echo "FAILED    : $nb_failed  ← voir failed.txt"
-    fi
-    if [ -n "$lines_error" ]; then
-      echo ""
-      echo "── Erreurs b3sum ──────────────────────"
-      echo "$lines_error"
-    fi
-  } > "${outdir}/recap.txt"
-
-  # ── failed.txt — créé uniquement si des échecs existent ───────────────────
-  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
-    {
-      echo "════════════════════════════════════════"
-      echo "  FICHIERS EN ECHEC"
-      echo "════════════════════════════════════════"
-      echo ""
-      if (( nb_failed > 0 )); then
-        echo "$lines_failed"
-      fi
-      if [ -n "$lines_error" ]; then
-        echo ""
-        echo "── Erreurs ────────────────────────────"
-        echo "$lines_error"
-      fi
-    } > "${outdir}/failed.txt"
-  else
-    rm -f "${outdir}/failed.txt"
-  fi
-
-  # ── Affichage terminal (supprimé si --quiet) ───────────────────────────────
-  if [ "$statut" = "OK" ]; then
-    say "Vérification OK — $nb_ok fichiers intègres."
-  else
-    say ""
-    say "████████████████████████████████████████"
-    if [ "$statut" = "ERREUR" ]; then
-      say "  ERREUR lors de la vérification"
-    else
-      say "  ECHEC : $nb_failed fichier(s) corrompu(s) ou manquant(s)"
-    fi
-    say "████████████████████████████████████████"
-    say ""
-    if (( nb_failed > 0 )); then say "$lines_failed"; fi
-    if [ -n "$lines_error" ]; then say "$lines_error"; fi
-    say ""
-  fi
-
-  say "Résultats dans : $outdir"
-  say "  recap.txt"
-  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
-    say "  failed.txt"
-  fi
-
-  # Propager l'échec au appelant en mode --quiet (utile pour CI)
-  return $exit_code
-}
-
-# Produit les fichiers de résultats pour le mode compare.
-# Usage : run_compare <ancienne.b3> <nouvelle.b3>
-run_compare() {
-  local old="$1"
-  local new="$2"
-  local outdir
-  outdir=$(make_result_dir "$old")
-
-  local tmp_old tmp_new
-  tmp_old=$(mktemp)
-  tmp_new=$(mktemp)
-
-  # Nettoyage garanti même en cas d'erreur intermédiaire
-  trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
-
-  # Convertit "hash  chemin" → "chemin\thash"
-  # substr(0,64) = hash fixe ; substr(67) = chemin (robuste aux espaces)
-  b3_to_path_hash() {
-    awk '{ print substr($0,67) "\t" substr($0,1,64) }' "$1" | sort -t $'\t' -k1,1
-  }
-
-  b3_to_path_hash "$old" > "$tmp_old"
-  b3_to_path_hash "$new" > "$tmp_new"
-
-  # modifies.b3 : présents dans les deux bases avec hash différent
-  # join sur champ 1 (chemin), compare champ 2 (hash)
-  join -t $'\t' -1 1 -2 1 "$tmp_old" "$tmp_new" \
-    | awk -F $'\t' '$2 != $3 { print $3 "  " $1 }' \
-    > "${outdir}/modifies.b3"
-
-  # disparus.txt : chemins dans A absents de B
-  comm -23 <(cut -f1 "$tmp_old") \
-           <(cut -f1 "$tmp_new") \
-    > "${outdir}/disparus.txt"
-
-  # nouveaux.txt : chemins dans B absents de A
-  comm -13 <(cut -f1 "$tmp_old") \
-           <(cut -f1 "$tmp_new") \
-    > "${outdir}/nouveaux.txt"
-
-  local nb_modifies nb_disparus nb_nouveaux
-  nb_modifies=$(wc -l < "${outdir}/modifies.b3")
-  nb_disparus=$(wc -l < "${outdir}/disparus.txt")
-  nb_nouveaux=$(wc -l < "${outdir}/nouveaux.txt")
-
-  # recap.txt
-  {
-    echo "Commande      : integrity.sh compare $(basename "$old") $(basename "$new")"
-    echo "Date          : $(date)"
-    echo "Ancienne base : $old"
-    echo "Nouvelle base : $new"
-    echo ""
-    echo "Modifiés      : $nb_modifies"
-    echo "Disparus      : $nb_disparus"
-    echo "Nouveaux      : $nb_nouveaux"
-  } > "${outdir}/recap.txt"
-
-  rm -f "$tmp_old" "$tmp_new"
-  trap - EXIT  # désarmer le trap après nettoyage explicite
-
-  say "Résultats enregistrés dans : $outdir"
-  say "  recap.txt     — modifiés: $nb_modifies, disparus: $nb_disparus, nouveaux: $nb_nouveaux"
-  say "  modifies.b3   — $nb_modifies fichiers"
-  say "  disparus.txt  — $nb_disparus fichiers"
-  say "  nouveaux.txt  — $nb_nouveaux fichiers"
-}
-
-# ── Dispatch ──────────────────────────────────────────────────────────────────
-
-case "$MODE" in
-  compute)
-    [ -n "$ARG2" ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3>"
-    [ -n "$ARG3" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3>"
-    [ ! -d "$ARG3" ] || die "compute : '$ARG3' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
-    assert_target_valid "$ARG2"
-    compute_with_progress "$ARG2" "$ARG3"
-    say "Base enregistrée : $ARG3 ($(wc -l < "$ARG3") fichiers)"
-    ;;
-
-  verify)
-    [ -n "$ARG2" ] || die "verify : fichier .b3 manquant.\nUsage : $0 verify <base.b3> [dossier]"
-    assert_b3_valid "$ARG2" "base"
-    # Résoudre le chemin absolu du .b3 AVANT tout cd
-    HASHFILE_ABS="$(cd "$(dirname "$ARG2")" && pwd)/$(basename "$ARG2")"
-    if [ -n "$ARG3" ]; then
-      [ -d "$ARG3" ] || die "verify : '$ARG3' n'est pas un dossier valide."
-      cd "$ARG3"
-    fi
-    run_verify "$HASHFILE_ABS"
-    ;;
-
-  compare)
-    [ -n "$ARG2" ] || die "compare : fichier ancienne base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
-    [ -n "$ARG3" ] || die "compare : fichier nouvelle base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
-    assert_b3_valid "$ARG2" "ancienne base"
-    assert_b3_valid "$ARG3" "nouvelle base"
-    run_compare "$ARG2" "$ARG3"
-    ;;
-
-  *)
-    echo "Usage:"
-    echo "  $0 [--quiet] compute <dossier> <base.b3>"
-    echo "  $0 [--quiet] verify  <base.b3> [dossier]"
-    echo "  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>"
-    echo ""
-    echo "Options:"
-    echo "  --quiet   Silencieux : écrit uniquement dans les fichiers de résultats."
-    exit 1
-    ;;
-esac
-
-
-
-
---- Fichier : pipeline full.json ---
-{
-    "pipeline": [
-
-        {
-            "op": "compute",
-            "source": "/mnt/a/dossier_disque_1",
-            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
-            "nom":    "hashes_dossier_1.b3"
-        },
-
-        {
-            "op": "compute",
-            "source": "/mnt/i/dossier_disque_2",
-            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
-            "nom":    "hashes_dossier_2.b3"
-        },
-
-        {
-            "op": "compute",
-            "source": "/mnt/h/dossier_disque_3",
-            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
-            "nom":    "hashes_dossier_3.b3"
-        },
-
-        {
-            "op":   "verify",
-            "source": "/mnt/a/dossier_disque_1",
-            "base": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
-        },
-
-        {
-            "op":     "compare",
-            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
-            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
-        }
-
-    ]
-}
-
---- Fichier : pipeline.json ---
-
-
-{
-    "pipeline": [
-
-        {
-            "op": "compute",
-            "source": "./mon_dossier/source",
-            "bases":  "./mon_dossier/bases",
-            "nom":    "hashes_dossier_1.b3"
-        },
-
-        {
-            "op": "compute",
-            "source": "./mon_dossier/destination",
-            "bases":  "./mon_dossier/bases",
-            "nom":    "hashes_dossier_2.b3"
-        },
-
-        {
-            "op":     "compare",
-            "base_a": "./mon_dossier/bases/hashes_dossier_1.b3",
-            "base_b": "./mon_dossier/bases/hashes_dossier_2.b3"
-        }
-
-    ]
-}
+- `run_tests.sh` : 15 cas T00–T14
+- `run_tests_pipeline.sh` : 13 cas TP01–TP12b (dont TP10b : champ `resultats` personnalisé)
+
+---
+
+## Arbre de décision
+
+| Situation | Commande |
+|---|---|
+| Première indexation | `compute` |
+| Vérifier après transfert / stockage | `verify` |
+| Comparer deux snapshots | `compare` |
+| Pipeline multi-dossiers / VeraCrypt | `runner.sh` + `pipeline.json` |
+| Contrôle ad hoc d'un fichier unique | `b3sum fichier.bin` |
+| Intégration CI/cron | `--quiet verify` |
 
 --- Fichier : runner.sh ---
 #!/usr/bin/env bash
 # runner.sh — Exécuteur de pipeline integrity.sh depuis pipeline.json
 #
 # Usage :
-#   ./runner.sh                   # lit pipeline.json dans le même dossier
-#   ./runner.sh /chemin/pipeline.json
+#   ./runner.sh                          # lit pipelines/pipeline.json
+#   ./runner.sh /chemin/pipeline.json    # config explicite
 #
-# Dépendances : bash >= 4, jq, integrity.sh (même dossier)
+# Dépendances : bash >= 4, jq, src/integrity.sh
 
 set -euo pipefail
 
 # ── Chemins ───────────────────────────────────────────────────────────────────
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INTEGRITY="$SCRIPT_DIR/integrity.sh"
-CONFIG="${1:-$SCRIPT_DIR/pipeline.json}"
+INTEGRITY="$SCRIPT_DIR/src/integrity.sh"
+CONFIG="${1:-$SCRIPT_DIR/pipelines/pipeline.json}"
 
 # ── Prérequis ─────────────────────────────────────────────────────────────────
 
 (( BASH_VERSINFO[0] >= 4 )) || { echo "ERREUR : bash >= 4 requis" >&2; exit 1; }
 
-command -v jq &>/dev/null    || { echo "ERREUR : jq non trouvé (apt install jq)" >&2; exit 1; }
-[ -f "$INTEGRITY" ]          || { echo "ERREUR : integrity.sh introuvable : $INTEGRITY" >&2; exit 1; }
-[ -f "$CONFIG" ]             || { echo "ERREUR : pipeline.json introuvable : $CONFIG" >&2; exit 1; }
+command -v jq &>/dev/null  || { echo "ERREUR : jq non trouvé (apt install jq)" >&2; exit 1; }
+[ -f "$INTEGRITY" ]        || { echo "ERREUR : src/integrity.sh introuvable : $INTEGRITY" >&2; exit 1; }
+[ -f "$CONFIG" ]           || { echo "ERREUR : config introuvable : $CONFIG" >&2; exit 1; }
 
 # ── Validation JSON ───────────────────────────────────────────────────────────
 
 jq empty "$CONFIG" 2>/dev/null || { echo "ERREUR : JSON invalide : $CONFIG" >&2; exit 1; }
 
-# Vérifier que .pipeline est un tableau non vide
 nb_ops=$(jq '.pipeline | length' "$CONFIG")
-(( nb_ops > 0 )) || { echo "ERREUR : pipeline.json — tableau .pipeline vide ou absent" >&2; exit 1; }
+(( nb_ops > 0 )) || { echo "ERREUR : tableau .pipeline vide ou absent" >&2; exit 1; }
 
-# ── Fonctions ─────────────────────────────────────────────────────────────────
+# ── Fonctions utilitaires ─────────────────────────────────────────────────────
 
 die() { echo "ERREUR : $*" >&2; exit 1; }
 
+# Lit un champ JSON obligatoire — exit si absent ou null
 require_field() {
-    local op_index="$1"
-    local field="$2"
-    local val
-    val=$(jq -r --argjson i "$op_index" '.pipeline[$i].'"$field" "$CONFIG")
-    [ "$val" != "null" ] && [ -n "$val" ] || die "Bloc #$((op_index+1)) : champ '$field' manquant ou vide."
-    echo "$val"
+  local idx="$1" field="$2"
+  local val
+  val=$(jq -r --argjson i "$idx" '.pipeline[$i].'"$field" "$CONFIG")
+  [ "$val" != "null" ] && [ -n "$val" ] || die "Bloc #$((idx+1)) : champ '$field' manquant ou vide."
+  echo "$val"
 }
 
+# Lit un champ JSON optionnel — retourne "" si absent
+optional_field() {
+  local idx="$1" field="$2"
+  local val
+  val=$(jq -r --argjson i "$idx" '.pipeline[$i].'"$field // empty" "$CONFIG" 2>/dev/null || true)
+  echo "${val:-}"
+}
+
+# ── Opérations ────────────────────────────────────────────────────────────────
+
 run_compute() {
-    local i="$1"
-    local source bases nom
-    source=$(require_field "$i" "source")
-    bases=$(require_field "$i" "bases")
-    nom=$(require_field "$i" "nom")
+  local i="$1"
+  local source bases nom
+  source=$(require_field "$i" "source")
+  bases=$(require_field "$i" "bases")
+  nom=$(require_field "$i" "nom")
 
-    echo "=== COMPUTE : $source ==="
-    [ -d "$source" ] || die "Bloc #$((i+1)) compute : dossier source introuvable : $source"
+  echo "=== COMPUTE : $source ==="
+  [ -d "$source" ] || die "Bloc #$((i+1)) compute : dossier source introuvable : $source"
 
-    mkdir -p "$bases"
-    cd "$source"
-    "$INTEGRITY" compute . "$bases/$nom"
+  mkdir -p "$bases"
+  local bases_abs
+  bases_abs="$(cd "$bases" && pwd)"
+  # Sous-shell : le cd ne fuite pas vers les blocs suivants
+  ( cd "$source" && "$INTEGRITY" compute . "$bases_abs/$nom" )
 }
 
 run_verify() {
-    local i="$1"
-    local source base
-    source=$(require_field "$i" "source")
-    base=$(require_field "$i" "base")
+  local i="$1"
+  local source base
+  source=$(require_field "$i" "source")
+  base=$(require_field "$i" "base")
 
-    echo "=== VERIFY : $source ==="
-    [ -d "$source" ] || die "Bloc #$((i+1)) verify : dossier source introuvable : $source"
-    [ -f "$base" ]   || die "Bloc #$((i+1)) verify : base .b3 introuvable : $base"
+  echo "=== VERIFY : $source ==="
+  [ -d "$source" ] || die "Bloc #$((i+1)) verify : dossier source introuvable : $source"
+  [ -f "$base" ]   || die "Bloc #$((i+1)) verify : base .b3 introuvable : $base"
 
-    cd "$source"
-    "$INTEGRITY" verify "$base"
+  local base_abs
+  base_abs="$(cd "$(dirname "$base")" && pwd)/$(basename "$base")"
+  ( cd "$source" && "$INTEGRITY" verify "$base_abs" )
 }
 
 run_compare() {
-    local i="$1"
-    local base_a base_b
-    base_a=$(require_field "$i" "base_a")
-    base_b=$(require_field "$i" "base_b")
+  local i="$1"
+  local base_a base_b
+  base_a=$(require_field "$i" "base_a")
+  base_b=$(require_field "$i" "base_b")
 
-    echo "=== COMPARE : $(basename "$base_a") vs $(basename "$base_b") ==="
-    [ -f "$base_a" ] || die "Bloc #$((i+1)) compare : base_a introuvable : $base_a"
-    [ -f "$base_b" ] || die "Bloc #$((i+1)) compare : base_b introuvable : $base_b"
+  echo "=== COMPARE : $(basename "$base_a") vs $(basename "$base_b") ==="
+  [ -f "$base_a" ] || die "Bloc #$((i+1)) compare : base_a introuvable : $base_a"
+  [ -f "$base_b" ] || die "Bloc #$((i+1)) compare : base_b introuvable : $base_b"
 
+  # Champ optionnel "resultats" : surcharge RESULTATS_DIR pour ce bloc uniquement
+  local resultats_dir
+  resultats_dir=$(optional_field "$i" "resultats")
+
+  if [ -n "$resultats_dir" ]; then
+    mkdir -p "$resultats_dir"
+    local resultats_abs
+    resultats_abs="$(cd "$resultats_dir" && pwd)"
+    echo "    → résultats dans : $resultats_abs"
+    RESULTATS_DIR="$resultats_abs" "$INTEGRITY" compare "$base_a" "$base_b"
+  else
     "$INTEGRITY" compare "$base_a" "$base_b"
+  fi
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -1028,17 +691,17 @@ echo "=== Config : $CONFIG ($nb_ops opération(s)) ==="
 echo ""
 
 for (( i=0; i<nb_ops; i++ )); do
-    op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
-    [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
+  op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
+  [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
 
-    case "$op" in
-        compute) run_compute "$i" ;;
-        verify)  run_verify  "$i" ;;
-        compare) run_compare "$i" ;;
-        *)       die "Bloc #$((i+1)) : opération inconnue : '$op'" ;;
-    esac
+  case "$op" in
+    compute) run_compute "$i" ;;
+    verify)  run_verify  "$i" ;;
+    compare) run_compare "$i" ;;
+    *)       die "Bloc #$((i+1)) : opération inconnue : '$op'" ;;
+  esac
 
-    echo ""
+  echo ""
 done
 
 echo "=== PIPELINE TERMINÉ : $(date) ==="
@@ -1072,6 +735,713 @@ It is a long established fact that a reader will be distracted by the readable c
 
 
 
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/disparus.txt ---
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/nouveaux.txt ---
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/recap.txt ---
+Commande      : integrity.sh compare hashes_dossier_1.b3 hashes_dossier_2.b3
+Date          : dim. 22 févr. 2026 10:06:13 CET
+Ancienne base : ./mon_dossier/bases/hashes_dossier_1.b3
+Nouvelle base : ./mon_dossier/bases/hashes_dossier_2.b3
+
+Modifiés      : 1
+Disparus      : 0
+Nouveaux      : 0
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/report.html ---
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport — hashes_dossier_1.b3 vs hashes_dossier_2.b3</title>
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────── */
+    :root {
+      --bg:          #0f1117;
+      --bg-card:     #161b27;
+      --bg-card-alt: #1c2233;
+      --border:      #252d3f;
+      --border-glow: #2e3d5a;
+      --text:        #c8d4e8;
+      --text-dim:    #5a6a85;
+      --text-head:   #e8eef8;
+      --mono:        'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --sans:        'DM Sans', 'Outfit', system-ui, sans-serif;
+      --accent-ok:   #22c55e;
+      --accent-diff: #f59e0b;
+      --accent-mod:  #e879f9;
+      --accent-dis:  #f87171;
+      --accent-nou:  #34d399;
+      --radius:      8px;
+      --radius-lg:   14px;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 0 0 64px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    .header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header-left h1 {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .bases-compare {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .base-name {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-head);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius);
+      padding: 5px 12px;
+    }
+
+    .arrow {
+      color: var(--text-dim);
+      font-size: 16px;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 10px;
+      font-family: var(--mono);
+    }
+
+    /* ── Status badge ─────────────────────────────────────────────── */
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      border: 1px solid;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
+    .status-ok   { color: var(--accent-ok);   border-color: var(--accent-ok);   background: rgba(34,197,94,.08);  }
+    .status-diff { color: var(--accent-diff);  border-color: var(--accent-diff); background: rgba(245,158,11,.08); }
+
+    /* ── Stats bar ────────────────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      background: var(--bg-card);
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .stat-modifies .stat-value { color: var(--accent-mod); }
+    .stat-disparus .stat-value { color: var(--accent-dis); }
+    .stat-nouveaux .stat-value { color: var(--accent-nou); }
+
+    /* ── Sections ─────────────────────────────────────────────────── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 40px 0;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .section-modifies .section-dot { background: var(--accent-mod); }
+    .section-disparus .section-dot { background: var(--accent-dis); }
+    .section-nouveaux .section-dot { background: var(--accent-nou); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-head);
+    }
+
+    .section-count {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 2px 10px;
+    }
+
+    .section-body {
+      padding: 16px 20px;
+    }
+
+    .section-body ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .section-body li {
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      background: var(--bg-card-alt);
+      border: 1px solid transparent;
+      transition: border-color .15s;
+    }
+
+    .section-body li:hover {
+      border-color: var(--border-glow);
+    }
+
+    .section-body code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .empty {
+      font-style: italic;
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding-top: 40px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 680px) {
+      .header        { padding: 20px; flex-direction: column; }
+      .stats-bar     { grid-template-columns: 1fr; }
+      .main          { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <h1>Rapport de comparaison — hash_tool</h1>
+      <div class="bases-compare">
+        <span class="base-name">hashes_dossier_1.b3</span>
+        <span class="arrow">→</span>
+        <span class="base-name">hashes_dossier_2.b3</span>
+      </div>
+      <div class="meta">Généré le 2026-02-22 10:06:13</div>
+    </div>
+    <div class="status-badge status-diff">DIFFÉRENCES DÉTECTÉES</div>
+  </header>
+
+  <!-- ── Compteurs ────────────────────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat stat-modifies">
+      <span class="stat-label">Modifiés</span>
+      <span class="stat-value">1</span>
+    </div>
+    <div class="stat stat-disparus">
+      <span class="stat-label">Disparus</span>
+      <span class="stat-value">0</span>
+    </div>
+    <div class="stat stat-nouveaux">
+      <span class="stat-label">Nouveaux</span>
+      <span class="stat-value">0</span>
+    </div>
+  </div>
+
+  <!-- ── Listes ───────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="section section-modifies">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers modifiés</span>
+        <span class="section-count">1</span>
+      </div>
+      <div class="section-body">
+    <ul>
+      <li><code>./fichier (1).txt</code></li>
+    </ul>
+      </div>
+    </div>
+
+    <div class="section section-disparus">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers disparus</span>
+        <span class="section-count">0</span>
+      </div>
+      <div class="section-body">
+    <p class="empty">Aucun fichier disparu</p>
+      </div>
+    </div>
+
+    <div class="section section-nouveaux">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Nouveaux fichiers</span>
+        <span class="section-count">0</span>
+      </div>
+      <div class="section-body">
+    <p class="empty">Aucun nouveau fichier</p>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    integrity.sh · BLAKE3 · 2026-02-22 10:06:13
+  </footer>
+
+</body>
+</html>
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1/disparus.txt ---
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1/nouveaux.txt ---
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1/recap.txt ---
+Commande      : integrity.sh compare hashes_dossier_1.b3 hashes_dossier_2.b3
+Date          : dim. 22 févr. 2026 10:05:31 CET
+Ancienne base : ./mon_dossier/bases/hashes_dossier_1.b3
+Nouvelle base : ./mon_dossier/bases/hashes_dossier_2.b3
+
+Modifiés      : 4
+Disparus      : 0
+Nouveaux      : 0
+
+
+--- Fichier : mon_dossier/result/resultats_hashes_dossier_1/report.html ---
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport — hashes_dossier_1.b3 vs hashes_dossier_2.b3</title>
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────── */
+    :root {
+      --bg:          #0f1117;
+      --bg-card:     #161b27;
+      --bg-card-alt: #1c2233;
+      --border:      #252d3f;
+      --border-glow: #2e3d5a;
+      --text:        #c8d4e8;
+      --text-dim:    #5a6a85;
+      --text-head:   #e8eef8;
+      --mono:        'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --sans:        'DM Sans', 'Outfit', system-ui, sans-serif;
+      --accent-ok:   #22c55e;
+      --accent-diff: #f59e0b;
+      --accent-mod:  #e879f9;
+      --accent-dis:  #f87171;
+      --accent-nou:  #34d399;
+      --radius:      8px;
+      --radius-lg:   14px;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 0 0 64px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    .header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header-left h1 {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .bases-compare {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .base-name {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-head);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius);
+      padding: 5px 12px;
+    }
+
+    .arrow {
+      color: var(--text-dim);
+      font-size: 16px;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 10px;
+      font-family: var(--mono);
+    }
+
+    /* ── Status badge ─────────────────────────────────────────────── */
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      border: 1px solid;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
+    .status-ok   { color: var(--accent-ok);   border-color: var(--accent-ok);   background: rgba(34,197,94,.08);  }
+    .status-diff { color: var(--accent-diff);  border-color: var(--accent-diff); background: rgba(245,158,11,.08); }
+
+    /* ── Stats bar ────────────────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      background: var(--bg-card);
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .stat-modifies .stat-value { color: var(--accent-mod); }
+    .stat-disparus .stat-value { color: var(--accent-dis); }
+    .stat-nouveaux .stat-value { color: var(--accent-nou); }
+
+    /* ── Sections ─────────────────────────────────────────────────── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 40px 0;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .section-modifies .section-dot { background: var(--accent-mod); }
+    .section-disparus .section-dot { background: var(--accent-dis); }
+    .section-nouveaux .section-dot { background: var(--accent-nou); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-head);
+    }
+
+    .section-count {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 2px 10px;
+    }
+
+    .section-body {
+      padding: 16px 20px;
+    }
+
+    .section-body ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .section-body li {
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      background: var(--bg-card-alt);
+      border: 1px solid transparent;
+      transition: border-color .15s;
+    }
+
+    .section-body li:hover {
+      border-color: var(--border-glow);
+    }
+
+    .section-body code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .empty {
+      font-style: italic;
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding-top: 40px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 680px) {
+      .header        { padding: 20px; flex-direction: column; }
+      .stats-bar     { grid-template-columns: 1fr; }
+      .main          { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <h1>Rapport de comparaison — hash_tool</h1>
+      <div class="bases-compare">
+        <span class="base-name">hashes_dossier_1.b3</span>
+        <span class="arrow">→</span>
+        <span class="base-name">hashes_dossier_2.b3</span>
+      </div>
+      <div class="meta">Généré le 2026-02-22 10:05:32</div>
+    </div>
+    <div class="status-badge status-diff">DIFFÉRENCES DÉTECTÉES</div>
+  </header>
+
+  <!-- ── Compteurs ────────────────────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat stat-modifies">
+      <span class="stat-label">Modifiés</span>
+      <span class="stat-value">4</span>
+    </div>
+    <div class="stat stat-disparus">
+      <span class="stat-label">Disparus</span>
+      <span class="stat-value">0</span>
+    </div>
+    <div class="stat stat-nouveaux">
+      <span class="stat-label">Nouveaux</span>
+      <span class="stat-value">0</span>
+    </div>
+  </div>
+
+  <!-- ── Listes ───────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="section section-modifies">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers modifiés</span>
+        <span class="section-count">4</span>
+      </div>
+      <div class="section-body">
+    <ul>
+      <li><code>./fichier (1).txt</code></li>
+      <li><code>./fichier (1).txt</code></li>
+      <li><code>./fichier (1).txt</code></li>
+      <li><code>./fichier (1).txt</code></li>
+    </ul>
+      </div>
+    </div>
+
+    <div class="section section-disparus">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers disparus</span>
+        <span class="section-count">0</span>
+      </div>
+      <div class="section-body">
+    <p class="empty">Aucun fichier disparu</p>
+      </div>
+    </div>
+
+    <div class="section section-nouveaux">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Nouveaux fichiers</span>
+        <span class="section-count">0</span>
+      </div>
+      <div class="section-body">
+    <p class="empty">Aucun nouveau fichier</p>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    integrity.sh · BLAKE3 · 2026-02-22 10:05:32
+  </footer>
+
+</body>
+</html>
+
+
 --- Fichier : mon_dossier/source/fichier (1).txt ---
 Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
 
@@ -1097,97 +1467,63 @@ It is a long established fact that a reader will be distracted by the readable c
 --- Fichier : tests/run_tests.sh ---
 #!/usr/bin/env bash
 # run_tests.sh — suite de tests automatisée pour integrity.sh
-# Usage : ./run_tests.sh
-# Prérequis : b3sum, stat, du installés ; integrity.sh dans le dossier parent
+# Usage    : cd tests && ./run_tests.sh
+# Prérequis: b3sum, stat, du ; integrity.sh dans ../src/
 
 set -euo pipefail
 
-# ── Configuration ─────────────────────────────────────────────────────────────
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INTEGRITY="$SCRIPT_DIR/../integrity.sh"
+INTEGRITY="$SCRIPT_DIR/../src/integrity.sh"
 WORKDIR="$(mktemp -d /tmp/integrity-test.XXXXXX)"
-
-# Rediriger les résultats dans le WORKDIR pour les tests
 export RESULTATS_DIR="$WORKDIR/resultats"
-
-# ── Couleurs ──────────────────────────────────────────────────────────────────
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# ── Compteurs ─────────────────────────────────────────────────────────────────
-
-PASS=0
-FAIL=0
-TOTAL=0
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
+PASS=0; FAIL=0; TOTAL=0
 
 pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
 fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
 
-assert_exit_zero() {
-  local label="$1"; shift
-  if "$@" > /dev/null 2>&1; then pass "$label"; else fail "$label"; fi
-}
-
-assert_exit_nonzero() {
-  local label="$1"; shift
-  if ! "$@" > /dev/null 2>&1; then pass "$label"; else fail "$label"; fi
-}
+assert_exit_zero()    { local l="$1"; shift; if "$@" >/dev/null 2>&1;  then pass "$l"; else fail "$l"; fi; }
+assert_exit_nonzero() { local l="$1"; shift; if ! "$@" >/dev/null 2>&1; then pass "$l"; else fail "$l"; fi; }
 
 assert_contains() {
-  local label="$1"
-  local pattern="$2"
-  local output="$3"
+  local label="$1" pattern="$2" output="$3"
   if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label (pattern: '$pattern' absent)"; fi
 }
 
 assert_not_contains() {
-  local label="$1"
-  local pattern="$2"
-  local output="$3"
-  if ! echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label (pattern: '$pattern' présent mais ne devrait pas l'être)"; fi
+  local label="$1" pattern="$2" output="$3"
+  if ! echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label (pattern: '$pattern' présent à tort)"; fi
 }
 
 assert_line_count() {
-  local label="$1"
-  local expected="$2"
-  local file="$3"
-  local actual
-  actual=$(wc -l < "$file")
-  if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label (attendu: $expected lignes, obtenu: $actual)"; fi
+  local label="$1" expected="$2" file="$3"
+  local actual; actual=$(wc -l < "$file")
+  if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label (attendu: $expected, obtenu: $actual)"; fi
 }
 
 assert_file_exists() {
-  local label="$1"
-  local file="$2"
-  if [ -f "$file" ]; then pass "$label"; else fail "$label (fichier absent : $file)"; fi
+  local label="$1" file="$2"
+  if [ -f "$file" ]; then pass "$label"; else fail "$label (absent : $file)"; fi
 }
 
 assert_file_absent() {
-  local label="$1"
-  local file="$2"
-  if [ ! -f "$file" ]; then pass "$label"; else fail "$label (fichier présent à tort : $file)"; fi
+  local label="$1" file="$2"
+  if [ ! -f "$file" ]; then pass "$label"; else fail "$label (présent à tort : $file)"; fi
 }
-
-# ── Setup ─────────────────────────────────────────────────────────────────────
 
 setup() {
   mkdir -p "$WORKDIR/data/sub"
-  echo "contenu alpha"  > "$WORKDIR/data/alpha.txt"
-  echo "contenu beta"   > "$WORKDIR/data/beta.txt"
-  echo "contenu gamma"  > "$WORKDIR/data/gamma.txt"
-  echo "contenu delta"  > "$WORKDIR/data/sub/delta.txt"
+  echo "contenu alpha" > "$WORKDIR/data/alpha.txt"
+  echo "contenu beta"  > "$WORKDIR/data/beta.txt"
+  echo "contenu gamma" > "$WORKDIR/data/gamma.txt"
+  echo "contenu delta" > "$WORKDIR/data/sub/delta.txt"
 }
 
-teardown() {
-  rm -rf "$WORKDIR"
-}
-
-# ── Tests ─────────────────────────────────────────────────────────────────────
+teardown() { rm -rf "$WORKDIR"; }
 
 run_tests() {
   cd "$WORKDIR"
@@ -1199,235 +1535,156 @@ run_tests() {
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
 
-  # ── T00 : ShellCheck ──────────────────────────────────────────────────────
   echo "T00 — ShellCheck"
-  if command -v shellcheck &> /dev/null; then
-    assert_exit_zero "ShellCheck integrity.sh" shellcheck "$INTEGRITY"
-    assert_exit_zero "ShellCheck run_tests.sh" shellcheck "$0"
+  if command -v shellcheck &>/dev/null; then
+    assert_exit_zero "ShellCheck integrity.sh"  shellcheck "$INTEGRITY"
+    assert_exit_zero "ShellCheck run_tests.sh"  shellcheck "$0"
   else
-    echo "  SKIP — shellcheck non installé (apt install shellcheck)"
+    echo "  SKIP — shellcheck non installé"
   fi
   echo ""
 
-  # ── T01 : Compute de base ─────────────────────────────────────────────────
   echo "T01 — Compute de base"
-  bash "$INTEGRITY" compute ./data base_t01.b3 > /dev/null 2>&1
+  bash "$INTEGRITY" compute ./data base_t01.b3 >/dev/null 2>&1
   assert_line_count "base_t01.b3 contient 4 lignes" 4 base_t01.b3
-
-  local first_line
-  first_line=$(head -1 base_t01.b3)
-  assert_contains "ligne au format <hash>  <chemin>" "  ./data/" "$first_line"
+  assert_contains   "format <hash>  <chemin>"       "  ./data/" "$(head -1 base_t01.b3)"
   echo ""
 
-  # ── T02 : Verify sans modification ───────────────────────────────────────
   echo "T02 — Verify sans modification"
-  local out_t02
-  out_t02=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
-  assert_not_contains "aucun FAILED dans terminal" "FAILED" "$out_t02"
-  assert_contains     "terminal indique OK"        "OK"     "$out_t02"
-
-  local outdir_t02
-  outdir_t02=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
-  assert_file_exists "recap.txt créé"   "${outdir_t02}/recap.txt"
-  assert_contains    "recap contient OK" "OK" "$(cat "${outdir_t02}/recap.txt")"
-  assert_file_absent "failed.txt absent si 0 échec" "${outdir_t02}/failed.txt"
+  local out_t02; out_t02=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  assert_not_contains "aucun FAILED" "FAILED" "$out_t02"
+  assert_contains     "terminal OK"  "OK"     "$out_t02"
+  local outdir_t02; outdir_t02=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
+  assert_file_exists  "recap.txt créé"              "${outdir_t02}/recap.txt"
+  assert_file_absent  "failed.txt absent si 0 échec" "${outdir_t02}/failed.txt"
   echo ""
 
-  # ── T03 : Verify après corruption ────────────────────────────────────────
-  echo "T03 — Verify après corruption d'un fichier"
+  echo "T03 — Verify après corruption"
   echo "contenu modifié" > data/beta.txt
-  local out_t03
-  out_t03=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
-  assert_contains "terminal affiche bloc ECHEC"    "ECHEC"   "$out_t03"
-  assert_contains "terminal liste beta.txt FAILED" "FAILED"  "$out_t03"
-
-  local outdir_t03
-  outdir_t03=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
-  assert_file_exists "failed.txt créé"              "${outdir_t03}/failed.txt"
-  assert_contains    "failed.txt contient beta.txt" "beta.txt" "$(cat "${outdir_t03}/failed.txt")"
-  assert_contains    "recap indique FAILED > 0"     "FAILED"   "$(cat "${outdir_t03}/recap.txt")"
-  # Restauration
+  local out_t03; out_t03=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  assert_contains "ECHEC affiché"    "ECHEC"   "$out_t03"
+  assert_contains "beta.txt FAILED"  "FAILED"  "$out_t03"
+  local outdir_t03; outdir_t03=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
+  assert_file_exists "failed.txt créé"    "${outdir_t03}/failed.txt"
+  assert_contains    "failed.txt beta"    "beta.txt" "$(cat "${outdir_t03}/failed.txt")"
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  # ── T04 : Verify après suppression ───────────────────────────────────────
-  echo "T04 — Verify après suppression d'un fichier"
+  echo "T04 — Verify après suppression"
   rm data/gamma.txt
-  local out_t04
-  out_t04=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
+  local out_t04; out_t04=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
   assert_contains "gamma.txt FAILED" "FAILED" "$out_t04"
-  # Restauration
   echo "contenu gamma" > data/gamma.txt
   echo ""
 
-  # ── T05 : Compare — aucune différence ────────────────────────────────────
   echo "T05 — Compare : aucune différence"
-  bash "$INTEGRITY" compute ./data base_t05.b3 > /dev/null 2>&1
-  bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 > /dev/null 2>&1
-
-  local outdir_t05
-  outdir_t05=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
-  assert_file_exists "recap.txt créé"    "${outdir_t05}/recap.txt"
-  assert_file_exists "modifies.b3 créé"  "${outdir_t05}/modifies.b3"
-  assert_file_exists "disparus.txt créé" "${outdir_t05}/disparus.txt"
-  assert_file_exists "nouveaux.txt créé" "${outdir_t05}/nouveaux.txt"
-  assert_line_count  "modifies.b3 vide"  0 "${outdir_t05}/modifies.b3"
-  assert_line_count  "disparus.txt vide" 0 "${outdir_t05}/disparus.txt"
-  assert_line_count  "nouveaux.txt vide" 0 "${outdir_t05}/nouveaux.txt"
+  bash "$INTEGRITY" compute ./data base_t05.b3 >/dev/null 2>&1
+  bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 >/dev/null 2>&1
+  local outdir_t05; outdir_t05=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
+  assert_file_exists "recap.txt"    "${outdir_t05}/recap.txt"
+  assert_file_exists "modifies.b3"  "${outdir_t05}/modifies.b3"
+  assert_file_exists "report.html"  "${outdir_t05}/report.html"
+  assert_line_count  "modifies vide" 0 "${outdir_t05}/modifies.b3"
+  assert_line_count  "disparus vide" 0 "${outdir_t05}/disparus.txt"
+  assert_line_count  "nouveaux vide" 0 "${outdir_t05}/nouveaux.txt"
   echo ""
 
-  # ── T06 : Compare — fichier modifié ──────────────────────────────────────
   echo "T06 — Compare : fichier modifié"
   echo "contenu beta modifié" > data/beta.txt
-  bash "$INTEGRITY" compute ./data base_t06.b3 > /dev/null 2>&1
-  bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 > /dev/null 2>&1
-
-  local outdir_t06
-  outdir_t06=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
-  assert_contains "modifies.b3 contient beta.txt" "beta.txt" "$(cat "${outdir_t06}/modifies.b3")"
-  # Restauration
+  bash "$INTEGRITY" compute ./data base_t06.b3 >/dev/null 2>&1
+  bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 >/dev/null 2>&1
+  local outdir_t06; outdir_t06=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
+  assert_contains "modifies contient beta" "beta.txt" "$(cat "${outdir_t06}/modifies.b3")"
+  assert_file_exists "report.html généré" "${outdir_t06}/report.html"
+  assert_contains    "report.html contient beta" "beta" "$(cat "${outdir_t06}/report.html")"
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  # ── T07 : Compare — suppression + ajout ──────────────────────────────────
-  echo "T07 — Compare : fichier supprimé + fichier ajouté"
-  bash "$INTEGRITY" compute ./data base_t07_old.b3 > /dev/null 2>&1
+  echo "T07 — Compare : suppression + ajout"
+  bash "$INTEGRITY" compute ./data base_t07_old.b3 >/dev/null 2>&1
   rm data/alpha.txt
   echo "contenu epsilon" > data/epsilon.txt
-  bash "$INTEGRITY" compute ./data base_t07_new.b3 > /dev/null 2>&1
-  bash "$INTEGRITY" compare base_t07_old.b3 base_t07_new.b3 > /dev/null 2>&1
-
-  local outdir_t07
-  outdir_t07=$(ls -d "${RESULTATS_DIR}/resultats_base_t07_old"* 2>/dev/null | tail -1)
-  assert_contains "disparus.txt contient alpha.txt"   "alpha.txt"   "$(cat "${outdir_t07}/disparus.txt")"
-  assert_contains "nouveaux.txt contient epsilon.txt" "epsilon.txt" "$(cat "${outdir_t07}/nouveaux.txt")"
-  # Restauration
+  bash "$INTEGRITY" compute ./data base_t07_new.b3 >/dev/null 2>&1
+  bash "$INTEGRITY" compare base_t07_old.b3 base_t07_new.b3 >/dev/null 2>&1
+  local outdir_t07; outdir_t07=$(ls -d "${RESULTATS_DIR}/resultats_base_t07_old"* 2>/dev/null | tail -1)
+  assert_contains "disparus alpha"   "alpha.txt"   "$(cat "${outdir_t07}/disparus.txt")"
+  assert_contains "nouveaux epsilon" "epsilon.txt" "$(cat "${outdir_t07}/nouveaux.txt")"
   echo "contenu alpha" > data/alpha.txt
   rm data/epsilon.txt
   echo ""
 
-  # ── T08 : Noms de fichiers avec espaces ───────────────────────────────────
-  echo "T08 — Robustesse : nom de fichier avec espace"
-  echo "contenu avec espace" > "data/fichier avec espace.txt"
-  bash "$INTEGRITY" compute ./data base_t08.b3 > /dev/null 2>&1
-  local out_t08
-  out_t08=$(bash "$INTEGRITY" verify base_t08.b3 2>&1 || true)
+  echo "T08 — Robustesse : fichier avec espace"
+  echo "contenu espace" > "data/fichier avec espace.txt"
+  bash "$INTEGRITY" compute ./data base_t08.b3 >/dev/null 2>&1
+  local out_t08; out_t08=$(bash "$INTEGRITY" verify base_t08.b3 2>&1 || true)
   assert_not_contains "aucun FAILED" "FAILED" "$out_t08"
   rm "data/fichier avec espace.txt"
   echo ""
 
-  # ── T09 : Dossier vide ignoré (limite documentée) ─────────────────────────
   echo "T09 — Limite : dossier vide ignoré"
   mkdir data/dossier_vide
-  bash "$INTEGRITY" compute ./data base_t09.b3 > /dev/null 2>&1
-  assert_not_contains "dossier_vide absent de la base" "dossier_vide" "$(cat base_t09.b3)"
-  pass "comportement conforme à la documentation"
+  bash "$INTEGRITY" compute ./data base_t09.b3 >/dev/null 2>&1
+  assert_not_contains "dossier_vide absent" "dossier_vide" "$(cat base_t09.b3)"
+  pass "comportement conforme"
   rmdir data/dossier_vide
   echo ""
 
-  # ── T10 : Chemin absolu vs relatif ───────────────────────────────────────
   echo "T10 — Chemin absolu vs relatif"
   find "$WORKDIR/data" -type f -print0 | sort -z | xargs -0 b3sum > base_absolu.b3
   find ./data          -type f -print0 | sort -z | xargs -0 b3sum > base_relatif.b3
-  local first_abs first_rel
-  first_abs=$(head -1 base_absolu.b3)
-  first_rel=$(head -1 base_relatif.b3)
-  assert_contains     "base absolue contient un chemin absolu"   "  /" "$first_abs"
-  assert_contains     "base relative contient un chemin relatif" "\./data/" "$first_rel"
-  assert_not_contains "bases non interchangeables" "$first_abs" "$first_rel"
+  assert_contains     "base absolue → chemin absolu"   "  /"      "$(head -1 base_absolu.b3)"
+  assert_contains     "base relative → chemin relatif" "\./data/" "$(head -1 base_relatif.b3)"
+  assert_not_contains "bases non interchangeables"     "$(head -1 base_absolu.b3)" "$(head -1 base_relatif.b3)"
   echo ""
 
-  # ── T11 : compute_with_progress — intégrité de la base produite ───────────
-  echo "T11 — ETA : la base produite est identique à une base de référence"
+  echo "T11 — ETA : base identique à référence"
   find ./data -type f -print0 | sort -z | xargs -0 b3sum > base_ref.b3
-  bash "$INTEGRITY" compute ./data base_eta.b3 > /dev/null 2>&1
-  assert_exit_zero    "base ETA identique à la base de référence" diff base_ref.b3 base_eta.b3
-  assert_not_contains "aucune ligne ETA dans la base"             "ETA"  "$(cat base_eta.b3)"
-  assert_not_contains "aucun caractère de contrôle dans la base"  $'\r'  "$(cat base_eta.b3)"
+  bash "$INTEGRITY" compute ./data base_eta.b3 >/dev/null 2>&1
+  assert_exit_zero    "base ETA == référence" diff base_ref.b3 base_eta.b3
+  assert_not_contains "pas de ligne ETA"      "ETA" "$(cat base_eta.b3)"
+  assert_not_contains "pas de \\r"            $'\r' "$(cat base_eta.b3)"
   echo ""
 
-  # ── T12 : Mode --quiet ────────────────────────────────────────────────────
-  echo "T12 — Mode --quiet : aucune sortie terminal"
-  bash "$INTEGRITY" compute ./data base_t12.b3 > /dev/null 2>&1
+  echo "T12 — Mode --quiet"
+  bash "$INTEGRITY" compute ./data base_t12.b3 >/dev/null 2>&1
+  local out_quiet_ok; out_quiet_ok=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
+  assert_not_contains "--quiet OK : pas de stdout" "OK"        "$out_quiet_ok"
+  assert_not_contains "--quiet OK : pas de stdout" "Résultats" "$out_quiet_ok"
+  local outdir_t12; outdir_t12=$(ls -d "${RESULTATS_DIR}/resultats_base_t12"* 2>/dev/null | tail -1)
+  assert_file_exists  "recap.txt produit --quiet" "${outdir_t12}/recap.txt"
 
-  local out_quiet_ok
-  out_quiet_ok=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
-  assert_not_contains "--quiet verify OK : stdout vide" "OK"   "$out_quiet_ok"
-  assert_not_contains "--quiet verify OK : stdout vide" "Résultats" "$out_quiet_ok"
-
-  # Vérifier que les fichiers de résultats sont bien produits malgré --quiet
-  local outdir_t12
-  outdir_t12=$(ls -d "${RESULTATS_DIR}/resultats_base_t12"* 2>/dev/null | tail -1)
-  assert_file_exists "recap.txt produit en mode --quiet" "${outdir_t12}/recap.txt"
-
-  # --quiet avec échec : stdout toujours vide, fichiers produits, exit code non nul
   echo "contenu corrompu" > data/beta.txt
-  local out_quiet_fail exit_quiet
-  out_quiet_fail=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
-  bash "$INTEGRITY" --quiet verify base_t12.b3 > /dev/null 2>&1 && exit_quiet=0 || exit_quiet=$?
-  assert_not_contains "--quiet verify ECHEC : stdout vide" "ECHEC"  "$out_quiet_fail"
-  assert_not_contains "--quiet verify ECHEC : stdout vide" "FAILED" "$out_quiet_fail"
-
-  local outdir_t12b
-  outdir_t12b=$(ls -d "${RESULTATS_DIR}/resultats_base_t12"* 2>/dev/null | tail -1)
-  assert_file_exists "failed.txt produit en mode --quiet" "${outdir_t12b}/failed.txt"
-
-  if (( exit_quiet != 0 )); then
-    pass "--quiet propage l'exit code non nul sur échec"
-  else
-    fail "--quiet propage l'exit code non nul sur échec (exit_quiet=$exit_quiet)"
-  fi
-
-  # Restauration
+  local exit_quiet; bash "$INTEGRITY" --quiet verify base_t12.b3 >/dev/null 2>&1 && exit_quiet=0 || exit_quiet=$?
+  if (( exit_quiet != 0 )); then pass "--quiet propage exit code"; else fail "--quiet propage exit code"; fi
   echo "contenu beta" > data/beta.txt
 
-  # --quiet compute : pas de sortie progression
-  local out_quiet_compute
-  out_quiet_compute=$(bash "$INTEGRITY" --quiet compute ./data base_t12c.b3 2>&1 || true)
-  assert_not_contains "--quiet compute : stdout vide" "Base enregistrée" "$out_quiet_compute"
-  assert_not_contains "--quiet compute : pas d'ETA"   "ETA"              "$out_quiet_compute"
+  local out_quiet_cmp; out_quiet_cmp=$(bash "$INTEGRITY" --quiet compute ./data base_t12c.b3 2>&1 || true)
+  assert_not_contains "--quiet compute : pas de stdout" "Base enregistrée" "$out_quiet_cmp"
   echo ""
 
-  # ── T13 : Horodatage make_result_dir — pas d'écrasement ──────────────────
-  echo "T13 — Horodatage : deux exécutions successives sur la même base"
-  bash "$INTEGRITY" compute ./data base_t13.b3 > /dev/null 2>&1
-  bash "$INTEGRITY" verify base_t13.b3 > /dev/null 2>&1 || true
+  echo "T13 — Horodatage anti-écrasement"
+  bash "$INTEGRITY" compute ./data base_t13.b3 >/dev/null 2>&1
+  bash "$INTEGRITY" verify base_t13.b3 >/dev/null 2>&1 || true
   sleep 1
-  bash "$INTEGRITY" verify base_t13.b3 > /dev/null 2>&1 || true
-  local nb_resultats
-  nb_resultats=$(ls -d "${RESULTATS_DIR}/resultats_base_t13"* 2>/dev/null | wc -l)
-  if (( nb_resultats >= 2 )); then
-    pass "deux dossiers distincts créés (pas d'écrasement)"
-  else
-    fail "écrasement détecté : $nb_resultats dossier(s) au lieu de >= 2"
-  fi
+  bash "$INTEGRITY" verify base_t13.b3 >/dev/null 2>&1 || true
+  local nb_r; nb_r=$(ls -d "${RESULTATS_DIR}/resultats_base_t13"* 2>/dev/null | wc -l)
+  if (( nb_r >= 2 )); then pass "deux dossiers distincts"; else fail "écrasement détecté ($nb_r dossier(s))"; fi
   echo ""
 
-  # ── T14 : verify avec [dossier] incorrect ────────────────────────────────
-  echo "T14 — verify : dossier argument invalide détecté"
-  local out_t14
-  out_t14=$(bash "$INTEGRITY" verify base_t01.b3 /chemin/inexistant 2>&1 || true)
-  assert_contains "erreur si dossier invalide" "ERREUR" "$out_t14"
+  echo "T14 — verify : dossier argument invalide"
+  local out_t14; out_t14=$(bash "$INTEGRITY" verify base_t01.b3 /chemin/inexistant 2>&1 || true)
+  assert_contains "ERREUR si dossier invalide" "ERREUR" "$out_t14"
   echo ""
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-if ! command -v b3sum &> /dev/null; then
-  echo -e "${RED}ERREUR${NC} : b3sum non trouvé. Installer avec : cargo install b3sum  ou  apt install b3sum"
-  exit 1
-fi
-
-if [ ! -f "$INTEGRITY" ]; then
-  echo -e "${RED}ERREUR${NC} : integrity.sh introuvable à : $INTEGRITY"
-  exit 1
-fi
+command -v b3sum &>/dev/null || { echo -e "${RED}ERREUR${NC} : b3sum non trouvé."; exit 1; }
+[ -f "$INTEGRITY" ]          || { echo -e "${RED}ERREUR${NC} : integrity.sh introuvable : $INTEGRITY"; exit 1; }
 
 setup
 run_tests
 teardown
-
-# ── Rapport final ──────────────────────────────────────────────────────────────
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [ "$FAIL" -eq 0 ]; then
@@ -1444,56 +1701,38 @@ echo ""
 #!/usr/bin/env bash
 # run_tests_pipeline.sh — Tests automatisés pour runner.sh + pipeline.json
 #
-# Couvre : parsing JSON, compute, verify, compare, erreurs (dossier absent, JSON invalide)
+# Couvre : parsing JSON, compute, verify, compare, champ resultats, erreurs
 #
-# Prérequis : bash >= 4, jq, b3sum, integrity.sh et runner.sh dans le répertoire parent
+# Prérequis : bash >= 4, jq, b3sum
+#             runner.sh    à ../
+#             integrity.sh à ../src/
 # Usage     : cd tests && ./run_tests_pipeline.sh
 
 set -euo pipefail
 
-# ── Chemins ───────────────────────────────────────────────────────────────────
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNNER="$SCRIPT_DIR/../runner.sh"
-INTEGRITY="$SCRIPT_DIR/../integrity.sh"
+INTEGRITY="$SCRIPT_DIR/../src/integrity.sh"
 WORKDIR="$(mktemp -d /tmp/integrity-pipeline-test.XXXXXX)"
 export RESULTATS_DIR="$WORKDIR/resultats"
-
-# ── Couleurs ──────────────────────────────────────────────────────────────────
 
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-# ── Compteurs ─────────────────────────────────────────────────────────────────
-
-PASS=0
-FAIL=0
-TOTAL=0
+PASS=0; FAIL=0; TOTAL=0
 
 pass() { echo -e "${GREEN}  PASS${NC} — $1"; (( PASS++ )); (( TOTAL++ )); }
 fail() { echo -e "${RED}  FAIL${NC} — $1"; (( FAIL++ )); (( TOTAL++ )); }
 
-# ── Assertions ────────────────────────────────────────────────────────────────
-
-assert_exit_zero() {
-    local label="$1"; shift
-    if "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi
-}
-
-assert_exit_nonzero() {
-    local label="$1"; shift
-    if ! "$@" >/dev/null 2>&1; then pass "$label"; else fail "$label"; fi
-}
-
 assert_contains() {
     local label="$1" pattern="$2" output="$3"
-    if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
+    if echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label (pattern '$pattern' absent)"; fi
 }
 
 assert_not_contains() {
     local label="$1" pattern="$2" output="$3"
-    if ! echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label"; fi
+    if ! echo "$output" | grep -q "$pattern"; then pass "$label"; else fail "$label (pattern '$pattern' présent à tort)"; fi
 }
 
 assert_file_exists() {
@@ -1508,24 +1747,18 @@ assert_file_absent() {
 
 assert_line_count() {
     local label="$1" expected="$2" file="$3"
-    local actual
-    actual=$(wc -l < "$file")
+    local actual; actual=$(wc -l < "$file")
     if [ "$actual" -eq "$expected" ]; then pass "$label"; else fail "$label (attendu $expected, obtenu $actual)"; fi
 }
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-# Écrit un pipeline.json dans WORKDIR et retourne son chemin
 write_config() {
     local path="$WORKDIR/pipeline.json"
     cat > "$path"
     echo "$path"
 }
 
-# ── Setup / Teardown ──────────────────────────────────────────────────────────
-
 setup() {
-    mkdir -p "$WORKDIR"/{src_a,src_b,src_absent,bases,resultats}
+    mkdir -p "$WORKDIR"/{src_a,src_b,bases,resultats}
 
     echo "alpha content" > "$WORKDIR/src_a/alpha.txt"
     echo "beta content"  > "$WORKDIR/src_a/beta.txt"
@@ -1536,196 +1769,149 @@ setup() {
     echo "delta content" > "$WORKDIR/src_b/delta.txt"
 }
 
-teardown() {
-    rm -rf "$WORKDIR"
-}
-
-# ── Tests ─────────────────────────────────────────────────────────────────────
+teardown() { rm -rf "$WORKDIR"; }
 
 run_tests() {
     cd "$WORKDIR"
 
-    # ── TP01 : JSON invalide — runner doit échouer proprement ────────────────
-    echo "TP01 — JSON invalide : runner échoue avec message explicite"
-    local cfg_invalid="$WORKDIR/invalid.json"
-    echo "{ pipeline: [ BROKEN" > "$cfg_invalid"
-    local out_tp01
-    out_tp01=$(bash "$RUNNER" "$cfg_invalid" 2>&1 || true)
-    assert_contains    "exit non nul sur JSON invalide"    "ERREUR"  "$out_tp01"
-    assert_not_contains "pas de stacktrace jq brute"       "parse error" "$out_tp01"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  runner.sh — suite de tests"
+    echo "  Workdir : $WORKDIR"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
 
-    # ── TP02 : tableau .pipeline absent ──────────────────────────────────────
-    echo "TP02 — .pipeline absent : runner échoue"
+    # ── TP01 : JSON invalide ──────────────────────────────────────────────────
+    echo "TP01 — JSON invalide : erreur propre sans stacktrace jq"
+    local cfg_invalid="$WORKDIR/invalid.json"
+    echo "{ pipeline: [ BROKEN" > "$cfg_invalid"
+    local out_tp01; out_tp01=$(bash "$RUNNER" "$cfg_invalid" 2>&1 || true)
+    assert_contains     "ERREUR signalée"         "ERREUR"      "$out_tp01"
+    assert_not_contains "pas de stacktrace jq"    "parse error" "$out_tp01"
+    echo ""
+
+    # ── TP02 : .pipeline absent ───────────────────────────────────────────────
+    echo "TP02 — .pipeline absent"
     local cfg_no_pipeline
     cfg_no_pipeline=$(write_config <<'EOF'
 { "config": [] }
 EOF
 )
-    local out_tp02
-    out_tp02=$(bash "$RUNNER" "$cfg_no_pipeline" 2>&1 || true)
-    assert_contains "erreur si .pipeline absent" "ERREUR" "$out_tp02"
+    local out_tp02; out_tp02=$(bash "$RUNNER" "$cfg_no_pipeline" 2>&1 || true)
+    assert_contains "ERREUR si .pipeline absent" "ERREUR" "$out_tp02"
     echo ""
 
-    # ── TP03 : champ manquant dans un bloc compute ────────────────────────────
-    echo "TP03 — Champ 'nom' manquant dans compute : erreur explicite"
-    local cfg_missing_field
-    cfg_missing_field=$(write_config <<EOF
+    # ── TP03 : champ manquant ─────────────────────────────────────────────────
+    echo "TP03 — Champ 'nom' manquant dans compute"
+    local cfg_missing
+    cfg_missing=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_a",
-            "bases":  "$WORKDIR/bases"
-        }
+        { "op": "compute", "source": "$WORKDIR/src_a", "bases": "$WORKDIR/bases" }
     ]
 }
 EOF
 )
-    local out_tp03
-    out_tp03=$(bash "$RUNNER" "$cfg_missing_field" 2>&1 || true)
-    assert_contains "erreur si champ 'nom' absent" "ERREUR" "$out_tp03"
-    assert_contains "mention du champ manquant"    "nom"    "$out_tp03"
+    local out_tp03; out_tp03=$(bash "$RUNNER" "$cfg_missing" 2>&1 || true)
+    assert_contains "ERREUR signalée"       "ERREUR" "$out_tp03"
+    assert_contains "champ 'nom' mentionné" "nom"    "$out_tp03"
     echo ""
 
     # ── TP04 : opération inconnue ─────────────────────────────────────────────
-    echo "TP04 — Opération inconnue : erreur explicite"
-    local cfg_unknown_op
-    cfg_unknown_op=$(write_config <<'EOF'
-{
-    "pipeline": [
-        { "op": "migrate", "source": "/tmp" }
-    ]
-}
+    echo "TP04 — Opération inconnue"
+    local cfg_unknown
+    cfg_unknown=$(write_config <<'EOF'
+{ "pipeline": [ { "op": "migrate", "source": "/tmp" } ] }
 EOF
 )
-    local out_tp04
-    out_tp04=$(bash "$RUNNER" "$cfg_unknown_op" 2>&1 || true)
-    assert_contains "erreur si op inconnue" "ERREUR"   "$out_tp04"
-    assert_contains "nom de l'op dans l'erreur" "migrate" "$out_tp04"
+    local out_tp04; out_tp04=$(bash "$RUNNER" "$cfg_unknown" 2>&1 || true)
+    assert_contains "ERREUR signalée"           "ERREUR"   "$out_tp04"
+    assert_contains "nom de l'op dans l'erreur" "migrate"  "$out_tp04"
     echo ""
 
-    # ── TP05 : compute — cd correct, chemin relatif dans la base ─────────────
+    # ── TP05 : compute — chemins relatifs ─────────────────────────────────────
     echo "TP05 — Compute : cd correct, chemins relatifs dans la base"
     local cfg_compute
     cfg_compute=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_a",
-            "bases":  "$WORKDIR/bases",
-            "nom":    "hashes_a.b3"
-        }
+        { "op": "compute", "source": "$WORKDIR/src_a", "bases": "$WORKDIR/bases", "nom": "hashes_a.b3" }
     ]
 }
 EOF
 )
     bash "$RUNNER" "$cfg_compute" >/dev/null 2>&1
     assert_file_exists "base hashes_a.b3 créée" "$WORKDIR/bases/hashes_a.b3"
-
-    # Vérifier que les chemins dans la base sont relatifs (commencent par ./)
-    local first_path
-    first_path=$(awk '{print $2}' "$WORKDIR/bases/hashes_a.b3" | head -1)
-    assert_contains    "chemin relatif dans la base (./))" "./" "$first_path"
-    assert_not_contains "pas de chemin absolu dans la base" "$WORKDIR" "$first_path"
-
-    # 3 fichiers indexés (alpha.txt, beta.txt, sub/delta.txt)
-    assert_line_count "3 fichiers indexés" 3 "$WORKDIR/bases/hashes_a.b3"
+    local first_path; first_path=$(awk '{print $2}' "$WORKDIR/bases/hashes_a.b3" | head -1)
+    assert_contains     "chemin relatif (./) dans base"    "./"       "$first_path"
+    assert_not_contains "pas de chemin absolu dans base"   "$WORKDIR" "$first_path"
+    assert_line_count   "3 fichiers indexés"               3          "$WORKDIR/bases/hashes_a.b3"
     echo ""
 
-    # ── TP06 : compute — dossier source absent ────────────────────────────────
-    echo "TP06 — Compute : dossier source absent → erreur explicite"
+    # ── TP06 : compute — source absente ──────────────────────────────────────
+    echo "TP06 — Compute : source absente → erreur"
     local cfg_absent
     cfg_absent=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_absent_inexistant",
-            "bases":  "$WORKDIR/bases",
-            "nom":    "hashes_absent.b3"
-        }
+        { "op": "compute", "source": "$WORKDIR/inexistant", "bases": "$WORKDIR/bases", "nom": "ko.b3" }
     ]
 }
 EOF
 )
-    local out_tp06
-    out_tp06=$(bash "$RUNNER" "$cfg_absent" 2>&1 || true)
-    assert_contains     "erreur si source absente"       "ERREUR"  "$out_tp06"
-    assert_file_absent  "pas de base créée si source KO" "$WORKDIR/bases/hashes_absent.b3"
+    local out_tp06; out_tp06=$(bash "$RUNNER" "$cfg_absent" 2>&1 || true)
+    assert_contains    "ERREUR signalée"              "ERREUR"  "$out_tp06"
+    assert_file_absent "pas de base créée si source KO" "$WORKDIR/bases/ko.b3"
     echo ""
 
-    # ── TP07 : verify — bon répertoire de travail ─────────────────────────────
+    # ── TP07 : verify — OK ───────────────────────────────────────────────────
     echo "TP07 — Verify : répertoire de travail correct, vérification OK"
-    # Prérequis : base hashes_a.b3 créée en TP05
     local cfg_verify
     cfg_verify=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "verify",
-            "source": "$WORKDIR/src_a",
-            "base":   "$WORKDIR/bases/hashes_a.b3"
-        }
+        { "op": "verify", "source": "$WORKDIR/src_a", "base": "$WORKDIR/bases/hashes_a.b3" }
     ]
 }
 EOF
 )
-    local out_tp07
-    out_tp07=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
-    assert_contains     "verify retourne OK"     "OK"     "$out_tp07"
-    assert_not_contains "aucun FAILED"           "FAILED" "$out_tp07"
-
-    # recap.txt produit
-    local outdir_tp07
-    outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
-    assert_file_exists "recap.txt produit par verify" "${outdir_tp07}/recap.txt"
+    local out_tp07; out_tp07=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
+    assert_contains     "verify OK"     "OK"     "$out_tp07"
+    assert_not_contains "aucun FAILED"  "FAILED" "$out_tp07"
+    local outdir_tp07; outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists  "recap.txt produit" "${outdir_tp07}/recap.txt"
     echo ""
 
-    # ── TP08 : verify — détection de corruption ───────────────────────────────
-    echo "TP08 — Verify : détection de corruption"
+    # ── TP08 : verify — corruption ───────────────────────────────────────────
+    echo "TP08 — Verify : corruption détectée"
     echo "contenu corrompu" > "$WORKDIR/src_a/alpha.txt"
-    local out_tp08
-    out_tp08=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
-    assert_contains "corruption détectée" "ECHEC" "$out_tp08"
-    # Restauration
-    echo "alpha content" > "$WORKDIR/src_a/alpha.txt"
+    local out_tp08; out_tp08=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
+    assert_contains "ECHEC détecté" "ECHEC" "$out_tp08"
+    echo "alpha content"   > "$WORKDIR/src_a/alpha.txt"
     echo ""
 
-    # ── TP09 : verify — base .b3 absente ─────────────────────────────────────
-    echo "TP09 — Verify : base .b3 absente → erreur explicite"
-    local cfg_verify_bad_base
-    cfg_verify_bad_base=$(write_config <<EOF
+    # ── TP09 : verify — base absente ─────────────────────────────────────────
+    echo "TP09 — Verify : base .b3 absente → erreur"
+    local cfg_verify_bad
+    cfg_verify_bad=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "verify",
-            "source": "$WORKDIR/src_a",
-            "base":   "$WORKDIR/bases/inexistante.b3"
-        }
+        { "op": "verify", "source": "$WORKDIR/src_a", "base": "$WORKDIR/bases/fantome.b3" }
     ]
 }
 EOF
 )
-    local out_tp09
-    out_tp09=$(bash "$RUNNER" "$cfg_verify_bad_base" 2>&1 || true)
-    assert_contains "erreur si base absente" "ERREUR" "$out_tp09"
+    local out_tp09; out_tp09=$(bash "$RUNNER" "$cfg_verify_bad" 2>&1 || true)
+    assert_contains "ERREUR si base absente" "ERREUR" "$out_tp09"
     echo ""
 
-    # ── TP10 : compare — appel correct, résultats produits ───────────────────
-    echo "TP10 — Compare : appel correct, fichiers de résultats produits"
-    # Créer une seconde base (src_b)
+    # ── TP10 : compare — résultats produits (RESULTATS_DIR par défaut) ────────
+    echo "TP10 — Compare : fichiers de résultats produits (sans champ resultats)"
     local cfg_compute_b
     cfg_compute_b=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_b",
-            "bases":  "$WORKDIR/bases",
-            "nom":    "hashes_b.b3"
-        }
+        { "op": "compute", "source": "$WORKDIR/src_b", "bases": "$WORKDIR/bases", "nom": "hashes_b.b3" }
     ]
 }
 EOF
@@ -1736,102 +1922,103 @@ EOF
     cfg_compare=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compare",
-            "base_a": "$WORKDIR/bases/hashes_a.b3",
-            "base_b": "$WORKDIR/bases/hashes_b.b3"
-        }
+        { "op": "compare", "base_a": "$WORKDIR/bases/hashes_a.b3", "base_b": "$WORKDIR/bases/hashes_b.b3" }
     ]
 }
 EOF
 )
     bash "$RUNNER" "$cfg_compare" >/dev/null 2>&1
+    local outdir_tp10; outdir_tp10=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists "recap.txt"    "${outdir_tp10}/recap.txt"
+    assert_file_exists "modifies.b3"  "${outdir_tp10}/modifies.b3"
+    assert_file_exists "disparus.txt" "${outdir_tp10}/disparus.txt"
+    assert_file_exists "nouveaux.txt" "${outdir_tp10}/nouveaux.txt"
+    assert_file_exists "report.html"  "${outdir_tp10}/report.html"
+    echo ""
 
-    local outdir_tp10
-    outdir_tp10=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
-    assert_file_exists "recap.txt produit"     "${outdir_tp10}/recap.txt"
-    assert_file_exists "modifies.b3 produit"   "${outdir_tp10}/modifies.b3"
-    assert_file_exists "disparus.txt produit"  "${outdir_tp10}/disparus.txt"
-    assert_file_exists "nouveaux.txt produit"  "${outdir_tp10}/nouveaux.txt"
+    # ── TP10b : compare — champ resultats personnalisé ───────────────────────
+    echo "TP10b — Compare : champ 'resultats' personnalisé dans pipeline.json"
+    local custom_dir="$WORKDIR/mon_rapport_custom"
+    local cfg_compare_custom
+    cfg_compare_custom=$(write_config <<EOF
+{
+    "pipeline": [
+        {
+            "op":       "compare",
+            "base_a":   "$WORKDIR/bases/hashes_a.b3",
+            "base_b":   "$WORKDIR/bases/hashes_b.b3",
+            "resultats": "$custom_dir"
+        }
+    ]
+}
+EOF
+)
+    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
+    local outdir_custom; outdir_custom=$(ls -d "${custom_dir}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists "rapport dans dossier custom"            "${outdir_custom}/recap.txt"
+    assert_file_exists "report.html dans dossier custom"        "${outdir_custom}/report.html"
+    # Vérifier que le dossier par défaut n'a PAS reçu ce résultat
+    local nb_before; nb_before=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | wc -l)
+    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
+    local nb_after; nb_after=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | wc -l)
+    if [ "$nb_before" -eq "$nb_after" ]; then
+        pass "champ resultats isolé : RESULTATS_DIR par défaut non pollué"
+    else
+        fail "champ resultats isolé : RESULTATS_DIR par défaut non pollué"
+    fi
     echo ""
 
     # ── TP11 : compare — base_a absente ──────────────────────────────────────
-    echo "TP11 — Compare : base_a absente → erreur explicite"
+    echo "TP11 — Compare : base_a absente → erreur"
     local cfg_compare_bad
     cfg_compare_bad=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compare",
-            "base_a": "$WORKDIR/bases/fantome.b3",
-            "base_b": "$WORKDIR/bases/hashes_b.b3"
-        }
+        { "op": "compare", "base_a": "$WORKDIR/bases/fantome.b3", "base_b": "$WORKDIR/bases/hashes_b.b3" }
     ]
 }
 EOF
 )
-    local out_tp11
-    out_tp11=$(bash "$RUNNER" "$cfg_compare_bad" 2>&1 || true)
-    assert_contains "erreur si base_a absente" "ERREUR" "$out_tp11"
+    local out_tp11; out_tp11=$(bash "$RUNNER" "$cfg_compare_bad" 2>&1 || true)
+    assert_contains "ERREUR si base_a absente" "ERREUR" "$out_tp11"
     echo ""
 
-    # ── TP12 : pipeline multi-opérations — exécution séquentielle complète ───
-    echo "TP12 — Pipeline complet : compute + verify + compare"
-    # Recalcul propre
+    # ── TP12 : pipeline complet ───────────────────────────────────────────────
+    echo "TP12 — Pipeline complet : compute × 2 + verify + compare"
     rm -f "$WORKDIR/bases/hashes_a.b3" "$WORKDIR/bases/hashes_b.b3"
-
     local cfg_full
     cfg_full=$(write_config <<EOF
 {
     "pipeline": [
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_a",
-            "bases":  "$WORKDIR/bases",
-            "nom":    "hashes_a.b3"
-        },
-        {
-            "op":     "compute",
-            "source": "$WORKDIR/src_b",
-            "bases":  "$WORKDIR/bases",
-            "nom":    "hashes_b.b3"
-        },
-        {
-            "op":     "verify",
-            "source": "$WORKDIR/src_a",
-            "base":   "$WORKDIR/bases/hashes_a.b3"
-        },
-        {
-            "op":     "compare",
-            "base_a": "$WORKDIR/bases/hashes_a.b3",
-            "base_b": "$WORKDIR/bases/hashes_b.b3"
-        }
+        { "op": "compute", "source": "$WORKDIR/src_a", "bases": "$WORKDIR/bases", "nom": "hashes_a.b3" },
+        { "op": "compute", "source": "$WORKDIR/src_b", "bases": "$WORKDIR/bases", "nom": "hashes_b.b3" },
+        { "op": "verify",  "source": "$WORKDIR/src_a", "base":  "$WORKDIR/bases/hashes_a.b3" },
+        { "op": "compare", "base_a": "$WORKDIR/bases/hashes_a.b3", "base_b": "$WORKDIR/bases/hashes_b.b3",
+          "resultats": "$WORKDIR/resultats_pipeline" }
     ]
 }
 EOF
 )
-    local out_tp12
-    out_tp12=$(bash "$RUNNER" "$cfg_full" 2>&1 || true)
-    assert_contains     "COMPUTE src_a mentionné" "COMPUTE" "$out_tp12"
-    assert_contains     "VERIFY mentionné"        "VERIFY"  "$out_tp12"
-    assert_contains     "COMPARE mentionné"       "COMPARE" "$out_tp12"
-    assert_file_exists  "hashes_a.b3 créée"       "$WORKDIR/bases/hashes_a.b3"
-    assert_file_exists  "hashes_b.b3 créée"       "$WORKDIR/bases/hashes_b.b3"
-    assert_not_contains "pas d'ERREUR dans pipeline complet" "ERREUR" "$out_tp12"
+    local out_tp12; out_tp12=$(bash "$RUNNER" "$cfg_full" 2>&1 || true)
+    assert_contains     "COMPUTE mentionné"     "COMPUTE" "$out_tp12"
+    assert_contains     "VERIFY mentionné"      "VERIFY"  "$out_tp12"
+    assert_contains     "COMPARE mentionné"     "COMPARE" "$out_tp12"
+    assert_file_exists  "hashes_a.b3 créée"     "$WORKDIR/bases/hashes_a.b3"
+    assert_file_exists  "hashes_b.b3 créée"     "$WORKDIR/bases/hashes_b.b3"
+    assert_not_contains "pas d'ERREUR"          "ERREUR"  "$out_tp12"
+    local outdir_tp12; outdir_tp12=$(ls -d "${WORKDIR}/resultats_pipeline/resultats_hashes_a"* 2>/dev/null | tail -1)
+    assert_file_exists  "report.html pipeline complet" "${outdir_tp12}/report.html"
     echo ""
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 for dep in jq b3sum; do
-    command -v "$dep" &>/dev/null || {
-        echo -e "${RED}ERREUR${NC} : $dep non trouvé."
-        exit 1
-    }
+    command -v "$dep" &>/dev/null || { echo -e "${RED}ERREUR${NC} : $dep non trouvé."; exit 1; }
 done
 
-[ -f "$RUNNER" ]    || { echo -e "${RED}ERREUR${NC} : runner.sh introuvable : $RUNNER";    exit 1; }
-[ -f "$INTEGRITY" ] || { echo -e "${RED}ERREUR${NC} : integrity.sh introuvable : $INTEGRITY"; exit 1; }
+[ -f "$RUNNER" ]    || { echo -e "${RED}ERREUR${NC} : runner.sh introuvable : $RUNNER";      exit 1; }
+[ -f "$INTEGRITY" ] || { echo -e "${RED}ERREUR${NC} : src/integrity.sh introuvable : $INTEGRITY"; exit 1; }
 
 setup
 run_tests
@@ -2059,6 +2246,961 @@ rm -rf /tmp/integrity-test
 | Exit code | Non nul si au moins un FAILED (T03, T04) |
 | Mode strict `-euo pipefail` | Le script s'arrête sur toute erreur non gérée |
 
+
+--- Fichier : reports/template.html ---
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport — [BASE_A] vs [BASE_B]</title>
+  <!--
+    ══════════════════════════════════════════════════════════════════
+    reports/template.html — Barebone rapport de comparaison hash_tool
+    ══════════════════════════════════════════════════════════════════
+
+    Ce fichier est un template statique de référence.
+    Le rapport réel est généré automatiquement par src/lib/report.sh
+    dans le dossier "resultats" défini dans pipeline.json.
+
+    Structure du rapport généré :
+      <resultats>/
+        ├── report.html      ← rapport visuel (ce template rempli)
+        ├── recap.txt        ← résumé texte
+        ├── modifies.b3      ← fichiers avec hash différent
+        ├── disparus.txt     ← fichiers présents dans A, absents de B
+        └── nouveaux.txt     ← fichiers absents de A, présents dans B
+
+    Pour personnaliser le rendu HTML : modifier src/lib/report.sh
+    (fonction generate_compare_html).
+
+    Placeholders utilisés dans report.sh :
+      [BASE_A]       nom du fichier .b3 ancienne base
+      [BASE_B]       nom du fichier .b3 nouvelle base
+      [DATE]         date de génération
+      [STATUT]       IDENTIQUES | DIFFÉRENCES DÉTECTÉES
+      [NB_MODIFIES]  nombre de fichiers modifiés
+      [NB_DISPARUS]  nombre de fichiers disparus
+      [NB_NOUVEAUX]  nombre de nouveaux fichiers
+      [LIST_*]       listes HTML injectées par _render_file_list()
+    ══════════════════════════════════════════════════════════════════
+  -->
+  <style>
+    /* → Voir src/lib/report.sh pour le CSS complet injecté dans les rapports générés */
+
+    :root {
+      --bg:       #0f1117;
+      --bg-card:  #161b27;
+      --border:   #252d3f;
+      --text:     #c8d4e8;
+      --text-dim: #5a6a85;
+      --mono:     monospace;
+      --sans:     system-ui, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    .placeholder {
+      max-width: 560px;
+      text-align: center;
+    }
+
+    .placeholder h1 {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 24px;
+    }
+
+    .placeholder p {
+      color: var(--text-dim);
+      line-height: 1.7;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+
+    code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 6px;
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="placeholder">
+    <h1>hash_tool · template.html</h1>
+    <p>Ce fichier est le template de référence du rapport de comparaison.</p>
+    <p>
+      Les rapports réels sont générés automatiquement dans le dossier
+      <code>resultats</code> défini par le champ
+      <code>"resultats"</code> dans <code>pipeline.json</code>.
+    </p>
+    <p>
+      Pour personnaliser le rendu : modifier
+      <code>src/lib/report.sh</code> → fonction
+      <code>generate_compare_html()</code>.
+    </p>
+  </div>
+</body>
+</html>
+
+--- Fichier : src/integrity.sh ---
+#!/usr/bin/env bash
+# integrity.sh — vérification d'intégrité par hachage BLAKE3
+#
+# Usage :
+#   ./integrity.sh compute <dossier> <base.b3>
+#   ./integrity.sh verify  <base.b3> [dossier]
+#   ./integrity.sh compare <ancienne.b3> <nouvelle.b3>
+#
+# Options :
+#   --quiet   Supprime toute sortie terminal ; écrit uniquement dans les
+#             fichiers de résultats (recap.txt, failed.txt, report.html, etc.).
+#             Utile pour usage en CI/cron/script parent.
+#
+# Dépendances : b3sum, find, sort, awk, comm, join, stat, du
+
+set -euo pipefail
+
+# ── Vérification version bash ──────────────────────────────────────────────────
+
+(( BASH_VERSINFO[0] >= 4 )) || {
+  echo "ERREUR : bash >= 4 requis (actuel : $BASH_VERSION)" >&2
+  exit 1
+}
+
+# ── Résolution du répertoire du script ────────────────────────────────────────
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── Chargement de la bibliothèque de rapports ─────────────────────────────────
+
+LIB_REPORT="$SCRIPT_DIR/lib/report.sh"
+[ -f "$LIB_REPORT" ] || {
+  echo "ERREUR : lib/report.sh introuvable : $LIB_REPORT" >&2
+  exit 1
+}
+# shellcheck source=lib/report.sh
+source "$LIB_REPORT"
+
+# ── Parsing des arguments ──────────────────────────────────────────────────────
+
+QUIET=0
+ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    *)       ARGS+=("$arg") ;;
+  esac
+done
+
+MODE="${ARGS[0]:-}"
+ARG2="${ARGS[1]:-}"
+ARG3="${ARGS[2]:-}"
+
+# ── Configuration ──────────────────────────────────────────────────────────────
+
+# Dossier racine où seront créés les sous-dossiers de résultats.
+# Peut être surchargé par l'environnement (ex : runner.sh via export RESULTATS_DIR).
+RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
+
+# ── Fonctions utilitaires ──────────────────────────────────────────────────────
+
+die() {
+  echo "ERREUR : $*" >&2
+  exit 1
+}
+
+say() {
+  (( QUIET )) || echo "$@"
+}
+
+assert_b3_valid() {
+  local file="$1"
+  local label="${2:-$file}"
+
+  [ -e "$file" ] || die "$label : fichier introuvable."
+  [ -f "$file" ] || die "$label : est un dossier, pas un fichier .b3."
+  [ -s "$file" ] || die "$label : fichier vide — aucun hash à traiter."
+
+  local first_valid
+  first_valid=$(grep -m1 -E '^[0-9a-f]{64}  .+' "$file" || true)
+  [ -n "$first_valid" ] || die "$label : format invalide — aucune ligne au format b3sum détectée."
+}
+
+assert_target_valid() {
+  local dir="$1"
+
+  [ -e "$dir" ] || die "Dossier cible introuvable : $dir"
+  [ -d "$dir" ] || die "Le chemin cible n'est pas un dossier : $dir"
+
+  local nb_files
+  nb_files=$(find "$dir" -type f -print0 | grep -zc '' || echo 0)
+  (( nb_files > 0 )) || die "Le dossier $dir ne contient aucun fichier — rien à hacher."
+}
+
+file_size() {
+  local f="$1"
+  if stat -c%s "$f" 2>/dev/null; then
+    return
+  fi
+  stat -f%z "$f"
+}
+
+# ── Fonctions principales ──────────────────────────────────────────────────────
+
+compute_with_progress() {
+  local target="$1"
+  local hashfile="$2"
+
+  local -a files
+  mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
+
+  local total_files=${#files[@]}
+  local total_bytes
+  total_bytes=$(du -sb "$target" | awk '{print $1}')
+
+  local bytes_done=0
+  local t_start
+  t_start=$(date +%s)
+
+  local i=0
+  for file in "${files[@]}"; do
+    b3sum "$file" >> "$hashfile"
+
+    bytes_done=$(( bytes_done + $(file_size "$file") ))
+    i=$(( i + 1 ))
+
+    if (( ! QUIET )); then
+      local t_now elapsed
+      t_now=$(date +%s)
+      elapsed=$(( t_now - t_start ))
+
+      if (( bytes_done > 0 && elapsed > 0 )); then
+        local speed remaining
+        speed=$(( bytes_done / elapsed ))
+        remaining=$(( (total_bytes - bytes_done) / speed ))
+        printf "\r[%d/%d] ETA : %dm %02ds   " \
+          "$i" "$total_files" $(( remaining / 60 )) $(( remaining % 60 )) > /dev/tty
+      fi
+    fi
+  done
+
+  if (( ! QUIET )); then
+    printf "\r%*s\r" 40 "" > /dev/tty
+  fi
+}
+
+make_result_dir() {
+  local b3file="$1"
+  local basename_noext
+  basename_noext=$(basename "$b3file" .b3)
+  local outdir="${RESULTATS_DIR}/resultats_${basename_noext}"
+
+  if [ -d "$outdir" ]; then
+    outdir="${outdir}_$(date +%Y%m%d-%H%M%S)"
+  fi
+
+  mkdir -p "$outdir"
+  echo "$outdir"
+}
+
+run_verify() {
+  local hashfile="$1"
+  local outdir
+  outdir=$(make_result_dir "$hashfile")
+
+  local raw exit_code
+  raw=$(b3sum --check "$hashfile" 2>&1) && exit_code=0 || exit_code=$?
+
+  local lines_ok lines_failed lines_error
+  lines_ok=$(echo    "$raw" | grep ': OK$'    || true)
+  lines_failed=$(echo "$raw" | grep ': FAILED' || true)
+  lines_error=$(echo  "$raw" | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
+
+  local nb_ok nb_failed
+  if [ -n "$lines_ok" ];     then nb_ok=$(echo "$lines_ok"     | grep -c '^'); else nb_ok=0;     fi
+  if [ -n "$lines_failed" ]; then nb_failed=$(echo "$lines_failed" | grep -c '^'); else nb_failed=0; fi
+
+  local statut
+  if [ -n "$lines_error" ];   then statut="ERREUR"
+  elif (( nb_failed > 0 ));   then statut="ECHEC"
+  else                              statut="OK"
+  fi
+
+  # ── recap.txt ─────────────────────────────────────────────────────────────
+  {
+    echo "════════════════════════════════════════"
+    echo "  STATUT : $statut"
+    echo "════════════════════════════════════════"
+    echo ""
+    echo "Commande  : integrity.sh verify $(basename "$hashfile")"
+    echo "Date      : $(date)"
+    echo "Base      : $hashfile"
+    echo ""
+    echo "OK        : $nb_ok"
+    if (( nb_failed > 0 )); then
+      echo "FAILED    : $nb_failed  ← voir failed.txt"
+    fi
+    if [ -n "$lines_error" ]; then
+      echo ""
+      echo "── Erreurs b3sum ──────────────────────"
+      echo "$lines_error"
+    fi
+  } > "${outdir}/recap.txt"
+
+  # ── failed.txt ────────────────────────────────────────────────────────────
+  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
+    {
+      echo "════════════════════════════════════════"
+      echo "  FICHIERS EN ECHEC"
+      echo "════════════════════════════════════════"
+      echo ""
+      if (( nb_failed > 0 )); then echo "$lines_failed"; fi
+      if [ -n "$lines_error" ]; then
+        echo ""
+        echo "── Erreurs ────────────────────────────"
+        echo "$lines_error"
+      fi
+    } > "${outdir}/failed.txt"
+  else
+    rm -f "${outdir}/failed.txt"
+  fi
+
+  # ── Affichage terminal ────────────────────────────────────────────────────
+  if [ "$statut" = "OK" ]; then
+    say "Vérification OK — $nb_ok fichiers intègres."
+  else
+    say ""
+    say "████████████████████████████████████████"
+    if [ "$statut" = "ERREUR" ]; then
+      say "  ERREUR lors de la vérification"
+    else
+      say "  ECHEC : $nb_failed fichier(s) corrompu(s) ou manquant(s)"
+    fi
+    say "████████████████████████████████████████"
+    say ""
+    if (( nb_failed > 0 )); then say "$lines_failed"; fi
+    if [ -n "$lines_error" ]; then say "$lines_error"; fi
+    say ""
+  fi
+
+  say "Résultats dans : $outdir"
+  say "  recap.txt"
+  if (( nb_failed > 0 )) || [ -n "$lines_error" ]; then
+    say "  failed.txt"
+  fi
+
+  return $exit_code
+}
+
+run_compare() {
+  local old="$1"
+  local new="$2"
+  local outdir
+  outdir=$(make_result_dir "$old")
+
+  local tmp_old tmp_new
+  tmp_old=$(mktemp)
+  tmp_new=$(mktemp)
+
+  trap 'rm -f "$tmp_old" "$tmp_new"' EXIT
+
+  b3_to_path_hash() {
+    awk '{ print substr($0,67) "\t" substr($0,1,64) }' "$1" | sort -t $'\t' -k1,1
+  }
+
+  b3_to_path_hash "$old" > "$tmp_old"
+  b3_to_path_hash "$new" > "$tmp_new"
+
+  join -t $'\t' -1 1 -2 1 "$tmp_old" "$tmp_new" \
+    | awk -F $'\t' '$2 != $3 { print $3 "  " $1 }' \
+    > "${outdir}/modifies.b3"
+
+  comm -23 <(cut -f1 "$tmp_old") <(cut -f1 "$tmp_new") > "${outdir}/disparus.txt"
+  comm -13 <(cut -f1 "$tmp_old") <(cut -f1 "$tmp_new") > "${outdir}/nouveaux.txt"
+
+  local nb_modifies nb_disparus nb_nouveaux
+  nb_modifies=$(wc -l < "${outdir}/modifies.b3")
+  nb_disparus=$(wc -l < "${outdir}/disparus.txt")
+  nb_nouveaux=$(wc -l < "${outdir}/nouveaux.txt")
+
+  # ── recap.txt ─────────────────────────────────────────────────────────────
+  {
+    echo "Commande      : integrity.sh compare $(basename "$old") $(basename "$new")"
+    echo "Date          : $(date)"
+    echo "Ancienne base : $old"
+    echo "Nouvelle base : $new"
+    echo ""
+    echo "Modifiés      : $nb_modifies"
+    echo "Disparus      : $nb_disparus"
+    echo "Nouveaux      : $nb_nouveaux"
+  } > "${outdir}/recap.txt"
+
+  # ── report.html — délégué à lib/report.sh ─────────────────────────────────
+  generate_compare_html \
+    "$old" "$new" \
+    "$nb_modifies" "$nb_disparus" "$nb_nouveaux" \
+    "${outdir}/modifies.b3" "${outdir}/disparus.txt" "${outdir}/nouveaux.txt" \
+    "${outdir}/report.html"
+
+  rm -f "$tmp_old" "$tmp_new"
+  trap - EXIT
+
+  say "Résultats enregistrés dans : $outdir"
+  say "  recap.txt     — modifiés: $nb_modifies, disparus: $nb_disparus, nouveaux: $nb_nouveaux"
+  say "  modifies.b3   — $nb_modifies fichiers"
+  say "  disparus.txt  — $nb_disparus fichiers"
+  say "  nouveaux.txt  — $nb_nouveaux fichiers"
+  say "  report.html   — rapport visuel"
+}
+
+# ── Dispatch ──────────────────────────────────────────────────────────────────
+
+case "$MODE" in
+  compute)
+    [ -n "$ARG2" ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3>"
+    [ -n "$ARG3" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3>"
+    [ ! -d "$ARG3" ] || die "compute : '$ARG3' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
+    assert_target_valid "$ARG2"
+    compute_with_progress "$ARG2" "$ARG3"
+    say "Base enregistrée : $ARG3 ($(wc -l < "$ARG3") fichiers)"
+    ;;
+
+  verify)
+    [ -n "$ARG2" ] || die "verify : fichier .b3 manquant.\nUsage : $0 verify <base.b3> [dossier]"
+    assert_b3_valid "$ARG2" "base"
+    HASHFILE_ABS="$(cd "$(dirname "$ARG2")" && pwd)/$(basename "$ARG2")"
+    if [ -n "$ARG3" ]; then
+      [ -d "$ARG3" ] || die "verify : '$ARG3' n'est pas un dossier valide."
+      cd "$ARG3"
+    fi
+    run_verify "$HASHFILE_ABS"
+    ;;
+
+  compare)
+    [ -n "$ARG2" ] || die "compare : fichier ancienne base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+    [ -n "$ARG3" ] || die "compare : fichier nouvelle base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+    assert_b3_valid "$ARG2" "ancienne base"
+    assert_b3_valid "$ARG3" "nouvelle base"
+    run_compare "$ARG2" "$ARG3"
+    ;;
+
+  *)
+    echo "Usage:"
+    echo "  $0 [--quiet] compute <dossier> <base.b3>"
+    echo "  $0 [--quiet] verify  <base.b3> [dossier]"
+    echo "  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>"
+    echo ""
+    echo "Options:"
+    echo "  --quiet   Silencieux : écrit uniquement dans les fichiers de résultats."
+    exit 1
+    ;;
+esac
+
+--- Fichier : src/lib/report.sh ---
+#!/usr/bin/env bash
+# lib/report.sh — Génération des rapports de résultats
+#
+# Sourcé par integrity.sh. Ne pas exécuter directement.
+#
+# Fonctions exportées :
+#   generate_compare_html  <old> <new> <nb_mod> <nb_dis> <nb_nou>
+#                          <modifies.b3> <disparus.txt> <nouveaux.txt>
+#                          <output.html>
+
+# ── Génération du rapport HTML pour compare ───────────────────────────────────
+#
+# Produit un fichier HTML autonome (CSS inline, pas de dépendance externe).
+# Les listes de fichiers sont injectées depuis les fichiers texte produits
+# par run_compare(). Le fichier est lisible hors ligne.
+#
+# Usage :
+#   generate_compare_html \
+#     "$old_b3" "$new_b3" \
+#     "$nb_modifies" "$nb_disparus" "$nb_nouveaux" \
+#     "$modifies_file" "$disparus_file" "$nouveaux_file" \
+#     "$output_html"
+
+generate_compare_html() {
+  local old_b3="$1"
+  local new_b3="$2"
+  local nb_modifies="$3"
+  local nb_disparus="$4"
+  local nb_nouveaux="$5"
+  local modifies_file="$6"
+  local disparus_file="$7"
+  local nouveaux_file="$8"
+  local output_html="$9"
+
+  local date_rapport
+  date_rapport=$(date '+%Y-%m-%d %H:%M:%S')
+
+  local nom_old nom_new
+  nom_old=$(basename "$old_b3")
+  nom_new=$(basename "$new_b3")
+
+  # Statut global
+  local statut statut_class
+  if (( nb_modifies == 0 && nb_disparus == 0 && nb_nouveaux == 0 )); then
+    statut="IDENTIQUES"
+    statut_class="status-ok"
+  else
+    statut="DIFFÉRENCES DÉTECTÉES"
+    statut_class="status-diff"
+  fi
+
+  # Lecture des listes de fichiers → HTML
+  _render_file_list() {
+    local file="$1"
+    local empty_msg="$2"
+    if [ ! -s "$file" ]; then
+      echo "    <p class=\"empty\">$empty_msg</p>"
+      return
+    fi
+    echo "    <ul>"
+    while IFS= read -r line; do
+      [ -n "$line" ] || continue
+      # Pour modifies.b3 : "hash  chemin" → on affiche juste le chemin
+      local display
+      display=$(echo "$line" | awk '{ if (NF >= 2) { $1=""; print substr($0,2) } else { print $0 } }')
+      echo "      <li><code>$(html_escape "$display")</code></li>"
+    done < "$file"
+    echo "    </ul>"
+  }
+
+  html_escape() {
+    local s="$1"
+    s="${s//&/&amp;}"
+    s="${s//</&lt;}"
+    s="${s//>/&gt;}"
+    echo "$s"
+  }
+
+  local list_modifies list_disparus list_nouveaux
+  list_modifies=$(_render_file_list "$modifies_file" "Aucun fichier modifié")
+  list_disparus=$(_render_file_list "$disparus_file" "Aucun fichier disparu")
+  list_nouveaux=$(_render_file_list "$nouveaux_file" "Aucun nouveau fichier")
+
+  cat > "$output_html" <<HTML
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rapport — ${nom_old} vs ${nom_new}</title>
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────────── */
+    :root {
+      --bg:          #0f1117;
+      --bg-card:     #161b27;
+      --bg-card-alt: #1c2233;
+      --border:      #252d3f;
+      --border-glow: #2e3d5a;
+      --text:        #c8d4e8;
+      --text-dim:    #5a6a85;
+      --text-head:   #e8eef8;
+      --mono:        'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+      --sans:        'DM Sans', 'Outfit', system-ui, sans-serif;
+      --accent-ok:   #22c55e;
+      --accent-diff: #f59e0b;
+      --accent-mod:  #e879f9;
+      --accent-dis:  #f87171;
+      --accent-nou:  #34d399;
+      --radius:      8px;
+      --radius-lg:   14px;
+    }
+
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 0 0 64px;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────── */
+    .header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 28px 40px 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .header-left h1 {
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-dim);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .bases-compare {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .base-name {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-head);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border-glow);
+      border-radius: var(--radius);
+      padding: 5px 12px;
+    }
+
+    .arrow {
+      color: var(--text-dim);
+      font-size: 16px;
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--text-dim);
+      margin-top: 10px;
+      font-family: var(--mono);
+    }
+
+    /* ── Status badge ─────────────────────────────────────────────── */
+    .status-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 100px;
+      border: 1px solid;
+      white-space: nowrap;
+      align-self: flex-start;
+      margin-top: 4px;
+    }
+
+    .status-ok   { color: var(--accent-ok);   border-color: var(--accent-ok);   background: rgba(34,197,94,.08);  }
+    .status-diff { color: var(--accent-diff);  border-color: var(--accent-diff); background: rgba(245,158,11,.08); }
+
+    /* ── Stats bar ────────────────────────────────────────────────── */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat {
+      background: var(--bg-card);
+      padding: 20px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .stat-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .stat-modifies .stat-value { color: var(--accent-mod); }
+    .stat-disparus .stat-value { color: var(--accent-dis); }
+    .stat-nouveaux .stat-value { color: var(--accent-nou); }
+
+    /* ── Sections ─────────────────────────────────────────────────── */
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 36px 40px 0;
+      display: grid;
+      gap: 20px;
+    }
+
+    .section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .section-modifies .section-dot { background: var(--accent-mod); }
+    .section-disparus .section-dot { background: var(--accent-dis); }
+    .section-nouveaux .section-dot { background: var(--accent-nou); }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--text-head);
+    }
+
+    .section-count {
+      margin-left: auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text-dim);
+      background: var(--bg-card-alt);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 2px 10px;
+    }
+
+    .section-body {
+      padding: 16px 20px;
+    }
+
+    .section-body ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .section-body li {
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      background: var(--bg-card-alt);
+      border: 1px solid transparent;
+      transition: border-color .15s;
+    }
+
+    .section-body li:hover {
+      border-color: var(--border-glow);
+    }
+
+    .section-body code {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-all;
+    }
+
+    .empty {
+      font-style: italic;
+      color: var(--text-dim);
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────── */
+    .footer {
+      text-align: center;
+      padding-top: 40px;
+      font-size: 11px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+    }
+
+    @media (max-width: 680px) {
+      .header        { padding: 20px; flex-direction: column; }
+      .stats-bar     { grid-template-columns: 1fr; }
+      .main          { padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="header-left">
+      <h1>Rapport de comparaison — hash_tool</h1>
+      <div class="bases-compare">
+        <span class="base-name">$(html_escape "$nom_old")</span>
+        <span class="arrow">→</span>
+        <span class="base-name">$(html_escape "$nom_new")</span>
+      </div>
+      <div class="meta">Généré le ${date_rapport}</div>
+    </div>
+    <div class="status-badge ${statut_class}">${statut}</div>
+  </header>
+
+  <!-- ── Compteurs ────────────────────────────────────────────────────── -->
+  <div class="stats-bar">
+    <div class="stat stat-modifies">
+      <span class="stat-label">Modifiés</span>
+      <span class="stat-value">${nb_modifies}</span>
+    </div>
+    <div class="stat stat-disparus">
+      <span class="stat-label">Disparus</span>
+      <span class="stat-value">${nb_disparus}</span>
+    </div>
+    <div class="stat stat-nouveaux">
+      <span class="stat-label">Nouveaux</span>
+      <span class="stat-value">${nb_nouveaux}</span>
+    </div>
+  </div>
+
+  <!-- ── Listes ───────────────────────────────────────────────────────── -->
+  <main class="main">
+
+    <div class="section section-modifies">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers modifiés</span>
+        <span class="section-count">${nb_modifies}</span>
+      </div>
+      <div class="section-body">
+${list_modifies}
+      </div>
+    </div>
+
+    <div class="section section-disparus">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Fichiers disparus</span>
+        <span class="section-count">${nb_disparus}</span>
+      </div>
+      <div class="section-body">
+${list_disparus}
+      </div>
+    </div>
+
+    <div class="section section-nouveaux">
+      <div class="section-header">
+        <div class="section-dot"></div>
+        <span class="section-title">Nouveaux fichiers</span>
+        <span class="section-count">${nb_nouveaux}</span>
+      </div>
+      <div class="section-body">
+${list_nouveaux}
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    integrity.sh · BLAKE3 · ${date_rapport}
+  </footer>
+
+</body>
+</html>
+HTML
+}
+
+--- Fichier : pipelines/pipeline full.json ---
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier_disque_1",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "/mnt/i/dossier_disque_2",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "/mnt/h/dossier_disque_3",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_3.b3"
+        },
+
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier_disque_1",
+            "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
+        },
+
+        {
+            "op":       "compare",
+            "base_a":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3",
+            "resultats": "/mnt/c/Users/TonNom/Desktop/rapports/compare_1_vs_2"
+        }
+
+    ]
+}
+
+--- Fichier : pipelines/pipeline.json ---
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "./mon_dossier/source",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "./mon_dossier/destination",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":       "compare",
+            "base_a":   "./mon_dossier/bases/hashes_dossier_1.b3",
+            "base_b":   "./mon_dossier/bases/hashes_dossier_2.b3",
+            "resultats": "./mon_dossier/result"
+        }
+
+    ]
+}
 
 --- Fichier : docs/explication-run-tests.md ---
 # Explication du code — run_tests.sh + run_tests_pipeline.sh
