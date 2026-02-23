@@ -1,0 +1,86 @@
+site_name: hash_tool
+site_description: Vérification d'intégrité de fichiers par hachage BLAKE3
+site_author: hash_tool
+docs_dir: docs
+site_dir: site
+
+repo_url: https://github.com/hash_tool/hash_tool
+repo_name: hash_tool/hash_tool
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: fr
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Passer en mode clair
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Passer en mode sombre
+  font:
+    text: DM Sans
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/hash_tool/hash_tool
+
+nav:
+  - Accueil: index.md
+  - Démarrage rapide: getting-started.md
+  - Référence:
+    - integrity.sh: reference/integrity-sh.md
+    - runner.sh & pipeline.json: reference/runner-sh.md
+    - Docker: reference/docker.md
+  - Guides:
+    - VeraCrypt & disques multiples: guides/veracrypt.md
+    - CI / Cron: guides/cron-ci.md
+    - NAS Synology: guides/nas-synology.md
+  - Développement:
+    - Architecture: development/architecture.md
+    - Contribuer & Tests: development/contributing.md
+    - Changelog: development/changelog.md

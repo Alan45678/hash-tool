@@ -1,5 +1,33 @@
 # Changelog — hash_tool / integrity.sh
 
+## [0.14] — Documentation restructurée
+
+### Ajouté
+- `docs/` : documentation complète au format MkDocs Material.
+  - `index.md` : page d'accueil, vue d'ensemble, structure du projet.
+  - `getting-started.md` : installation, prérequis, premier usage pas à pas.
+  - `reference/integrity-sh.md` : référence exhaustive — modes, arguments, variables, exit codes, limites.
+  - `reference/runner-sh.md` : schéma complet pipeline.json, comportements, messages d'erreur.
+  - `reference/docker.md` : build, volumes, Compose, cron, Synology, ARM64.
+  - `guides/veracrypt.md` : workflow multi-disques, lanceur Windows `.bat`.
+  - `guides/cron-ci.md` : cron Linux, GitHub Actions, GitLab CI, hooks Git, patterns de notification.
+  - `guides/nas-synology.md` : DSM 7, Container Manager, planificateur de tâches.
+  - `development/architecture.md` : décisions techniques documentées (BLAKE3, chemins relatifs, ETA, CSS inline, etc.).
+  - `development/contributing.md` : couverture tests, conventions, processus de release.
+  - `development/changelog.md` : historique reformaté Keep a Changelog.
+- `mkdocs.yml` : configuration MkDocs Material, navigation, extensions pymdownx, thème sombre/clair.
+- `CONTRIBUTING.md` : guide de contribution à la racine du projet.
+- README-docker.md : readme juste pour docker. 
+- README-docs.md : readme juste pour la documentation. 
+- README-tests.md : readme juste pour les tests. 
+
+### Supprimé
+- `docs/*.docx`, `docs/*.pdf` : binaires non diffables retirés du repo. Générer depuis le markdown via `pandoc` si nécessaire.
+- `temp.txt` : ajouté au `.gitignore`.
+
+### Modifié
+- `pipelines/pipeline full.json` → `pipelines/pipeline-full.json` : suppression de l'espace dans le nom de fichier.
+
 ## [0.13] — Débug de la dockerisation et documentation 
 
 ### Ajouté

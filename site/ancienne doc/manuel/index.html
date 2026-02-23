@@ -1,0 +1,1793 @@
+
+<!doctype html>
+<html lang="fr" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Vérification d'intégrité de fichiers par hachage BLAKE3">
+      
+      
+        <meta name="author" content="hash_tool">
+      
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.2">
+    
+    
+      
+        <title>Manuel technique — Vérification d'intégrité de données - hash_tool</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=DM+Sans:300,300i,400,400i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"DM Sans";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#manuel-technique-verification-dintegrite-de-donnees" class="md-skip">
+          Aller au contenu
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="En-tête">
+    <a href="../.." title="hash_tool" class="md-header__button md-logo" aria-label="hash_tool" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            hash_tool
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Manuel technique — Vérification d'intégrité de données
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Passer en mode clair"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Passer en mode clair" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Passer en mode sombre"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Passer en mode sombre" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Rechercher" placeholder="Rechercher" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Recherche">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Effacer" aria-label="Effacer" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initialisation de la recherche
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hash_tool/hash_tool" title="Aller au dépôt" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hash_tool/hash_tool
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Onglets" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Accueil
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../getting-started/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Démarrage rapide
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/integrity-sh/" class="md-tabs__link">
+          
+  
+  
+  Référence
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/veracrypt/" class="md-tabs__link">
+          
+  
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../development/architecture/" class="md-tabs__link">
+          
+  
+  
+  Développement
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="hash_tool" class="md-nav__button md-logo" aria-label="hash_tool" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    hash_tool
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hash_tool/hash_tool" title="Aller au dépôt" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    hash_tool/hash_tool
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Accueil
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Démarrage rapide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Référence
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Référence
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/integrity-sh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    integrity.sh
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/runner-sh/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    runner.sh & pipeline.json
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/docker/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Docker
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/veracrypt/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    VeraCrypt & disques multiples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/cron-ci/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CI / Cron
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/nas-synology/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NAS Synology
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Développement
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Développement
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/contributing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contribuer & Tests
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../development/changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table des matières">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table des matières
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#table-des-matieres" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Table des matières
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#1-algorithmes-de-hachage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Algorithmes de hachage
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="1. Algorithmes de hachage">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#taxonomie" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Taxonomie
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pourquoi-blake3-plutot-que-xxhash3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pourquoi BLAKE3 plutôt que xxHash3
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#limitations-specifiques-a-ce-workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations spécifiques à ce workflow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-structure-du-fichier-b3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Structure du fichier .b3
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-workflow-calcul-stockage-comparaison" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Workflow : calcul, stockage, comparaison
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="3. Workflow : calcul, stockage, comparaison">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#calcul-et-enregistrement-de-la-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Calcul et enregistrement de la base
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verification-directe" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Vérification directe
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#comparaison-de-deux-bases-b3" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Comparaison de deux bases .b3
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-explication-du-script-integritysh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Explication du script integrity.sh
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. Explication du script integrity.sh">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#en-tete-et-mode-strict" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        En-tête et mode strict
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parsing-des-arguments" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parsing des arguments
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-compute" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode compute
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode verify
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mode-compare" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Mode compare
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-pipeline-batch-runnersh-pipelinejson" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Pipeline batch : runner.sh + pipeline.json
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Pipeline batch : runner.sh + pipeline.json">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#probleme-resolu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Problème résolu
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pipelinejson-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pipeline.json — format
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#runnersh-comportement" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        runner.sh — comportement
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#lancement-windows-double-clic" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lancement Windows (double-clic)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#chemins-wsl-partitions-veracrypt" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Chemins WSL — partitions VeraCrypt
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-performances-et-optimisation-disque" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Performances et optimisation disque
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-limites-et-angles-morts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Limites et angles morts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. Limites et angles morts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#proteger-la-base" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Protéger la base
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renommages-et-changements-de-chemin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renommages et changements de chemin
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-reference-rapide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Référence rapide
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9-annexe-alternatives-et-extensions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. Annexe — Alternatives et extensions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="9. Annexe — Alternatives et extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#a1-outils-fim" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.1 Outils FIM
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#a2-integration-automatisee" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A.2 Intégration automatisée
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="manuel-technique-verification-dintegrite-de-donnees">Manuel technique — Vérification d'intégrité de données<a class="headerlink" href="#manuel-technique-verification-dintegrite-de-donnees" title="Permanent link">&para;</a></h1>
+<p><strong>Périmètre :</strong> détection d'erreurs de transfert et de corruption silencieuse sur disque, sans adversaire.<br />
+<strong>Outils couverts :</strong> b3sum (BLAKE3) · xxHash3 · find · diff · bash · jq</p>
+<hr />
+<h2 id="table-des-matieres">Table des matières<a class="headerlink" href="#table-des-matieres" title="Permanent link">&para;</a></h2>
+<ol>
+<li><a href="#1-algorithmes-de-hachage">Algorithmes de hachage</a></li>
+<li><a href="#2-structure-du-fichier-b3">Structure du fichier .b3</a></li>
+<li><a href="#3-workflow--calcul-stockage-comparaison">Workflow : calcul, stockage, comparaison</a></li>
+<li><a href="#4-explication-du-script-integritysh">Explication du script integrity.sh</a></li>
+<li><a href="#5-pipeline-batch--runnersh--pipelinejson">Pipeline batch : runner.sh + pipeline.json</a></li>
+<li><a href="#6-performances-et-optimisation-disque">Performances et optimisation disque</a></li>
+<li><a href="#7-limites-et-angles-morts">Limites et angles morts</a></li>
+<li><a href="#8-référence-rapide">Référence rapide</a></li>
+<li><a href="#9-annexe--alternatives-et-extensions">Annexe — Alternatives et extensions</a></li>
+</ol>
+<hr />
+<h2 id="1-algorithmes-de-hachage">1. Algorithmes de hachage<a class="headerlink" href="#1-algorithmes-de-hachage" title="Permanent link">&para;</a></h2>
+<h3 id="taxonomie">Taxonomie<a class="headerlink" href="#taxonomie" title="Permanent link">&para;</a></h3>
+<p>Deux familles distinctes, usages mutuellement exclusifs :</p>
+<table>
+<thead>
+<tr>
+<th>Propriété</th>
+<th>Cryptographique (BLAKE3)</th>
+<th>Non-cryptographique (xxHash3)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Résistance collision intentionnelle</td>
+<td>Oui — infaisable calculatoirement</td>
+<td>Non — collisions construisibles</td>
+</tr>
+<tr>
+<td>Résistance préimage</td>
+<td>Oui</td>
+<td>Non</td>
+</tr>
+<tr>
+<td>Débit CPU (1 cœur)</td>
+<td>~1 Go/s</td>
+<td>~50 Go/s</td>
+</tr>
+<tr>
+<td>Débit sur HDD (150 Mo/s)</td>
+<td>Identique — disque impose le rythme</td>
+<td>Identique</td>
+</tr>
+<tr>
+<td>Débit sur SATA SSD (500 Mo/s)</td>
+<td>Identique</td>
+<td>Identique</td>
+</tr>
+<tr>
+<td>Détection corruption accidentelle</td>
+<td>Oui</td>
+<td>Oui</td>
+</tr>
+<tr>
+<td>Utilisable en sécurité</td>
+<td>Oui</td>
+<td>Non</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pourquoi-blake3-plutot-que-xxhash3">Pourquoi BLAKE3 plutôt que xxHash3<a class="headerlink" href="#pourquoi-blake3-plutot-que-xxhash3" title="Permanent link">&para;</a></h3>
+<p>xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles. BLAKE3 est recommandé pour une seule raison : <strong>le coût marginal sur disque est nul</strong> — les deux sont limités par l'I/O. BLAKE3 reste utilisable si le besoin évolue vers un contexte de sécurité. Headroom gratuit.</p>
+<pre class="highlight"><code class="language-bash"># Si xxHash3 est préféré — workflow identique à b3sum
+find ./dossier -type f -print0 | sort -z | xargs -0 xxh128sum &gt; base.xxh</code></pre>
+<h3 id="limitations-specifiques-a-ce-workflow">Limitations spécifiques à ce workflow<a class="headerlink" href="#limitations-specifiques-a-ce-workflow" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Ne hache pas les métadonnées (mtime, permissions).</li>
+<li>Ne hache pas les dossiers vides : <code>find -type f</code> ne remonte que les fichiers réguliers.</li>
+<li>Sensible aux chemins : chemin absolu vs relatif → deux bases incompatibles pour la même donnée.</li>
+</ul>
+<hr />
+<h2 id="2-structure-du-fichier-b3">2. Structure du fichier .b3<a class="headerlink" href="#2-structure-du-fichier-b3" title="Permanent link">&para;</a></h2>
+<p>b3sum produit un format texte simple, une ligne par fichier :</p>
+<pre class="highlight"><code># Format : &lt;hash&gt;  &lt;chemin&gt;
+# Deux espaces séparent le hash du chemin (convention b3sum/sha256sum)
+
+a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2  ./dossier/fichier.txt
+e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6  ./dossier/sous/autre.bin</code></pre>
+<table>
+<thead>
+<tr>
+<th>Nombre de fichiers</th>
+<th>Taille approximative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10 000</td>
+<td>~2 Mo</td>
+</tr>
+<tr>
+<td>100 000</td>
+<td>~20 Mo</td>
+</tr>
+<tr>
+<td>1 000 000</td>
+<td>~200 Mo</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Règle absolue : chemins relatifs.</strong> Toujours <code>find ./dossier</code>, jamais <code>find /chemin/absolu</code>. Un chemin absolu rend la base inutilisable après déplacement ou remontage.</p>
+</blockquote>
+<hr />
+<h2 id="3-workflow-calcul-stockage-comparaison">3. Workflow : calcul, stockage, comparaison<a class="headerlink" href="#3-workflow-calcul-stockage-comparaison" title="Permanent link">&para;</a></h2>
+<h3 id="calcul-et-enregistrement-de-la-base">Calcul et enregistrement de la base<a class="headerlink" href="#calcul-et-enregistrement-de-la-base" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">find ./mon_dossier -type f -print0 \
+  | sort -z \
+  | xargs -0 b3sum \
+  &gt; hashes_2024-01-15.b3
+
+wc -l hashes_2024-01-15.b3</code></pre>
+<p><strong><code>sort -z</code></strong> : <code>find</code> ne garantit pas un ordre déterministe. Sans tri, <code>diff</code> entre deux bases est inutilisable.</p>
+<p><strong><code>-print0</code> / <code>-0</code></strong> : robuste aux noms de fichiers avec espaces ou caractères spéciaux.</p>
+<h3 id="verification-directe">Vérification directe<a class="headerlink" href="#verification-directe" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">b3sum --check hashes_2024-01-15.b3
+
+# Sortie OK :
+# ./mon_dossier/fichier.txt: OK
+
+# Sortie ECHEC :
+# ./mon_dossier/sous/corrompu.bin: FAILED
+# b3sum: WARNING: 1 computed checksum did NOT match
+
+b3sum --check hashes_2024-01-15.b3 2&gt;&amp;1 | grep FAILED</code></pre>
+<blockquote>
+<p><strong>Contrainte critique : répertoire de travail.</strong> <code>b3sum --check</code> résout les chemins relatifs depuis <code>pwd</code>. Toujours exécuter depuis le répertoire où <code>compute</code> a été lancé.</p>
+</blockquote>
+<h3 id="comparaison-de-deux-bases-b3">Comparaison de deux bases .b3<a class="headerlink" href="#comparaison-de-deux-bases-b3" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">diff &lt;(sort hashes_2024-01-15.b3) &lt;(sort hashes_2024-02-01.b3)</code></pre>
+<p><code>run_compare()</code> dans <code>integrity.sh</code> automatise cette comparaison avec <code>join</code>, <code>comm</code>, et un rapport structuré.</p>
+<hr />
+<h2 id="4-explication-du-script-integritysh">4. Explication du script integrity.sh<a class="headerlink" href="#4-explication-du-script-integritysh" title="Permanent link">&para;</a></h2>
+<h3 id="en-tete-et-mode-strict">En-tête et mode strict<a class="headerlink" href="#en-tete-et-mode-strict" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">#!/usr/bin/env bash
+set -euo pipefail</code></pre>
+<ul>
+<li><code>-e</code> : arrêt sur échec de commande.</li>
+<li><code>-u</code> : erreur sur variable non initialisée.</li>
+<li><code>-o pipefail</code> : échec du pipeline si une commande intermédiaire échoue.</li>
+</ul>
+<h3 id="parsing-des-arguments">Parsing des arguments<a class="headerlink" href="#parsing-des-arguments" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">QUIET=0
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    *)       ARGS+=("$arg") ;;
+  esac
+done
+MODE="${ARGS[0]:-}"
+ARG2="${ARGS[1]:-}"
+ARG3="${ARGS[2]:-}"</code></pre>
+<p><code>--quiet</code> filtré avant la lecture positionnelle. <code>:-</code> donne une valeur vide par défaut en mode <code>-u</code>.</p>
+<h3 id="mode-compute">Mode compute<a class="headerlink" href="#mode-compute" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">compute_with_progress() {
+  local -a files
+  mapfile -d '' files &lt; &lt;(find "$target" -type f -print0 | sort -z)
+
+  for file in "${files[@]}"; do
+    b3sum "$file" &gt;&gt; "$hashfile"
+    # ETA calculé et affiché sur /dev/tty — jamais dans le pipe
+    printf "\r[%d/%d] ETA : %dm %02ds   " ... &gt; /dev/tty
+  done
+}</code></pre>
+<p><strong><code>mapfile -d ''</code></strong> : charge les chemins en tableau depuis flux nul-séparé. Robuste aux espaces et caractères spéciaux.</p>
+<p><strong><code>&gt; /dev/tty</code></strong> : progression écrite directement sur le terminal, ne peut pas polluer la base <code>.b3</code>.</p>
+<h3 id="mode-verify">Mode verify<a class="headerlink" href="#mode-verify" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">hashfile_abs=$(realpath "$ARG2")
+[ -n "${ARG3:-}" ] &amp;&amp; cd "$ARG3"
+run_verify "$hashfile_abs"</code></pre>
+<p>Le chemin absolu est résolu <strong>avant</strong> le <code>cd</code> — un chemin relatif deviendrait invalide après changement de répertoire.</p>
+<h3 id="mode-compare">Mode compare<a class="headerlink" href="#mode-compare" title="Permanent link">&para;</a></h3>
+<p><code>run_compare()</code> convertit <code>hash  chemin</code> → <code>chemin\thash</code> via <code>awk</code> (offset fixe 64 chars pour le hash), puis utilise <code>sort</code>, <code>join</code>, <code>comm</code> avec <code>-t $'\t'</code> — robuste aux chemins avec espaces.</p>
+<hr />
+<h2 id="5-pipeline-batch-runnersh-pipelinejson">5. Pipeline batch : runner.sh + pipeline.json<a class="headerlink" href="#5-pipeline-batch-runnersh-pipelinejson" title="Permanent link">&para;</a></h2>
+<h3 id="probleme-resolu">Problème résolu<a class="headerlink" href="#probleme-resolu" title="Permanent link">&para;</a></h3>
+<p>Lancer <code>integrity.sh</code> manuellement sur plusieurs dossiers depuis des partitions différentes (VeraCrypt, disques externes) est error-prone : répertoire de travail incorrect, chemins absolus dans les bases, oubli de <code>cd</code>. <code>runner.sh</code> automatise et sécurise ces étapes.</p>
+<p><strong>Dépendance supplémentaire :</strong> <code>jq</code> (<code>apt install jq</code> dans WSL).</p>
+<h3 id="pipelinejson-format">pipeline.json — format<a class="headerlink" href="#pipelinejson-format" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-json">{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "/mnt/a/dossier_disque_1",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "/mnt/i/dossier_disque_2",
+            "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":     "verify",
+            "source": "/mnt/a/dossier_disque_1",
+            "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compare",
+            "base_a": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_1.b3",
+            "base_b": "/mnt/c/Users/TonNom/Desktop/bases/hashes_dossier_2.b3"
+        }
+
+    ]
+}</code></pre>
+<p>Champs requis par opération :</p>
+<table>
+<thead>
+<tr>
+<th><code>op</code></th>
+<th>Champs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>compute</code></td>
+<td><code>source</code> — dossier à hacher · <code>bases</code> — dossier de destination · <code>nom</code> — nom du <code>.b3</code></td>
+</tr>
+<tr>
+<td><code>verify</code></td>
+<td><code>source</code> — répertoire de travail d'origine · <code>base</code> — chemin complet du <code>.b3</code></td>
+</tr>
+<tr>
+<td><code>compare</code></td>
+<td><code>base_a</code> — ancienne base · <code>base_b</code> — nouvelle base</td>
+</tr>
+</tbody>
+</table>
+<h3 id="runnersh-comportement">runner.sh — comportement<a class="headerlink" href="#runnersh-comportement" title="Permanent link">&para;</a></h3>
+<p><strong>compute</strong> : <code>cd "$source"</code> puis <code>integrity.sh compute . "$bases/$nom"</code>. Le <code>.</code> garantit des chemins relatifs dans la base.</p>
+<p><strong>verify</strong> : <code>cd "$source"</code> puis <code>integrity.sh verify "$base"</code>. Le <code>cd</code> reproduit le répertoire de travail d'origine du compute.</p>
+<p><strong>compare</strong> : appel direct sans <code>cd</code>. <code>base_a</code> et <code>base_b</code> sont des chemins absolus vers les <code>.b3</code>.</p>
+<p><strong>Validation</strong> : <code>jq empty</code> vérifie la syntaxe JSON à l'entrée. Champs manquants et opérations inconnues produisent un message <code>ERREUR</code> avec numéro de bloc, sans stacktrace <code>jq</code>.</p>
+<h3 id="lancement-windows-double-clic">Lancement Windows (double-clic)<a class="headerlink" href="#lancement-windows-double-clic" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bat">@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/runner.sh
+pause</code></pre>
+<h3 id="chemins-wsl-partitions-veracrypt">Chemins WSL — partitions VeraCrypt<a class="headerlink" href="#chemins-wsl-partitions-veracrypt" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Windows</th>
+<th>WSL</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>A:\</code></td>
+<td><code>/mnt/a/</code></td>
+</tr>
+<tr>
+<td><code>C:\</code></td>
+<td><code>/mnt/c/</code></td>
+</tr>
+<tr>
+<td><code>H:\</code></td>
+<td><code>/mnt/h/</code></td>
+</tr>
+<tr>
+<td><code>I:\</code></td>
+<td><code>/mnt/i/</code></td>
+</tr>
+</tbody>
+</table>
+<p>Si VeraCrypt remonte une partition sur une lettre différente, seul le champ <code>source</code> dans <code>pipeline.json</code> est à modifier. La base <code>.b3</code> reste valide car ses chemins sont relatifs.</p>
+<hr />
+<h2 id="6-performances-et-optimisation-disque">6. Performances et optimisation disque<a class="headerlink" href="#6-performances-et-optimisation-disque" title="Permanent link">&para;</a></h2>
+<p>Sur HDD (150 Mo/s), SSD SATA (500 Mo/s) ou SSD NVMe séquentiel, le disque est systématiquement le goulot. b3sum à 1 Go/s sur un cœur ne sera jamais le facteur limitant.</p>
+<p>La boucle séquentielle de <code>compute_with_progress</code> est légèrement moins efficace que <code>xargs -P 4</code> sur SSD NVMe avec de nombreux petits fichiers, mais identique sur HDD — cas principal pour gros volumes. Le gain ETA justifie le choix.</p>
+<p>Pour SSD NVMe + pas besoin d'ETA :</p>
+<pre class="highlight"><code class="language-bash">find ./dossier -type f -print0 | sort -z | xargs -0 -P 4 b3sum &gt; base.b3</code></pre>
+<hr />
+<h2 id="7-limites-et-angles-morts">7. Limites et angles morts<a class="headerlink" href="#7-limites-et-angles-morts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Scénario</th>
+<th>Détecté ?</th>
+<th>Explication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fichier corrompu</td>
+<td><strong>Oui</strong></td>
+<td>Hash différent → FAILED ou divergence compare</td>
+</tr>
+<tr>
+<td>Fichier manquant</td>
+<td><strong>Oui</strong></td>
+<td>FAILED (No such file) ou section DISPARUS</td>
+</tr>
+<tr>
+<td>Fichier ajouté</td>
+<td><strong>Oui</strong> (compare)</td>
+<td>Section NOUVEAUX</td>
+</tr>
+<tr>
+<td>Dossier vide</td>
+<td><strong>Non</strong></td>
+<td><code>find -type f</code> ignore les dossiers vides</td>
+</tr>
+<tr>
+<td>Permissions/timestamps</td>
+<td><strong>Non</strong></td>
+<td>b3sum ne hache que le contenu binaire</td>
+</tr>
+<tr>
+<td>Clone identique</td>
+<td><strong>Non</strong></td>
+<td>Hash identique — indétectable par définition</td>
+</tr>
+<tr>
+<td>Corruption de la base .b3</td>
+<td><strong>Non</strong></td>
+<td>La base n'est pas auto-protégée</td>
+</tr>
+</tbody>
+</table>
+<h3 id="proteger-la-base">Protéger la base<a class="headerlink" href="#proteger-la-base" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash">b3sum hashes_2024-01-15.b3 &gt; hashes_2024-01-15.b3.check
+b3sum --check hashes_2024-01-15.b3.check</code></pre>
+<p>Stocker la base sur un support distinct. Sur VeraCrypt : stocker les <code>.b3</code> sur <code>C:</code>, jamais sur la partition vérifiée.</p>
+<h3 id="renommages-et-changements-de-chemin">Renommages et changements de chemin<a class="headerlink" href="#renommages-et-changements-de-chemin" title="Permanent link">&para;</a></h3>
+<p><code>b3sum --check</code> compare les chemins littéralement. Tout renommage de dossier produit des FAILED sur tous les fichiers, même si le contenu est intact.</p>
+<pre class="highlight"><code class="language-bash">sed 's|./ancien_nom/|./nouveau_nom/|g' base.b3 &gt; base_corrigee.b3
+b3sum --check base_corrigee.b3</code></pre>
+<hr />
+<h2 id="8-reference-rapide">8. Référence rapide<a class="headerlink" href="#8-reference-rapide" title="Permanent link">&para;</a></h2>
+<pre class="highlight"><code class="language-bash"># Calcul
+find ./dossier -type f -print0 | sort -z | xargs -0 b3sum &gt; base.b3
+
+# Vérification
+./integrity.sh verify base.b3
+
+# Comparaison
+./integrity.sh compare ancienne.b3 nouvelle.b3
+
+# Pipeline multi-dossiers
+./runner.sh                        # lit pipeline.json dans le même dossier
+./runner.sh /chemin/pipeline.json  # config explicite
+
+# Compter les fichiers indexés
+wc -l base.b3
+
+# Fichier unique
+b3sum fichier.bin
+
+# Protéger la base
+b3sum base.b3 &gt; base.b3.check</code></pre>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Mode</th>
+<th>Commande</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Première indexation</td>
+<td>compute</td>
+<td><code>./integrity.sh compute ./dossier base.b3</code></td>
+</tr>
+<tr>
+<td>Multi-dossiers / VeraCrypt</td>
+<td>runner</td>
+<td><code>./runner.sh</code></td>
+</tr>
+<tr>
+<td>Vérifier après transfert</td>
+<td>verify</td>
+<td><code>./integrity.sh verify base.b3</code></td>
+</tr>
+<tr>
+<td>Comparer deux archives</td>
+<td>compare</td>
+<td><code>./integrity.sh compare old.b3 new.b3</code></td>
+</tr>
+<tr>
+<td>Fichier unique</td>
+<td>ad hoc</td>
+<td><code>b3sum fichier.bin</code></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-annexe-alternatives-et-extensions">9. Annexe — Alternatives et extensions<a class="headerlink" href="#9-annexe-alternatives-et-extensions" title="Permanent link">&para;</a></h2>
+<h3 id="a1-outils-fim">A.1 Outils FIM<a class="headerlink" href="#a1-outils-fim" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Outil</th>
+<th>Usage</th>
+<th>Complexité</th>
+<th>Pertinent si…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tripwire</td>
+<td>Audit système local</td>
+<td>Moyenne</td>
+<td>Serveur Linux, conformité PCI-DSS/HIPAA</td>
+</tr>
+<tr>
+<td>Samhain</td>
+<td>FIM distribué, alertes SIEM</td>
+<td>Élevée</td>
+<td>Infrastructure d'entreprise</td>
+</tr>
+<tr>
+<td>AIDE</td>
+<td>Alternative open source à Tripwire</td>
+<td>Moyenne</td>
+<td>Remplacement direct de Tripwire</td>
+</tr>
+<tr>
+<td>ZFS</td>
+<td>Checksum natif sur chaque bloc</td>
+<td>Faible (si migration possible)</td>
+<td>Protection transparente</td>
+</tr>
+</tbody>
+</table>
+<p>b3sum/xxHash3 sont des <strong>primitives</strong>. Tripwire et Samhain sont des <strong>systèmes</strong> qui maintiennent un état de référence et détectent les dérives.</p>
+<h3 id="a2-integration-automatisee">A.2 Intégration automatisée<a class="headerlink" href="#a2-integration-automatisee" title="Permanent link">&para;</a></h3>
+<pre class="highlight"><code class="language-bash"># Crontab — vérification hebdomadaire
+0 2 * * 0 /opt/integrity.sh --quiet verify /var/lib/integrity/base.b3 &gt;&gt; /var/log/integrity.log 2&gt;&amp;1
+
+# Post-transfert rsync
+rsync -av source/ dest/ &amp;&amp; b3sum --check base.b3
+
+# Alerte email
+b3sum --check base.b3 2&gt;&amp;1 | grep FAILED | mail -s 'Alerte intégrité' admin@example.com</code></pre>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Retour en haut de la page
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/hash_tool/hash_tool" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.tabs.sticky", "navigation.sections", "navigation.expand", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "content.code.annotate", "content.tabs.link"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copi\u00e9 dans le presse-papier", "clipboard.copy": "Copier dans le presse-papier", "search.result.more.one": "1 de plus sur cette page", "search.result.more.other": "# de plus sur cette page", "search.result.none": "Aucun document trouv\u00e9", "search.result.one": "1 document trouv\u00e9", "search.result.other": "# documents trouv\u00e9s", "search.result.placeholder": "Taper pour d\u00e9marrer la recherche", "search.result.term.missing": "Non trouv\u00e9", "select.version": "S\u00e9lectionner la version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

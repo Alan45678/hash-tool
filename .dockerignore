@@ -16,6 +16,7 @@ tests/
 
 # Documentation — non requise dans l'image
 docs/
+autre/
 reports/
 *.md
 !README.md
