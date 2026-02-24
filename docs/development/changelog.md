@@ -1,7 +1,15 @@
 # Changelog - hash_tool / integrity.sh
 
+## [0.18] - debug 
+
+### Ajoutée 
+
+- dans "brouillon_non_prod" j'ai ajouté des documents .md décrivant les prochains travaux à effectuer pour avoir une architecture de test ainsi qu'une CLI améliorée. 
+
 
 ## [0.17] - debug 
+
+### Ajoutée 
 
 - ajout de "autre" ou "brouillon_non_prod" au git, c'est des documents de travail qui n'a pas à être dans le délivrable mais qui est intéressant de mettre dans le git parce qu'ils sont importants.
 
