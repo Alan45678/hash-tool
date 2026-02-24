@@ -1,0 +1,842 @@
+
+hash_tool
+Documentation technique — Dockerisation
+
+Version 0.12
+Février 2026
+
+Périmètre
+Ce document couvre la containerisation de hash_tool via Docker : conception de l'image Alpine multi-stage, stratégie de build, entrypoint, orchestration Docker Compose, et déploiement sur les trois environnements cibles (Windows/WSL, NAS Synology, serveur Debian).
+
+Table des matières
+Table des matières	2
+1. Contexte et objectifs	3
+1.1 Problème résolu	3
+1.2 Contraintes de conception	3
+2. Architecture de l'image	4
+2.1 Multi-stage build	4
+2.2 Taille finale de l'image	4
+2.3 Détection d'architecture	4
+2.4 Vérification cryptographique du binaire	5
+3. Entrypoint et interface utilisateur	6
+3.1 Rôle de l'entrypoint	6
+3.2 Option --quiet	6
+3.3 Commande par défaut	6
+4. Volumes et gestion des données	7
+4.1 Convention de montage	7
+4.2 Variable d'environnement RESULTATS_DIR	7
+5. Docker Compose	8
+5.1 Structure du fichier	8
+5.2 Configuration des chemins	8
+5.3 Profil cron	8
+6. Déploiement par environnement	9
+6.1 Windows / WSL	9
+6.2 NAS Synology	9
+6.3 Serveur Debian	10
+7. Maintenance et évolution	11
+7.1 Mise à jour de b3sum	11
+7.2 Build hors-ligne	11
+7.3 Extension de l'image	11
+8. Référence rapide	13
+8.1 Commandes essentielles	13
+8.2 Fichiers du projet	13
+
+
+1. Contexte et objectifs
+1.1 Problème résolu
+hash_tool dépend de deux binaires — b3sum et jq — dont les versions et les méthodes d'installation varient selon l'OS. Sur Windows, b3sum n'est pas disponible nativement. Sur un NAS Synology, l'accès à un gestionnaire de paquets est limité. Sur un serveur Debian de production, toute installation manuelle est une dette technique.
+La containerisation élimine cette dépendance d'environnement : l'image Docker embarque des versions fixes et vérifiées de tous les outils. L'hôte n'a besoin que de Docker.
+
+Environnement
+Problème sans Docker
+Solution Docker
+Windows / WSL
+b3sum non dispo nativement, jq à installer manuellement
+docker run — aucune installation
+NAS Synology
+Gestionnaire de paquets limité, accès SSH requis
+Image ARM64 compatible DSM 7.x
+Serveur Debian
+Versions système potentiellement anciennes
+Versions pinned dans le Dockerfile
+
+1.2 Contraintes de conception
+Image la plus légère possible — pas de toolchain Rust dans l'image finale
+Support multi-architecture : amd64 (x86), arm64 (NAS DS923+, serveurs ARM), armv7 (vieux NAS)
+Binaire b3sum officiellement signé et vérifié au build
+Interface identique à l'outil natif — pas de changement de workflow
+Isolation des données par volumes — l'image ne contient aucune donnée utilisateur
+
+
+2. Architecture de l'image
+2.1 Multi-stage build
+L'image utilise un build en deux stages pour dissocier les outils de compilation des outils d'exécution.
+
+# Stage 1 : fetcher — téléchargement et vérification de b3sum
+FROM alpine:3.19 AS fetcher
+  → wget b3sum binaire musl depuis GitHub Releases
+  → b3sum --check (auto-vérification cryptographique)
+ 
+# Stage 2 : image finale — runtime uniquement
+FROM alpine:3.19
+  → apk install bash jq coreutils findutils
+  → COPY --from=fetcher /usr/local/bin/b3sum
+  → COPY scripts hash_tool
+
+Le stage fetcher nécessite wget et ca-certificates, qui ne sont pas copiés dans l'image finale. La toolchain Rust (~700 Mo) n'est jamais présente — b3sum est récupéré sous forme de binaire musl pré-compilé depuis les releases officielles BLAKE3.
+!
+Pourquoi musl ?
+Alpine Linux utilise musl libc au lieu de glibc. Les binaires musl sont statiquement liés
+et fonctionnent sans dépendances dynamiques — plus robustes dans un conteneur minimal.
+Le projet BLAKE3 publie des binaires musl officiels pour amd64, arm64 et armv7.
+
+2.2 Taille finale de l'image
+
+Couche
+Taille approx.
+Contenu
+Alpine 3.19 base
+~7 Mo
+OS minimal musl libc
+bash + jq + coreutils
+~5 Mo
+Shell, parser JSON, outils POSIX
+b3sum binaire musl
+~2 Mo
+Binaire officiel BLAKE3
+Scripts hash_tool
+< 100 Ko
+runner.sh, integrity.sh, lib/
+Total image finale
+~14 Mo
+—
+Image Debian équivalente
+~180 Mo
+Référence comparative
+
+2.3 Détection d'architecture
+La sélection du binaire b3sum adapté à l'architecture se fait automatiquement dans le Dockerfile via uname -m :
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64)  B3SUM_ARCH="linux_amd64_musl"   ;;  # PC, serveur standard
+  aarch64) B3SUM_ARCH="linux_aarch64_musl"  ;;  # NAS Synology ARM, RPi 4
+  armv7l)  B3SUM_ARCH="linux_armv7_musl"    ;;  # Vieux NAS, RPi 2/3
+esac
+
+Un seul Dockerfile couvre les trois architectures. Le build multi-platform Docker Buildx permet de produire une image manifeste unique pour les trois cibles simultanément.
+
+2.4 Vérification cryptographique du binaire
+Le projet BLAKE3 publie pour chaque release un fichier .b3 contenant le hash BLAKE3 du binaire. Le stage fetcher vérifie le binaire téléchargé avant de le copier dans l'image finale :
+
+# Télécharger binaire et sa signature
+wget -O /usr/local/bin/b3sum "${BASE_URL}/b3sum_${B3SUM_ARCH}"
+wget -O /tmp/b3sum.b3        "${BASE_URL}/b3sum_${B3SUM_ARCH}.b3"
+ 
+# Auto-vérification : b3sum vérifie sa propre signature
+chmod +x /usr/local/bin/b3sum
+cd /usr/local/bin && b3sum --check /tmp/b3sum.b3
+ 
+# Si le hash ne correspond pas → build échoue immédiatement
+
+!
+Chaîne de confiance
+b3sum se vérifie lui-même : le binaire téléchargé calcule son propre hash et le compare
+au fichier .b3 publié sur la même release GitHub. Si un seul bit a été altéré
+(attaque MITM, corruption réseau), le build échoue avec une erreur explicite.
+
+
+3. Entrypoint et interface utilisateur
+3.1 Rôle de l'entrypoint
+Le script docker/entrypoint.sh est le point d'entrée unique du conteneur. Il dispatche les commandes passées en argument vers les scripts internes appropriés.
+
+Commande
+Script appelé
+Description
+compute <dossier> <base.b3>
+src/integrity.sh compute
+Calcule les hashes BLAKE3
+verify <base.b3> [dossier]
+src/integrity.sh verify
+Vérifie l'intégrité
+compare <old.b3> <new.b3>
+src/integrity.sh compare
+Compare deux bases
+runner [pipeline.json]
+runner.sh
+Exécute un pipeline JSON
+shell / bash
+/bin/bash
+Shell interactif (debug)
+help
+—
+Affiche l'aide inline
+version
+—
+Affiche les versions des outils
+
+3.2 Option --quiet
+L'option  --quiet  passée en premier argument est interceptée par l'entrypoint et transmise à integrity.sh. Elle supprime toute sortie terminal et propage l'exit code, ce qui la rend utilisable dans des pipelines CI/cron.
+
+# --quiet doit être le premier argument
+docker run --rm [...] hash_tool --quiet verify /bases/hashes.b3 /data
+ 
+# Exit code 0 = OK, non-nul = FAILED ou ERREUR
+# Résultats écrits dans /resultats malgré --quiet
+
+3.3 Commande par défaut
+Sans argument, le conteneur affiche l'aide ( CMD ["help"] ). Cela évite l'erreur silencieuse d'un conteneur qui démarre et s'arrête sans indication.
+
+
+4. Volumes et gestion des données
+4.1 Convention de montage
+L'image définit quatre points de montage conventionnels. Cette convention est stable — les pipelines et scripts peuvent référencer ces chemins sans connaître les chemins réels de l'hôte.
+
+Volume
+Usage
+Mode recommandé
+Notes
+/data
+Données à hacher
+:ro (lecture seule)
+Jamais modifié par hash_tool
+/bases
+Fichiers .b3
+Lecture/écriture
+Écriture uniquement pour compute
+/pipelines
+Fichiers pipeline.json
+:ro
+Monter un fichier spécifique
+/resultats
+Résultats verify/compare
+Lecture/écriture
+RESULTATS_DIR=/resultats par défaut
+
+i
+Séparation données / bases
+Les fichiers .b3 doivent être stockés sur un support DISTINCT des données vérifiées.
+Si /data et /bases pointent vers le même disque physique, une corruption du disque
+pourrait affecter les deux — rendant la vérification inopérante.
+Sur VeraCrypt : stocker les .b3 sur C: (stable), jamais sur la partition montée.
+
+4.2 Variable d'environnement RESULTATS_DIR
+La variable  RESULTATS_DIR  est définie à  /resultats  dans l'image. Elle peut être surchargée via  -e RESULTATS_DIR=/mon/chemin . Le champ  "resultats"  dans pipeline.json surcharge cette variable pour un bloc compare spécifique.
+
+# Surcharge globale via variable d'environnement
+docker run --rm \
+  -v /mes/resultats:/custom_res \
+  -e RESULTATS_DIR=/custom_res \
+  hash_tool verify /bases/hashes.b3
+ 
+# Surcharge locale via pipeline.json (bloc compare uniquement)
+"resultats": "/resultats/compare_jan_vs_fev"
+
+
+5. Docker Compose
+5.1 Structure du fichier
+Le fichier docker-compose.yml définit trois services spécialisés partageant la même image, et une section x-volumes centralisant les chemins de montage de l'hôte.
+
+Service
+Usage
+Démarrage
+integrity
+Commandes ponctuelles compute/verify/compare
+docker compose run --rm integrity <cmd>
+pipeline
+Exécution de runner.sh avec pipeline.json
+docker compose run --rm pipeline
+cron
+Vérification périodique (optionnel)
+docker compose --profile cron up -d
+
+5.2 Configuration des chemins
+La section x-volumes permet de modifier tous les montages en un seul endroit. C'est le seul fichier à adapter lors d'un déploiement sur un nouvel environnement.
+
+# docker-compose.yml — section à adapter
+x-volumes:
+  data:      &vol-data      /chemin/vers/donnees    # ex: /volume1/data sur Synology
+  bases:     &vol-bases     /chemin/vers/bases       # ex: /srv/bases sur Debian
+  pipelines: &vol-pipelines /chemin/vers/pipelines
+  resultats: &vol-resultats /chemin/vers/resultats
+ 
+# Les ancres YAML (*vol-data, etc.) propagent les chemins
+# dans tous les services automatiquement
+
+5.3 Profil cron
+Le service  cron  est isolé derrière un profil Docker Compose ( profiles: ["cron"] ). Il n'est pas démarré par  docker compose up  par défaut, et nécessite l'option  --profile cron . Cela évite un service fantôme actif en permanence.
+
+
+6. Déploiement par environnement
+6.1 Windows / WSL
+Prérequis : Docker Desktop avec intégration WSL2 activée.
+
+# Build depuis WSL
+cd /mnt/c/Users/TonNom/Desktop/hash_tool
+docker build -t hash_tool .
+ 
+# Compute d'une partition VeraCrypt montée sur A:
+docker run --rm \
+  -v /mnt/a/dossier:/data:ro \
+  -v /mnt/c/Users/TonNom/bases:/bases \
+  -v /mnt/c/Users/TonNom/resultats:/resultats \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+
+i
+Chemins VeraCrypt dans Docker
+Les partitions VeraCrypt montées sur des lettres Windows (A:, I:, H:) sont accessibles
+depuis WSL sous /mnt/a/, /mnt/i/, /mnt/h/. Docker Desktop sur WSL2 hérite de ces montages.
+Adapter uniquement les chemins -v lors du changement de lettre de partition.
+
+6.2 NAS Synology
+Les NAS Synology récents (DS923+, DS720+) utilisent un processeur AMD64. Les modèles plus anciens (DS220j) utilisent ARM64 ou ARMv7. Vérifier avec : uname -m depuis SSH.
+
+# Build ARM64 (NAS DS923+, DS720+)
+docker build --platform linux/arm64 -t hash_tool:arm64 .
+ 
+# Depuis SSH Synology ou via Portainer
+docker run --rm \
+  -v /volume1/data:/data:ro \
+  -v /volume1/bases:/bases \
+  -v /volume1/resultats:/resultats \
+  hash_tool verify /bases/hashes.b3 /data
+
+Modèle Synology
+CPU
+Architecture
+Tag image
+DS923+
+AMD Ryzen R1600
+x86_64 (amd64)
+hash_tool
+DS720+
+Intel Celeron J4125
+x86_64 (amd64)
+hash_tool
+DS220+
+Intel Celeron J4025
+x86_64 (amd64)
+hash_tool
+DS220j
+Realtek RTD1296
+aarch64 (arm64)
+hash_tool:arm64
+DS218j
+Marvell ARMADA 385
+armv7
+hash_tool:armv7
+
+6.3 Serveur Debian
+Sur un serveur Debian, la méthode recommandée est le cron Docker pour une vérification nocturne automatique.
+
+# /etc/cron.d/hash-integrity
+0 3 * * * root docker run --rm \
+  -v /srv/data:/data:ro \
+  -v /srv/bases:/bases:ro \
+  -v /srv/resultats:/resultats \
+  hash_tool --quiet verify /bases/hashes.b3 /data \
+  >> /var/log/hash-integrity.log 2>&1 \
+  || mail -s "ALERTE intégrité $(hostname)" admin@example.com
+
+
+7. Maintenance et évolution
+7.1 Mise à jour de b3sum
+La version de b3sum est contrôlée par  ARG B3SUM_VERSION=1.5.4  dans le Dockerfile. Pour mettre à jour, modifier uniquement cette ligne et rebuilder. La vérification cryptographique garantit l'intégrité du nouveau binaire.
+
+docker build --build-arg B3SUM_VERSION=1.6.0 -t hash_tool .
+ 
+# URLs des releases BLAKE3 officielles :
+# https://github.com/BLAKE3-team/BLAKE3/releases
+# Pattern binaire : b3sum_linux_<arch>_musl
+# Pattern signature : b3sum_linux_<arch>_musl.b3
+
+7.2 Build hors-ligne
+Sur un NAS ou serveur sans accès à GitHub, le binaire b3sum peut être pré-téléchargé et copié directement dans le contexte de build.
+
+# Sur une machine avec accès réseau
+wget https://github.com/BLAKE3-team/BLAKE3/releases/download/1.5.4/b3sum_linux_amd64_musl
+ 
+# Modifier le Dockerfile pour COPY au lieu de wget
+COPY b3sum_linux_amd64_musl /usr/local/bin/b3sum
+RUN chmod +x /usr/local/bin/b3sum
+ 
+# La vérification cryptographique reste applicable manuellement
+
+7.3 Extension de l'image
+Pour ajouter des fonctionnalités à l'image (notifications email, export vers un serveur, etc.), deux approches sont disponibles :
+
+Ajouter un module dans src/lib/ (ex. notify.sh) — sourcé par integrity.sh
+Ajouter un service dans docker-compose.yml — image étendue FROM hash_tool
+Créer un Dockerfile.extend héritant de l'image de base — versions séparées
+
+Évolution
+Approche recommandée
+Impact sur l'image
+Rapport PDF
+Ajouter wkhtmltopdf dans l'image
+Image +30 Mo
+Notifications email
+Service dédié dans docker-compose.yml
+Aucun
+Export S3
+Script lib/export.sh + awscli dans image
+Image +20 Mo
+Interface web
+Service séparé, hash_tool en dépendance
+Aucun
+
+
+8. Référence rapide
+8.1 Commandes essentielles
+
+# Build standard
+docker build -t hash_tool .
+ 
+# Build ARM64
+docker build --platform linux/arm64 -t hash_tool:arm64 .
+ 
+# Aide
+docker run --rm hash_tool help
+ 
+# Versions
+docker run --rm hash_tool version
+ 
+# Compute
+docker run --rm -v /data:/data:ro -v /bases:/bases \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+ 
+# Verify
+docker run --rm -v /data:/data:ro -v /bases:/bases:ro -v /res:/resultats \
+  hash_tool verify /bases/hashes.b3 /data
+ 
+# Compare
+docker run --rm -v /bases:/bases:ro -v /res:/resultats \
+  hash_tool compare /bases/old.b3 /bases/new.b3
+ 
+# Pipeline
+docker run --rm -v /data:/data:ro -v /bases:/bases \
+  -v /res:/resultats -v /pipe/pipeline.json:/pipelines/pipeline.json:ro \
+  hash_tool runner
+ 
+# Debug interactif
+docker run --rm -it -v /data:/data hash_tool shell
+
+8.2 Fichiers du projet
+
+Fichier
+Rôle
+Dockerfile
+Build multi-stage Alpine + b3sum + jq
+.dockerignore
+Exclusions du contexte de build
+docker/entrypoint.sh
+Dispatcher des commandes Docker
+docker-compose.yml
+Orchestration 3 services
+docs/docker.md
+Guide d'utilisation détaillé
+src/integrity.sh
+Logique métier compute/verify/compare
+src/lib/report.sh
+Génération rapport HTML
+runner.sh
+Exécuteur de pipeline JSON
+pipelines/pipeline.json
+Pipeline de test local
+pipelines/pipeline-full.json
+Pipeline VeraCrypt multi-disques
+
+
+
+hash_tool
+Analyse des créneaux non occupés
+
+Positionnement open source · Février 2026
+
+Objet de ce document
+Ce document identifie les niches écosystémiques que hash_tool occupe et qui ne sont pas actuellement couvertes par les outils existants. Il analyse la population d'utilisateurs potentiels, les cas d'usage spécifiques, et les raisons structurelles pour lesquelles l'espace est vacant.
+
+Table des matières
+Table des matières	2
+1. Panorama des outils existants	3
+1.1 Outils de vérification d'intégrité courants	3
+1.2 Conclusion de l'analyse	3
+2. Créneau principal : intégrité de collections de fichiers à long terme	4
+2.1 Définition du créneau	4
+2.2 Pourquoi ce créneau est vacant	4
+Raison 1 — Le seuil de complexité des alternatives	4
+Raison 2 — L'absence de BLAKE3 dans les outils shell existants	4
+Raison 3 — L'absence de rapport lisible sans outil supplémentaire	4
+Raison 4 — L'absence de solution portable sans installation	4
+2.3 Population cible	4
+3. Créneaux secondaires	6
+3.1 Post-transfert sur supports chiffrés	6
+3.2 Validation de migration de données	6
+3.3 Intégration CI/CD légère	6
+3.4 Archivage numérique à long terme	6
+4. Limites du positionnement	7
+4.1 Ce que hash_tool n'est pas	7
+4.2 Pourquoi ces limites sont un avantage	7
+4.3 Concurrence future	7
+5. Synthèse	8
+
+
+1. Panorama des outils existants
+1.1 Outils de vérification d'intégrité courants
+Outil
+Type
+Algorithme
+Lacunes vis-à-vis du créneau
+md5sum / sha256sum
+CLI Unix
+MD5 / SHA-256
+Fichier par fichier, pas de dossier, pas de rapport, pas de compare
+rclone check
+CLI Go
+Variable
+Couplé au stockage cloud, pas adapté aux usages locaux/hors-ligne
+Duplicati
+GUI/daemon
+SHA-256
+Logiciel de sauvegarde complet, lourd, overkill pour la vérification seule
+TeraCopy
+GUI Windows
+Plusieurs
+Windows uniquement, propriétaire, pas scriptable
+hashdeep
+CLI C
+Plusieurs
+Pas de BLAKE3, pas de rapport HTML, pas de pipeline, inactif depuis 2015
+fclones
+CLI Rust
+BLAKE3
+Orienté déduplication, pas intégrité temporelle, pas de compare snapshots
+par2
+CLI C++
+Reed-Solomon
+Réparation de données, pas détection de corruption sur dossier existant
+
+1.2 Conclusion de l'analyse
+Aucun outil de la liste ci-dessus ne combine simultanément : (1) BLAKE3, (2) gestion de dossiers complets avec chemins relatifs, (3) comparaison de deux snapshots à des instants différents, (4) rapport HTML autonome, (5) pipeline JSON déclaratif, (6) image Docker Alpine légère. La conjonction de ces six caractéristiques définit le créneau.
+
+
+2. Créneau principal : intégrité de collections de fichiers à long terme
+2.1 Définition du créneau
+Le créneau est celui de la vérification d'intégrité périodique de collections de fichiers stockées sur des supports locaux (disques durs, NAS, archives), par un opérateur technique qui n'est pas développeur, n'a pas de serveur dédié à la surveillance, et ne souhaite pas déployer un outil lourd.
+
+2.2 Pourquoi ce créneau est vacant
+Raison 1 — Le seuil de complexité des alternatives
+Les outils sérieux (Duplicati, rclone, Bacula) exigent une configuration initiale significative, un daemon en arrière-plan, ou un compte cloud. Pour quelqu'un qui veut simplement savoir si ses fichiers sont intacts après un transfert ou six mois de stockage, ces outils sont disproportionnés.
+
+Raison 2 — L'absence de BLAKE3 dans les outils shell existants
+hashdeep est la référence historique pour ce type d'usage. Il n'a pas été mis à jour depuis 2015 et ne supporte pas BLAKE3. Les outils shell qui supportent BLAKE3 ( b3sum ) n'ont pas de couche d'abstraction pour la gestion de dossiers, la comparaison de snapshots, ou les rapports.
+
+Raison 3 — L'absence de rapport lisible sans outil supplémentaire
+Les outils CLI produisent du texte brut. Les opérateurs non-développeurs (archivistes, sysadmins de PME, photographes, chercheurs) ont besoin d'un résultat interprétable par un non-technicien. Un rapport HTML autonome, sans serveur, sans base de données, correspond exactement à ce besoin.
+
+Raison 4 — L'absence de solution portable sans installation
+Sur un NAS Synology, on ne peut pas facilement installer hashdeep ou un outil Go. Sur Windows, md5sum n'est pas natif. L'image Docker Alpine à 14 Mo est la première solution qui tourne de façon identique sur ces trois environnements sans aucune configuration de dépendances.
+
+2.3 Population cible
+Profil
+Cas d'usage principal
+Besoin spécifique non couvert
+Sysadmin de PME / indépendant
+Vérifier l'intégrité de sauvegardes NAS après restauration
+Outil léger, sans agent, rapport lisible par le client
+Photographe / vidéaste professionnel
+Garantir l'intégrité d'archives de médias sur disques durs
+Interface simple, pas de dépendance cloud, hors-ligne
+Archiviste numérique / bibliothèque
+Détecter le bitrot sur des collections à long terme
+Rapport horodaté, comparaison de snapshots, exportable
+Chercheur / laboratoire
+Valider l'intégrité de datasets après transfert entre systèmes
+Portabilité, chemins relatifs, pas de compte tiers requis
+Développeur DevOps
+Intégrer une vérification d'intégrité dans un pipeline CI/CD
+Mode --quiet, exit code propagé, image Docker légère
+
+
+3. Créneaux secondaires
+3.1 Post-transfert sur supports chiffrés
+Les utilisateurs de partitions chiffrées (VeraCrypt, LUKS, BitLocker) font face à un problème spécifique : le transfert de fichiers vers ou depuis une partition chiffrée est une opération à risque (coupure d'alimentation, démontage forcé, erreur de transfert). Aucun outil dédié ne propose un workflow compute → verify → compare adapté à ce contexte. Le pipeline JSON de hash_tool s'y prête directement.
+
+3.2 Validation de migration de données
+Migrations de serveurs, changements de NAS, restructuration d'arborescences — ces opérations nécessitent de comparer l'état avant et après. Les outils existants (diff, rsync --checksum) travaillent sur des copies simultanées, pas sur des snapshots temporels. hash_tool compare deux .b3 produits à n'importe quel intervalle de temps.
+
+3.3 Intégration CI/CD légère
+Les pipelines CI qui vérifient l'intégrité d'artefacts de build ou de datasets de test utilisent généralement des checksums ad hoc (SHA-256 d'un seul fichier). hash_tool propose une approche structurée avec  --quiet , exit code propre, et image Docker légère — sans introduire une dépendance lourde comme rclone ou un service cloud.
+
+3.4 Archivage numérique à long terme
+La communauté de l'archivage numérique (bibliothèques, musées, institutions de recherche) utilise des outils comme BagIt ou PREMIS pour l'intégrité à long terme. Ces outils sont complexes, orientés XML, et inadaptés aux petites structures. hash_tool offre un sous-ensemble fonctionnel utilisable sans formation.
+
+
+4. Limites du positionnement
+4.1 Ce que hash_tool n'est pas
+!
+Périmètre intentionnellement limité
+hash_tool n'est pas un logiciel de sauvegarde. Il ne copie pas, ne restaure pas, ne compresse pas.
+hash_tool n'est pas un outil de sécurité au sens cryptographique. BLAKE3 pour l'intégrité accidentelle, pas pour l'authentification.
+hash_tool n'est pas un outil de surveillance temps réel. Il opère par snapshots sur demande.
+
+4.2 Pourquoi ces limites sont un avantage
+La clarté du périmètre est une qualité en open source. Les outils qui font une seule chose bien sont plus faciles à auditer, à maintenir, à tester, et à intégrer dans un pipeline plus large. hash_tool est conçu pour être une brique, pas une solution complète.
+
+4.3 Concurrence future
+Le seul risque de désintermédiation sérieux serait qu'un outil comme  rclone  ou  restic  implémente nativement BLAKE3 + comparaison de snapshots + rapport HTML + Docker léger. Leur complexité intrinsèque rend ce scénario peu probable à court terme.
+
+
+5. Synthèse
+Créneau
+Intensité du besoin
+Vacance actuelle
+Priorité
+Intégrité de collections de fichiers locaux à long terme
+Élevée
+Totale
+Primaire
+Post-transfert sur supports chiffrés
+Moyenne
+Totale
+Secondaire
+Validation de migration de données
+Élevée
+Partielle
+Secondaire
+Intégration CI/CD légère (BLAKE3)
+Moyenne
+Partielle
+Tertiaire
+Archivage numérique petites structures
+Faible
+Totale
+Tertiaire
+
+i
+Recommandation de positionnement
+Présenter hash_tool comme "un outil de snapshot d'intégrité BLAKE3 pour collections de fichiers locales".
+Ne pas le présenter comme un outil de sauvegarde ni comme un outil de sécurité.
+Mettre en avant : BLAKE3, portable, sans installation (Docker), rapport HTML autonome.
+Le README doit s'ouvrir sur le cas d'usage "archivage long terme" avant tout autre exemple.
+
+
+
+hash_tool
+Vérification d'intégrité de fichiers par hachage BLAKE3
+
+Version 0.12 — Février 2026
+Shell · Docker · Linux / macOS / WSL
+
+En une phrase
+hash_tool détecte la corruption silencieuse de fichiers en comparant des empreintes BLAKE3 prises à des instants différents. Il fonctionne depuis la ligne de commande, ne requiert aucune installation complexe et produit un rapport HTML lisible sans outil supplémentaire.
+
+Table des matières
+Table des matières	2
+1. Présentation générale	3
+1.1 Problème adressé	3
+1.2 Algorithme : pourquoi BLAKE3	3
+1.3 Ce que l'outil fait	3
+1.4 Ce que l'outil ne fait pas	3
+2. Fonctionnalités détaillées	5
+2.1 Calcul d'empreintes (compute)	5
+2.2 Vérification d'intégrité (verify)	5
+2.3 Comparaison de snapshots (compare)	5
+2.4 Pipeline JSON (runner)	5
+2.5 Mode silencieux (--quiet)	6
+3. Architecture technique	7
+3.1 Dépendances	7
+3.2 Structure du projet	7
+3.3 Docker	7
+4. Utilisation rapide	8
+4.1 Installation native	8
+4.2 Workflow typique	8
+4.3 Environnements supportés	8
+5. Tests et fiabilité	9
+5.1 Couverture	9
+5.2 Philosophie de test	9
+6. Licence et contribution	9
+
+
+1. Présentation générale
+1.1 Problème adressé
+Les fichiers se corrompent silencieusement. Erreurs de secteurs sur disque dur, coupures réseau pendant un transfert, bitrot sur supports optiques ou magnétiques, manipulation accidentelle — dans tous ces cas, les fichiers restent présents, affichent la bonne taille, mais leur contenu a changé. Aucun outil système standard ne détecte ce type de corruption de façon proactive.
+hash_tool répond à ce problème par une approche simple : prendre une empreinte cryptographique de chaque fichier au moment où l'on sait que les données sont saines, puis comparer cette empreinte à intervalles réguliers ou après toute opération risquée (transfert, sauvegarde, restauration, migration).
+
+1.2 Algorithme : pourquoi BLAKE3
+Critère
+MD5
+SHA-256
+BLAKE3
+Vitesse sur fichiers volumineux
+Rapide
+Lent
+Très rapide (x3 SHA-256)
+Sécurité cryptographique
+Cassé
+Solide
+Solide
+Parallélisation
+Non
+Non
+Oui (SIMD, multi-thread)
+Adapté à l'intégrité de fichiers
+Oui*
+Oui
+Oui (référence actuelle)
+
+* MD5 est suffisant pour détecter la corruption accidentelle mais ne doit plus être utilisé pour des usages sécuritaires.
+
+1.3 Ce que l'outil fait
+compute — Calcule les empreintes BLAKE3 de tous les fichiers d'un dossier et les stocke dans un fichier .b3
+verify — Relit les fichiers et compare leurs empreintes au fichier .b3 de référence ; signale toute divergence
+compare — Compare deux fichiers .b3 (snapshots) et identifie les fichiers modifiés, disparus ou nouveaux
+runner — Exécute un pipeline de plusieurs opérations décrit dans un fichier JSON (compute + verify + compare en séquence)
+
+Chaque opération produit un dossier de résultats horodaté contenant un rapport texte ( recap.txt ), les listes de fichiers problématiques, et un rapport HTML autonome lisible hors connexion.
+
+1.4 Ce que l'outil ne fait pas
+Il ne chiffre pas les données et ne les déplace pas
+Il ne surveille pas en temps réel (pas de daemon, pas d'inotify)
+Il ne gère pas de base de données centralisée ni d'historique au-delà des fichiers .b3
+Il ne remplace pas un logiciel de sauvegarde
+
+
+2. Fonctionnalités détaillées
+2.1 Calcul d'empreintes (compute)
+Parcourt récursivement un dossier, calcule une empreinte BLAKE3 par fichier, stocke le résultat dans un fichier .b3 avec des chemins relatifs. La progression et l'ETA sont affichés en temps réel sans polluer le fichier de sortie.
+
+i
+Chemins relatifs
+Le fichier .b3 utilise des chemins relatifs au dossier source. Il peut être déplacé
+et utilisé sur n'importe quelle machine tant que la structure de dossier est identique.
+
+2.2 Vérification d'intégrité (verify)
+Relit chaque fichier référencé dans le .b3, recalcule son empreinte et la compare. Trois états de sortie : OK (aucune divergence), ECHEC (au moins un fichier corrompu ou manquant), ERREUR (problème d'exécution). L'exit code est propagé, ce qui permet l'intégration dans des scripts ou pipelines CI.
+
+2.3 Comparaison de snapshots (compare)
+Compare deux fichiers .b3 produits à des instants différents sur le même dossier ou sur deux dossiers structurellement identiques. Produit trois listes distinctes :
+modifies.b3 — fichiers présents dans les deux snapshots mais dont l'empreinte a changé
+disparus.txt — fichiers présents dans le snapshot A absents du snapshot B
+nouveaux.txt — fichiers présents dans le snapshot B absents du snapshot A
+
+Un rapport HTML autonome est généré automatiquement : il affiche les compteurs par catégorie, un badge de statut global (IDENTIQUES / DIFFÉRENCES DÉTECTÉES) et les listes de fichiers par section. Il fonctionne hors connexion, sans serveur ni dépendance externe.
+
+2.4 Pipeline JSON (runner)
+runner.sh lit un fichier  pipeline.json  et exécute les blocs compute / verify / compare en séquence. Chaque bloc est isolé dans un sous-shell — un échec arrête le pipeline avec un message explicite indiquant le numéro et le type du bloc fautif.
+
+Le champ optionnel  "resultats"  sur un bloc compare permet de rediriger les résultats vers un dossier spécifique, indépendamment du répertoire global de résultats.
+
+2.5 Mode silencieux (--quiet)
+L'option  --quiet  supprime toute sortie terminal. Les résultats sont écrits dans les fichiers habituels. L'exit code est propagé. Conçu pour une intégration dans des crons, des hooks Git ou des pipelines CI.
+
+
+3. Architecture technique
+3.1 Dépendances
+Dépendance
+Usage
+Disponibilité
+bash >= 4
+Interpréteur shell
+Linux, macOS (via brew), WSL
+b3sum
+Calcul des empreintes BLAKE3
+Packages Alpine, Debian, Homebrew
+jq
+Parsing pipeline.json
+Packages universels
+coreutils
+sort, comm, join, awk
+Inclus dans toutes les distributions
+find, stat
+Parcours de dossiers
+POSIX standard
+
+3.2 Structure du projet
+Fichier / Dossier
+Rôle
+src/integrity.sh
+Logique métier principale (compute / verify / compare)
+src/lib/report.sh
+Génération des rapports HTML
+runner.sh
+Exécuteur de pipeline JSON
+pipelines/pipeline.json
+Exemple de pipeline (compute + verify + compare)
+Dockerfile
+Image Alpine ~14 Mo (b3sum + jq via apk)
+docker-compose.yml
+Orchestration 3 services (integrity / pipeline / cron)
+tests/run_tests.sh
+15 tests unitaires (T00–T14)
+tests/run_tests_pipeline.sh
+13 tests pipeline (TP01–TP12b)
+
+3.3 Docker
+L'image Docker est basée sur Alpine 3.19 et pèse environ 14 Mo. Elle embarque bash, jq et b3sum (installés via apk). Elle supporte les architectures amd64 et arm64 (NAS Synology, Raspberry Pi). Quatre volumes conventionnels sont définis :  /data ,  /bases ,  /pipelines ,  /resultats .
+
+i
+Aucune installation requise avec Docker
+docker run --rm -v /mes/donnees:/data:ro -v /mes/bases:/bases hash_tool compute /data /bases/hashes.b3
+Cette seule commande suffit sur n'importe quelle machine disposant de Docker.
+
+
+4. Utilisation rapide
+4.1 Installation native
+Dépendances :  b3sum  +  jq  + bash >= 4
+Cloner le dépôt et rendre les scripts exécutables :  chmod +x src/integrity.sh runner.sh 
+Aucune compilation, aucune dépendance système au-delà des outils standard
+
+4.2 Workflow typique
+Étape
+Commande
+Moment
+1. Indexer
+./src/integrity.sh compute ./dossier bases/hashes_2024-01-15.b3
+Données saines connues
+2. Vérifier
+./src/integrity.sh verify bases/hashes_2024-01-15.b3
+Après transfert / stockage
+3. Comparer
+./src/integrity.sh compare bases/avant.b3 bases/apres.b3
+Entre deux états
+4. Pipeline
+./runner.sh pipelines/pipeline.json
+Automatisation multi-étapes
+
+4.3 Environnements supportés
+Linux (Debian, Ubuntu, Alpine, Arch…)
+macOS (avec bash >= 4 via Homebrew)
+Windows via WSL2
+NAS Synology via Docker (image arm64)
+Serveur headless via cron en mode --quiet
+
+
+5. Tests et fiabilité
+5.1 Couverture
+Suite
+Cas
+Périmètre
+run_tests.sh
+T00–T14 (15 cas)
+compute, verify, compare, chemins, corruption, résultats, rapport HTML
+run_tests_pipeline.sh
+TP01–TP12b (13 cas)
+JSON invalide, champs manquants, opérations inconnues, isolation sous-shell, champ resultats
+
+5.2 Philosophie de test
+Chaque test crée son propre répertoire temporaire isolé dans /tmp
+Les tests de corruption introduisent volontairement une modification puis vérifient la détection
+Les tests pipeline vérifient l'isolation des sous-shells (pas de fuite de répertoire courant)
+Résultat coloré PASS / FAIL avec compteur final
+
+6. Licence et contribution
+hash_tool est distribué sous licence MIT. Contributions bienvenues via pull request. Les issues GitHub sont le canal privilégié pour signaler des bugs ou proposer des fonctionnalités.
+
+i
+Contributions prioritaires
+Rapport HTML : enrichissement du contenu et de la mise en page
+install.sh : script d'installation one-liner avec vérification des dépendances
+GitHub Actions : CI automatique sur push (run_tests.sh + run_tests_pipeline.sh)
+--format json : sortie machine-readable pour les opérations verify et compare
+

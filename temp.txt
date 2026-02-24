@@ -1,6 +1,0 @@
-
-
-bash ./integrity.sh compute "/media/veracrypt1/partition_laptop/a ranger" hash_1.b3
-
-bash ./integrity.sh compare hash_1.b3 hash_2.b3
-
