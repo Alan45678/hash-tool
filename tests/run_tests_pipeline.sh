@@ -8,6 +8,9 @@
 #             integrity.sh à ../src/
 # Usage     : cd tests && ./run_tests_pipeline.sh
 
+echo "TP00 - Permissions integrity.sh"
+if [ -x "$INTEGRITY" ]; then pass "integrity.sh est exécutable"; else fail "integrity.sh non exécutable (chmod +x requis)"; fi
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

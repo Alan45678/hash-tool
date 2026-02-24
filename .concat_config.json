@@ -14,7 +14,8 @@
     "exclude_content_dirs": [
         ".git",
         "autre",
-        "site"
+        "site",
+        "result"
     ],
     "exclude_content_files": [
         "gentxt.txt",

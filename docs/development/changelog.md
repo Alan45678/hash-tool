@@ -1,5 +1,12 @@
 # Changelog - hash_tool / integrity.sh
 
+## [0.16] - debug 
+
+### Ajoutée 
+
+- dossier "troubleshooting" et le fichier "troubleshooting_1" 
+- dossier qu'il faudra compléter avec les bugs courants. 
+
 ## [0.15] - Documentation restructurée
 
 maj de la doc 

@@ -95,6 +95,27 @@ Supprime toute sortie terminal, écrit uniquement dans les fichiers de résultat
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Configuration
 
 `RESULTATS_DIR` définit le dossier racine des résultats (défaut : `~/integrity_resultats`).
