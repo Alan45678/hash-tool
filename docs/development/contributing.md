@@ -1,191 +1,151 @@
-# Contribuer & Tests
+# Contribuer à hash_tool
 
 ---
 
-## Environnement de développement
-
-### Prérequis
+## Prérequis
 
 ```bash
-# Debian / Ubuntu
 sudo apt install bash b3sum jq shellcheck
-
-# macOS
-brew install bash b3sum jq shellcheck
 ```
-
-`shellcheck` est optionnel mais recommandé — le test T00 le lance sur tous les scripts.
-
-### Structure des tests
-
-```
-tests/
-├── run_tests.sh            ← integrity.sh — 15 cas T00–T14
-└── run_tests_pipeline.sh   ← runner.sh + pipeline.json — 13 cas TP01–TP12
-```
-
-Chaque suite est indépendante, s'isole via `mktemp`, et retourne un exit code CI-compatible.
 
 ---
 
-## Lancer les tests
+## Tests
 
 ```bash
-# Tests integrity.sh
 cd tests && ./run_tests.sh
-
-# Tests runner.sh + pipeline.json
 cd tests && ./run_tests_pipeline.sh
-
-# Les deux
-cd tests && ./run_tests.sh && ./run_tests_pipeline.sh
 ```
 
-Sortie attendue (tous passants) :
-
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  15/15 tests passés
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
----
-
-## Couverture — run_tests.sh (T00–T14)
-
-| Cas | Description |
-|---|---|
-| T00 | ShellCheck sur `integrity.sh` et `run_tests.sh` |
-| T01 | Compute de base — format et comptage lignes |
-| T02 | Verify sans modification — OK, `failed.txt` absent |
-| T03 | Verify après corruption — ECHEC, `failed.txt` présent |
-| T04 | Verify après suppression de fichier |
-| T05 | Compare sans différence — fichiers de résultats produits, tous vides |
-| T06 | Compare avec fichier modifié — `modifies.b3` et `report.html` |
-| T07 | Compare avec suppression + ajout — `disparus.txt` et `nouveaux.txt` |
-| T08 | Robustesse — fichier avec espace dans le nom |
-| T09 | Limite — dossier vide ignoré par `find -type f` |
-| T10 | Chemin absolu vs relatif — bases non interchangeables |
-| T11 | Intégrité base ETA — bit-à-bit identique à `xargs b3sum`, sans artefact `\r` |
-| T12 | Mode `--quiet` — stdout vide, fichiers produits, exit code propagé |
-| T13 | Horodatage anti-écrasement — deux dossiers distincts sur deux appels successifs |
-| T14 | Argument invalide pour `verify` — message ERREUR explicite |
-
-## Couverture — run_tests_pipeline.sh (TP01–TP12)
-
-| Cas | Description |
-|---|---|
-| TP01 | JSON invalide — message ERREUR sans stacktrace `jq` |
-| TP02 | Clé `.pipeline` absente |
-| TP03 | Champ `nom` manquant dans un bloc `compute` |
-| TP04 | Opération inconnue |
-| TP05 | Compute — `cd` correct, chemins relatifs dans la base, comptage fichiers |
-| TP06 | Compute — dossier `source` absent |
-| TP07 | Verify — bon répertoire de travail, vérification OK, `recap.txt` produit |
-| TP08 | Verify — corruption détectée |
-| TP09 | Verify — base `.b3` absente |
-| TP10 | Compare — cinq fichiers de résultats produits |
-| TP10b | Compare — champ `resultats` personnalisé, `RESULTATS_DIR` global non pollué |
-| TP11 | Compare — `base_a` absente |
-| TP12 | Pipeline complet : `compute × 2` + `verify` + `compare` |
-
----
-
-## Écrire un nouveau test
-
-### Anatomie d'un cas dans run_tests.sh
-
-```bash
-echo "T15 — Description du cas"
-# Setup spécifique au cas
-local out
-out=$(bash "$INTEGRITY" <commande> 2>&1 || true)   # || true : ne pas arrêter sur exit non-nul
-assert_contains     "label"          "pattern"   "$out"
-assert_not_contains "label négatif"  "absent"    "$out"
-assert_file_exists  "fichier créé"   "$OUTDIR/fichier.txt"
-echo ""
-```
-
-### Règles
-
-- Toujours capturer la sortie avec `local out; out=$(... 2>&1 || true)` avant d'inspecter
-- `|| true` est obligatoire pour les commandes qui peuvent retourner un exit code non-nul sans que ce soit une erreur de test
-- Nettoyer les effets de bord en fin de cas (restaurer les fichiers modifiés, supprimer les fichiers créés)
-- Utiliser `WORKDIR` pour tous les chemins — jamais de chemins absolus en dur
-
-### Helpers disponibles
-
-```bash
-pass "label"                           # incrémente PASS, affiche vert
-fail "label"                           # incrémente FAIL, affiche rouge
-
-assert_exit_zero    "label" cmd args   # vérifie exit code 0
-assert_exit_nonzero "label" cmd args   # vérifie exit code non-nul
-assert_contains     "label" "pattern" "$output"
-assert_not_contains "label" "pattern" "$output"
-assert_line_count   "label" N  "$file"
-assert_file_exists  "label" "$file"
-assert_file_absent  "label" "$file"
-```
+Zéro warning ShellCheck requis (T00). Tous les tests doivent passer avant soumission.
 
 ---
 
 ## Conventions de code
 
-### Bash
+### Séparation des responsabilités
 
-- `set -euo pipefail` en tête de chaque script
-- `(( BASH_VERSINFO[0] >= 4 ))` vérifié à l'entrée
-- Guillemets doubles systématiques sur toutes les variables (`"$var"`, `"$@"`)
-- `local` pour toutes les variables de fonctions
-- `die()` comme unique point de sortie sur erreur — message sur stderr
-- `say()` comme unique point de sortie terminal — désactivé en mode `--quiet`
+Le code est organisé en modules avec des responsabilités strictement séparées. Avant d'écrire du code, identifier dans quel module il appartient :
 
-### Nommage
+- **Logique métier** (hachage, vérification, comparaison) → `src/lib/core.sh`
+- **Affichage terminal, progression** → `src/lib/ui.sh`
+- **Écriture fichiers de résultats** → `src/lib/results.sh`
+- **Génération HTML** → `src/lib/report.sh`
+- **Orchestration CLI** → `src/integrity.sh`
 
-- Fonctions : `snake_case`
-- Variables locales : `snake_case`
-- Constantes globales : `UPPER_SNAKE_CASE`
-- Fichiers : `kebab-case.sh` ou `snake_case.sh` (existant)
+Ne jamais écrire de sortie terminal dans `core.sh`. Ne jamais écrire de logique métier dans `ui.sh`.
 
-### ShellCheck
+### Contrats de fonction
 
-Zéro warning ShellCheck requis. Lancer avant tout commit :
+Toute fonction non triviale doit documenter :
+- Les entrées (`$1`, `$2`...)
+- Les sorties (exit code, variables positionnées, fichiers créés)
+- Les effets de bord
+- Les invariants supposés et garantis
 
-```bash
-shellcheck src/integrity.sh runner.sh src/lib/report.sh docker/entrypoint.sh
-```
+Voir `src/lib/core.sh` comme référence de format.
+
+### Conventions bash
+
+- `set -euo pipefail` dans tout script exécutable
+- `"$@"` et guillemets systématiques - ShellCheck enforce ce point
+- `local` pour toutes les variables de fonction
+- `mktemp` pour les fichiers temporaires, nettoyés via `trap EXIT`
+- Pas de `ls` dans les scripts - utiliser `find` ou glob
 
 ---
 
-## Ajouter un nouveau mode à integrity.sh
+## Format des commits
 
-1. Ajouter le cas dans le `case "$MODE" in` de `src/integrity.sh`
-2. Écrire la fonction `run_<mode>()` dans `src/integrity.sh`
-3. Mettre à jour le `case "$CMD" in` de `docker/entrypoint.sh`
-4. Ajouter les blocs dans `runner.sh` si le mode est orchestrable
-5. Écrire les tests dans `run_tests.sh` et/ou `run_tests_pipeline.sh`
-6. Mettre à jour la documentation : `docs/reference/integrity-sh.md`, `README.md`
+Convention : [Conventional Commits](https://www.conventionalcommits.org/)
 
-## Ajouter un module à src/lib/
+```
+<type>(<scope>): <description courte>
 
-1. Créer `src/lib/<module>.sh` avec `#!/usr/bin/env bash` et un commentaire d'en-tête
-2. Le sourcer dans `src/integrity.sh` :
-   ```bash
-   source "$SCRIPT_DIR/lib/<module>.sh"
-   ```
-3. L'ajouter dans le `Dockerfile` :
-   ```dockerfile
-   COPY src/lib/<module>.sh  ./src/lib/<module>.sh
-   RUN chmod +x src/lib/<module>.sh
-   ```
+[corps optionnel]
+
+[footer optionnel]
+```
+
+Types :
+
+| Type | Usage |
+|---|---|
+| `feat` | Nouvelle fonctionnalité |
+| `fix` | Correction de bug |
+| `refactor` | Refactoring sans changement de comportement |
+| `test` | Ajout ou modification de tests |
+| `docs` | Documentation uniquement |
+| `chore` | Tâches de maintenance (CI, dépendances, etc.) |
+| `perf` | Amélioration de performance |
+
+Exemples :
+
+```
+feat(core): ajouter support des liens symboliques dans core_compute
+fix(ui): corriger l'effacement de la ligne ETA sur terminal étroit
+docs(spec): documenter le cas des fichiers de taille zéro dans b3-format.md
+test(core): ajouter T15 - vérification comportement sur lien symbolique
+```
+
+## Philosophie de test
+
+- Chaque test crée son propre répertoire temporaire isolé dans `/tmp` - pas d'effet de bord entre cas
+- Les tests de corruption introduisent volontairement une modification puis vérifient la détection
+- Les tests pipeline vérifient l'isolation des sous-shells (pas de fuite de répertoire courant entre blocs)
+- Résultat coloré `PASS` / `FAIL` avec compteur final
+
+## Contributions prioritaires
+
+Par ordre de valeur décroissante :
+
+- **GitHub Actions** - CI automatique sur push : `run_tests.sh` + `run_tests_pipeline.sh` + ShellCheck
+- **`install.sh`** - script d'installation one-liner avec vérification des dépendances (`b3sum`, `jq`, `bash >= 4`)
+- **`--format json`** - sortie machine-readable pour `verify` et `compare` (aujourd'hui : texte uniquement)
+- **Rapport HTML** - enrichissement du contenu et de la mise en page
 
 ---
 
 ## Processus de release
 
-1. Mettre à jour `CHANGELOG.md` avec la nouvelle version et les changements
-2. Vérifier que tous les tests passent
-3. Vérifier ShellCheck sur tous les scripts
-4. Tagger le commit : `git tag v0.14`
-5. Rebuilder l'image Docker : `docker build -t hash_tool:v0.14 -t hash_tool:latest .`
+1. **Vérifier que tous les tests passent** sur une machine propre
+   ```bash
+   cd tests && ./run_tests.sh && ./run_tests_pipeline.sh
+   shellcheck src/integrity.sh runner.sh src/lib/*.sh docker/entrypoint.sh
+   ```
+
+2. **Mettre à jour `CHANGELOG.md`** avec la nouvelle version et les changements
+
+3. **Mettre à jour la variable `VERSION`** dans `src/integrity.sh` et `runner.sh`
+
+4. **Créer le tag git**
+   ```bash
+   git tag -a v0.15 -m "Release v0.15 - <description courte>"
+   git push origin v0.15
+   ```
+
+5. **Créer la GitHub Release** avec le contenu du CHANGELOG correspondant et les checksums :
+   ```bash
+   b3sum src/integrity.sh runner.sh src/lib/*.sh
+   ```
+
+---
+
+## Structure des tests
+
+Les tests sont dans `tests/`. Deux suites indépendantes :
+
+| Suite | Scope | Cas |
+|---|---|---|
+| `run_tests.sh` | `integrity.sh` | T00–T14 |
+| `run_tests_pipeline.sh` | `runner.sh` + `pipeline.json` | TP01–TP12b |
+
+### Ajouter un test
+
+1. Identifier la suite concernée
+2. Nommer le cas (T15, T16... ou TP13, TP14...)
+3. Documenter : précondition, oracle de test (résultat attendu), postcondition
+4. Le test doit être reproductible sur n'importe quelle machine disposant des prérequis
+5. Le test ne doit pas dépendre de l'état du système hôte (pas de `/home/user/...`, pas de fichiers extérieurs au `WORKDIR`)
+
+Voir `tests/run_tests.sh` pour la structure standard d'un cas de test.

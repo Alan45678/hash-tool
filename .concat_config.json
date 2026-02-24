@@ -6,18 +6,22 @@
     "exclude_tree_files": [
         "gentxt.txt",
         ".concat_config.json",
-        "TODO.md"
+        "TODO.md",
+        "temp.txt"
     ],
     "exclude_tree_extensions": [
     ],
     "exclude_content_dirs": [
         ".git",
-        "autre"
+        "autre",
+        "site"
     ],
     "exclude_content_files": [
         "gentxt.txt",
         ".concat_config.json",
-        "TODO.md"
+        "TODO.md",
+        "temp.txt",
+        "report.html"        
     ],
     "exclude_content_extensions": [
         ".b3"

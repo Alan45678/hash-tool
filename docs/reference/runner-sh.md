@@ -1,4 +1,4 @@
-# Référence — runner.sh & pipeline.json
+# Référence - runner.sh & pipeline.json
 
 Orchestrateur de pipeline pour exécuter plusieurs opérations `integrity.sh` en séquence.
 
@@ -63,7 +63,7 @@ Calcule les hashes d'un dossier et produit un fichier `.b3`.
 | Champ | Requis | Description |
 |---|---|---|
 | `op` | Oui | `"compute"` |
-| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier avant le compute — les chemins dans la base seront relatifs. |
+| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier avant le compute - les chemins dans la base seront relatifs. |
 | `bases` | Oui | Dossier où enregistrer le fichier `.b3`. Créé automatiquement si inexistant. |
 | `nom` | Oui | Nom du fichier `.b3` à créer dans `bases`. |
 
@@ -109,11 +109,11 @@ Compare deux bases `.b3`.
 | `base_b` | Oui | Nouvelle base (à comparer). |
 | `resultats` | Non | Dossier de destination des résultats. Surcharge `RESULTATS_DIR` pour ce seul bloc. Créé automatiquement si inexistant. |
 
-**Champ `resultats` :** l'isolation est garantie par un sous-shell — `RESULTATS_DIR` du processus parent n'est pas modifié. Les autres blocs du pipeline continuent d'utiliser la valeur globale de `RESULTATS_DIR`.
+**Champ `resultats` :** l'isolation est garantie par un sous-shell - `RESULTATS_DIR` du processus parent n'est pas modifié. Les autres blocs du pipeline continuent d'utiliser la valeur globale de `RESULTATS_DIR`.
 
 ---
 
-## Exemple complet — VeraCrypt multi-disques
+## Exemple complet - VeraCrypt multi-disques
 
 ```json
 {

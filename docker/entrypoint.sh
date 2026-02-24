@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# /entrypoint.sh — Point d'entrée Docker pour hash_tool
+# /entrypoint.sh - Point d'entrée Docker pour hash_tool
 #
 # Dispatche les commandes vers integrity.sh ou runner.sh.
 # Toutes les commandes de integrity.sh sont supportées directement.
@@ -19,11 +19,11 @@ APP="/app"
 INTEGRITY="$APP/src/integrity.sh"
 RUNNER="$APP/runner.sh"
 
-# ── Aide ─────────────────────────────────────────────────────────────────────
+# == Aide =====================================================================
 
 print_help() {
   cat <<'EOF'
-hash_tool — Vérification d'intégrité BLAKE3
+hash_tool - Vérification d'intégrité BLAKE3
 
 Usage :
   docker run [--rm] [-v ...] hash_tool <commande> [arguments...]
@@ -86,7 +86,7 @@ Exemples :
 EOF
 }
 
-# ── Vérification des outils ───────────────────────────────────────────────────
+# == Vérification des outils ===================================================
 
 check_deps() {
   local ok=1
@@ -97,7 +97,7 @@ check_deps() {
   (( ok )) || exit 1
 }
 
-# ── Dispatch ──────────────────────────────────────────────────────────────────
+# == Dispatch ==================================================================
 
 # Extraire --quiet en tête s'il est présent
 QUIET_FLAG=""
@@ -128,7 +128,7 @@ case "$CMD" in
     ;;
 
   shell|bash)
-    echo "hash_tool — shell interactif (debug)"
+    echo "hash_tool - shell interactif (debug)"
     echo "  b3sum    : $(b3sum --version 2>/dev/null || echo 'non trouvé')"
     echo "  jq       : $(jq --version 2>/dev/null || echo 'non trouvé')"
     echo "  bash     : $BASH_VERSION"

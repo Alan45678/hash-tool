@@ -72,15 +72,23 @@ extra:
 nav:
   - Accueil: index.md
   - Démarrage rapide: getting-started.md
+
   - Référence:
     - integrity.sh: reference/integrity-sh.md
     - runner.sh & pipeline.json: reference/runner-sh.md
     - Docker: reference/docker.md
+
+  - Spécifications:
+    - Format .b3: spec/b3-format.md
+    - API interne: spec/api-interne.md
+
   - Guides:
     - VeraCrypt & disques multiples: guides/veracrypt.md
     - CI / Cron: guides/cron-ci.md
     - NAS Synology: guides/nas-synology.md
+
   - Développement:
     - Architecture: development/architecture.md
     - Contribuer & Tests: development/contributing.md
+    - Roadmap & Positionnement: development/roadmap.md
     - Changelog: development/changelog.md

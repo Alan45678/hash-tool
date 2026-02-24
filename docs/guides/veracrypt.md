@@ -1,4 +1,4 @@
-# Guide — VeraCrypt & disques multiples
+# Guide - VeraCrypt & disques multiples
 
 Workflow complet pour archiver et vérifier des données sur partitions VeraCrypt avec `runner.sh`.
 
@@ -8,9 +8,9 @@ Workflow complet pour archiver et vérifier des données sur partitions VeraCryp
 
 Les partitions VeraCrypt sont montées comme des lettres de lecteur sous Windows / des points de montage sous Linux. Les données n'existent en clair que pendant la session de montage. Il faut donc :
 
-1. **Indexer avant démontage** — calculer les hashes pendant que les données sont accessibles
-2. **Stocker les `.b3` hors de la partition vérifiée** — sur `C:` ou une partition non chiffrée
-3. **Vérifier après remontage** — au prochain accès, confirmer l'intégrité
+1. **Indexer avant démontage** - calculer les hashes pendant que les données sont accessibles
+2. **Stocker les `.b3` hors de la partition vérifiée** - sur `C:` ou une partition non chiffrée
+3. **Vérifier après remontage** - au prochain accès, confirmer l'intégrité
 
 ---
 
@@ -31,21 +31,21 @@ Si VeraCrypt remonte une partition sur une lettre différente d'une session à l
 
 ```
 C:\Users\TonNom\Desktop\
-├── hash_tool\                  ← scripts (non chiffré)
-│   ├── runner.sh
-│   ├── src\integrity.sh
-│   └── pipelines\
-│       └── pipeline-veracrypt.json
-├── bases\                      ← fichiers .b3 (non chiffré, hors VeraCrypt)
-│   ├── hashes_disque_1.b3
-│   ├── hashes_disque_2.b3
-│   └── hashes_disque_3.b3
-└── rapports\                   ← résultats compare/verify
-    └── ...
+├== hash_tool\                  ← scripts (non chiffré)
+│   ├== runner.sh
+│   ├== src\integrity.sh
+│   └== pipelines\
+│       └== pipeline-veracrypt.json
+├== bases\                      ← fichiers .b3 (non chiffré, hors VeraCrypt)
+│   ├== hashes_disque_1.b3
+│   ├== hashes_disque_2.b3
+│   └== hashes_disque_3.b3
+└== rapports\                   ← résultats compare/verify
+    └== ...
 ```
 
 !!! danger "Stocker les .b3 hors de la partition vérifiée"
-    Si les `.b3` sont sur la même partition VeraCrypt que les données, une corruption du disque peut corrompre simultanément les données **et** leur empreinte — rendant la vérification inutile.
+    Si les `.b3` sont sur la même partition VeraCrypt que les données, une corruption du disque peut corrompre simultanément les données **et** leur empreinte - rendant la vérification inutile.
 
     Stocker les `.b3` sur `C:` (non chiffré) ou une partition séparée.
 
@@ -53,7 +53,7 @@ C:\Users\TonNom\Desktop\
 
 ## Configuration pipeline
 
-### Cas simple — un disque, compute + verify
+### Cas simple - un disque, compute + verify
 
 ```json
 {
@@ -73,7 +73,7 @@ C:\Users\TonNom\Desktop\
 }
 ```
 
-### Cas complet — trois disques avec comparaison
+### Cas complet - trois disques avec comparaison
 
 ```json
 {
@@ -174,12 +174,12 @@ Utiliser des noms datés pour conserver l'historique :
 
 ```
 bases/
-├── hashes_disque_1_2024-01-15.b3    ← baseline initiale
-├── hashes_disque_1_2024-06-01.b3    ← après ajout de fichiers
-└── hashes_disque_1_2024-12-01.b3    ← vérification annuelle
+├== hashes_disque_1_2024-01-15.b3    ← baseline initiale
+├== hashes_disque_1_2024-06-01.b3    ← après ajout de fichiers
+└== hashes_disque_1_2024-12-01.b3    ← vérification annuelle
 ```
 
-Ne jamais écraser une base existante — chaque `.b3` est une preuve datée de l'état du disque.
+Ne jamais écraser une base existante - chaque `.b3` est une preuve datée de l'état du disque.
 
 !!! tip
     Pour automatiser le nommage daté depuis Windows avec WSL :

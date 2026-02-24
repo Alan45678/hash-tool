@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lib/report.sh — Génération des rapports de résultats
+# lib/report.sh - Génération des rapports de résultats
 #
 # Sourcé par integrity.sh. Ne pas exécuter directement.
 #
@@ -8,7 +8,7 @@
 #                          <modifies.b3> <disparus.txt> <nouveaux.txt>
 #                          <output.html>
 
-# ── Génération du rapport HTML pour compare ───────────────────────────────────
+# == Génération du rapport HTML pour compare ===================================
 #
 # Produit un fichier HTML autonome (CSS inline, pas de dépendance externe).
 # Les listes de fichiers sont injectées depuis les fichiers texte produits
@@ -87,9 +87,9 @@ generate_compare_html() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rapport — ${nom_old} vs ${nom_new}</title>
+  <title>Rapport - ${nom_old} vs ${nom_new}</title>
   <style>
-    /* ── Tokens ──────────────────────────────────────────────────── */
+    /* == Tokens ==================================================== */
     :root {
       --bg:          #0f1117;
       --bg-card:     #161b27;
@@ -110,7 +110,7 @@ generate_compare_html() {
       --radius-lg:   14px;
     }
 
-    /* ── Reset & base ─────────────────────────────────────────────── */
+    /* == Reset & base =============================================== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -125,7 +125,7 @@ generate_compare_html() {
       padding: 0 0 64px;
     }
 
-    /* ── Header ───────────────────────────────────────────────────── */
+    /* == Header ===================================================== */
     .header {
       background: var(--bg-card);
       border-bottom: 1px solid var(--border);
@@ -176,7 +176,7 @@ generate_compare_html() {
       font-family: var(--mono);
     }
 
-    /* ── Status badge ─────────────────────────────────────────────── */
+    /* == Status badge =============================================== */
     .status-badge {
       font-family: var(--mono);
       font-size: 11px;
@@ -194,7 +194,7 @@ generate_compare_html() {
     .status-ok   { color: var(--accent-ok);   border-color: var(--accent-ok);   background: rgba(34,197,94,.08);  }
     .status-diff { color: var(--accent-diff);  border-color: var(--accent-diff); background: rgba(245,158,11,.08); }
 
-    /* ── Stats bar ────────────────────────────────────────────────── */
+    /* == Stats bar ================================================== */
     .stats-bar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -229,7 +229,7 @@ generate_compare_html() {
     .stat-disparus .stat-value { color: var(--accent-dis); }
     .stat-nouveaux .stat-value { color: var(--accent-nou); }
 
-    /* ── Sections ─────────────────────────────────────────────────── */
+    /* == Sections =================================================== */
     .main {
       max-width: 1100px;
       margin: 0 auto;
@@ -320,7 +320,7 @@ generate_compare_html() {
       padding: 4px 0;
     }
 
-    /* ── Footer ───────────────────────────────────────────────────── */
+    /* == Footer ===================================================== */
     .footer {
       text-align: center;
       padding-top: 40px;
@@ -338,10 +338,10 @@ generate_compare_html() {
 </head>
 <body>
 
-  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <!-- == En-tête ======================================================== -->
   <header class="header">
     <div class="header-left">
-      <h1>Rapport de comparaison — hash_tool</h1>
+      <h1>Rapport de comparaison - hash_tool</h1>
       <div class="bases-compare">
         <span class="base-name">$(html_escape "$nom_old")</span>
         <span class="arrow">→</span>
@@ -352,7 +352,7 @@ generate_compare_html() {
     <div class="status-badge ${statut_class}">${statut}</div>
   </header>
 
-  <!-- ── Compteurs ────────────────────────────────────────────────────── -->
+  <!-- == Compteurs ====================================================== -->
   <div class="stats-bar">
     <div class="stat stat-modifies">
       <span class="stat-label">Modifiés</span>
@@ -368,7 +368,7 @@ generate_compare_html() {
     </div>
   </div>
 
-  <!-- ── Listes ───────────────────────────────────────────────────────── -->
+  <!-- == Listes ========================================================= -->
   <main class="main">
 
     <div class="section section-modifies">

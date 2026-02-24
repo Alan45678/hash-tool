@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_tests_pipeline.sh — Tests automatisés pour runner.sh + pipeline.json
+# run_tests_pipeline.sh - Tests automatisés pour runner.sh + pipeline.json
 #
 # Couvre : parsing JSON, compute, verify, compare, champ resultats, erreurs
 #
@@ -22,8 +22,8 @@ NC='\033[0m'
 
 PASS=0; FAIL=0; TOTAL=0
 
-pass() { echo -e "${GREEN}  PASS${NC} — $1"; (( PASS++ )); (( TOTAL++ )); }
-fail() { echo -e "${RED}  FAIL${NC} — $1"; (( FAIL++ )); (( TOTAL++ )); }
+pass() { echo -e "${GREEN}  PASS${NC} - $1"; (( PASS++ )); (( TOTAL++ )); }
+fail() { echo -e "${RED}  FAIL${NC} - $1"; (( FAIL++ )); (( TOTAL++ )); }
 
 assert_contains() {
     local label="$1" pattern="$2" output="$3"
@@ -75,14 +75,14 @@ run_tests() {
     cd "$WORKDIR"
 
     echo ""
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-    echo "  runner.sh — suite de tests"
+    echo "========================================"
+    echo "  runner.sh - suite de tests"
     echo "  Workdir : $WORKDIR"
-    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "========================================"
     echo ""
 
-    # ── TP01 : JSON invalide ──────────────────────────────────────────────────
-    echo "TP01 — JSON invalide : erreur propre sans stacktrace jq"
+    # == TP01 : JSON invalide ==================================================
+    echo "TP01 - JSON invalide : erreur propre sans stacktrace jq"
     local cfg_invalid="$WORKDIR/invalid.json"
     echo "{ pipeline: [ BROKEN" > "$cfg_invalid"
     local out_tp01; out_tp01=$(bash "$RUNNER" "$cfg_invalid" 2>&1 || true)
@@ -90,8 +90,8 @@ run_tests() {
     assert_not_contains "pas de stacktrace jq"    "parse error" "$out_tp01"
     echo ""
 
-    # ── TP02 : .pipeline absent ───────────────────────────────────────────────
-    echo "TP02 — .pipeline absent"
+    # == TP02 : .pipeline absent ===============================================
+    echo "TP02 - .pipeline absent"
     local cfg_no_pipeline
     cfg_no_pipeline=$(write_config <<'EOF'
 { "config": [] }
@@ -101,8 +101,8 @@ EOF
     assert_contains "ERREUR si .pipeline absent" "ERREUR" "$out_tp02"
     echo ""
 
-    # ── TP03 : champ manquant ─────────────────────────────────────────────────
-    echo "TP03 — Champ 'nom' manquant dans compute"
+    # == TP03 : champ manquant =================================================
+    echo "TP03 - Champ 'nom' manquant dans compute"
     local cfg_missing
     cfg_missing=$(write_config <<EOF
 {
@@ -117,8 +117,8 @@ EOF
     assert_contains "champ 'nom' mentionné" "nom"    "$out_tp03"
     echo ""
 
-    # ── TP04 : opération inconnue ─────────────────────────────────────────────
-    echo "TP04 — Opération inconnue"
+    # == TP04 : opération inconnue =============================================
+    echo "TP04 - Opération inconnue"
     local cfg_unknown
     cfg_unknown=$(write_config <<'EOF'
 { "pipeline": [ { "op": "migrate", "source": "/tmp" } ] }
@@ -129,8 +129,8 @@ EOF
     assert_contains "nom de l'op dans l'erreur" "migrate"  "$out_tp04"
     echo ""
 
-    # ── TP05 : compute — chemins relatifs ─────────────────────────────────────
-    echo "TP05 — Compute : cd correct, chemins relatifs dans la base"
+    # == TP05 : compute - chemins relatifs =====================================
+    echo "TP05 - Compute : cd correct, chemins relatifs dans la base"
     local cfg_compute
     cfg_compute=$(write_config <<EOF
 {
@@ -148,8 +148,8 @@ EOF
     assert_line_count   "3 fichiers indexés"               3          "$WORKDIR/bases/hashes_a.b3"
     echo ""
 
-    # ── TP06 : compute — source absente ──────────────────────────────────────
-    echo "TP06 — Compute : source absente → erreur"
+    # == TP06 : compute - source absente ======================================
+    echo "TP06 - Compute : source absente → erreur"
     local cfg_absent
     cfg_absent=$(write_config <<EOF
 {
@@ -164,8 +164,8 @@ EOF
     assert_file_absent "pas de base créée si source KO" "$WORKDIR/bases/ko.b3"
     echo ""
 
-    # ── TP07 : verify — OK ───────────────────────────────────────────────────
-    echo "TP07 — Verify : répertoire de travail correct, vérification OK"
+    # == TP07 : verify - OK ===================================================
+    echo "TP07 - Verify : répertoire de travail correct, vérification OK"
     local cfg_verify
     cfg_verify=$(write_config <<EOF
 {
@@ -182,16 +182,16 @@ EOF
     assert_file_exists  "recap.txt produit" "${outdir_tp07}/recap.txt"
     echo ""
 
-    # ── TP08 : verify — corruption ───────────────────────────────────────────
-    echo "TP08 — Verify : corruption détectée"
+    # == TP08 : verify - corruption ===========================================
+    echo "TP08 - Verify : corruption détectée"
     echo "contenu corrompu" > "$WORKDIR/src_a/alpha.txt"
     local out_tp08; out_tp08=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
     assert_contains "ECHEC détecté" "ECHEC" "$out_tp08"
     echo "alpha content"   > "$WORKDIR/src_a/alpha.txt"
     echo ""
 
-    # ── TP09 : verify — base absente ─────────────────────────────────────────
-    echo "TP09 — Verify : base .b3 absente → erreur"
+    # == TP09 : verify - base absente =========================================
+    echo "TP09 - Verify : base .b3 absente → erreur"
     local cfg_verify_bad
     cfg_verify_bad=$(write_config <<EOF
 {
@@ -205,8 +205,8 @@ EOF
     assert_contains "ERREUR si base absente" "ERREUR" "$out_tp09"
     echo ""
 
-    # ── TP10 : compare — résultats produits (RESULTATS_DIR par défaut) ────────
-    echo "TP10 — Compare : fichiers de résultats produits (sans champ resultats)"
+    # == TP10 : compare - résultats produits (RESULTATS_DIR par défaut) ========
+    echo "TP10 - Compare : fichiers de résultats produits (sans champ resultats)"
     local cfg_compute_b
     cfg_compute_b=$(write_config <<EOF
 {
@@ -236,8 +236,8 @@ EOF
     assert_file_exists "report.html"  "${outdir_tp10}/report.html"
     echo ""
 
-    # ── TP10b : compare — champ resultats personnalisé ───────────────────────
-    echo "TP10b — Compare : champ 'resultats' personnalisé dans pipeline.json"
+    # == TP10b : compare - champ resultats personnalisé =======================
+    echo "TP10b - Compare : champ 'resultats' personnalisé dans pipeline.json"
     local custom_dir="$WORKDIR/mon_rapport_custom"
     local cfg_compare_custom
     cfg_compare_custom=$(write_config <<EOF
@@ -268,8 +268,8 @@ EOF
     fi
     echo ""
 
-    # ── TP11 : compare — base_a absente ──────────────────────────────────────
-    echo "TP11 — Compare : base_a absente → erreur"
+    # == TP11 : compare - base_a absente ======================================
+    echo "TP11 - Compare : base_a absente → erreur"
     local cfg_compare_bad
     cfg_compare_bad=$(write_config <<EOF
 {
@@ -283,8 +283,8 @@ EOF
     assert_contains "ERREUR si base_a absente" "ERREUR" "$out_tp11"
     echo ""
 
-    # ── TP12 : pipeline complet ───────────────────────────────────────────────
-    echo "TP12 — Pipeline complet : compute × 2 + verify + compare"
+    # == TP12 : pipeline complet ===============================================
+    echo "TP12 - Pipeline complet : compute × 2 + verify + compare"
     rm -f "$WORKDIR/bases/hashes_a.b3" "$WORKDIR/bases/hashes_b.b3"
     local cfg_full
     cfg_full=$(write_config <<EOF
@@ -311,7 +311,7 @@ EOF
     echo ""
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# == Main ======================================================================
 
 for dep in jq b3sum; do
     command -v "$dep" &>/dev/null || { echo -e "${RED}ERREUR${NC} : $dep non trouvé."; exit 1; }
@@ -324,13 +324,13 @@ setup
 run_tests
 teardown
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "========================================"
 if [ "$FAIL" -eq 0 ]; then
     echo -e "  ${GREEN}$PASS/$TOTAL tests passés${NC}"
 else
-    echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés — ${RED}$FAIL échec(s)${NC}"
+    echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés - ${RED}$FAIL échec(s)${NC}"
 fi
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "========================================"
 echo ""
 
 [ "$FAIL" -eq 0 ]

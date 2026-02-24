@@ -1,4 +1,4 @@
-# Guide — CI / Cron
+# Guide - CI / Cron
 
 Intégration de hash_tool dans des pipelines automatisés : cron Linux, CI/CD, hooks Git.
 
@@ -12,7 +12,7 @@ Toutes les commandes acceptent `--quiet` en premier argument. Ce flag :
 - Conserve l'**exit code** : `0` = OK, `1` = ECHEC ou ERREUR
 - Continue d'écrire les fichiers de résultats (`recap.txt`, `failed.txt`, `report.html`)
 
-C'est le mode à utiliser systématiquement en automatisation — le script parent ou le système de notification gère la sortie.
+C'est le mode à utiliser systématiquement en automatisation - le script parent ou le système de notification gère la sortie.
 
 ```bash
 ./src/integrity.sh --quiet verify hashes.b3
@@ -31,7 +31,7 @@ echo "Exit code : $?"
 0 3 * * * user /opt/hash_tool/src/integrity.sh --quiet verify \
     /opt/bases/hashes.b3 /srv/data \
     >> /var/log/hash-integrity.log 2>&1 \
-    || echo "$(date) — ALERTE intégrité" | mail -s "Alerte $(hostname)" admin@example.com
+    || echo "$(date) - ALERTE intégrité" | mail -s "Alerte $(hostname)" admin@example.com
 ```
 
 ### Avec pipeline complet

@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rapport — [BASE_A] vs [BASE_B]</title>
+  <title>Rapport - [BASE_A] vs [BASE_B]</title>
   <!--
     ══════════════════════════════════════════════════════════════════
-    reports/template.html — Barebone rapport de comparaison hash_tool
+    reports/template.html - Barebone rapport de comparaison hash_tool
     ══════════════════════════════════════════════════════════════════
 
     Ce fichier est un template statique de référence.
@@ -15,11 +15,11 @@
 
     Structure du rapport généré :
       <resultats>/
-        ├── report.html      ← rapport visuel (ce template rempli)
-        ├── recap.txt        ← résumé texte
-        ├── modifies.b3      ← fichiers avec hash différent
-        ├── disparus.txt     ← fichiers présents dans A, absents de B
-        └── nouveaux.txt     ← fichiers absents de A, présents dans B
+        ├== report.html      ← rapport visuel (ce template rempli)
+        ├== recap.txt        ← résumé texte
+        ├== modifies.b3      ← fichiers avec hash différent
+        ├== disparus.txt     ← fichiers présents dans A, absents de B
+        └== nouveaux.txt     ← fichiers absents de A, présents dans B
 
     Pour personnaliser le rendu HTML : modifier src/lib/report.sh
     (fonction generate_compare_html).

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# runner.sh — Exécuteur de pipeline integrity.sh depuis pipeline.json
+# runner.sh - Exécuteur de pipeline integrity.sh depuis pipeline.json
 #
 # Usage :
 #   ./runner.sh                          # lit pipelines/pipeline.json
@@ -9,13 +9,13 @@
 
 set -euo pipefail
 
-# ── Chemins ───────────────────────────────────────────────────────────────────
+# == Chemins ===================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTEGRITY="$SCRIPT_DIR/src/integrity.sh"
 CONFIG="${1:-$SCRIPT_DIR/pipelines/pipeline.json}"
 
-# ── Prérequis ─────────────────────────────────────────────────────────────────
+# == Prérequis =================================================================
 
 (( BASH_VERSINFO[0] >= 4 )) || { echo "ERREUR : bash >= 4 requis" >&2; exit 1; }
 
@@ -23,18 +23,18 @@ command -v jq &>/dev/null  || { echo "ERREUR : jq non trouvé (apt install jq)" 
 [ -f "$INTEGRITY" ]        || { echo "ERREUR : src/integrity.sh introuvable : $INTEGRITY" >&2; exit 1; }
 [ -f "$CONFIG" ]           || { echo "ERREUR : config introuvable : $CONFIG" >&2; exit 1; }
 
-# ── Validation JSON ───────────────────────────────────────────────────────────
+# == Validation JSON ===========================================================
 
 jq empty "$CONFIG" 2>/dev/null || { echo "ERREUR : JSON invalide : $CONFIG" >&2; exit 1; }
 
 nb_ops=$(jq '.pipeline | length' "$CONFIG")
 (( nb_ops > 0 )) || { echo "ERREUR : tableau .pipeline vide ou absent" >&2; exit 1; }
 
-# ── Fonctions utilitaires ─────────────────────────────────────────────────────
+# == Fonctions utilitaires =====================================================
 
 die() { echo "ERREUR : $*" >&2; exit 1; }
 
-# Lit un champ JSON obligatoire — exit si absent ou null
+# Lit un champ JSON obligatoire - exit si absent ou null
 require_field() {
   local idx="$1" field="$2"
   local val
@@ -43,7 +43,7 @@ require_field() {
   echo "$val"
 }
 
-# Lit un champ JSON optionnel — retourne "" si absent
+# Lit un champ JSON optionnel - retourne "" si absent
 optional_field() {
   local idx="$1" field="$2"
   local val
@@ -51,7 +51,7 @@ optional_field() {
   echo "${val:-}"
 }
 
-# ── Opérations ────────────────────────────────────────────────────────────────
+# == Opérations ================================================================
 
 run_compute() {
   local i="$1"
@@ -110,7 +110,7 @@ run_compare() {
   fi
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# == Main ======================================================================
 
 echo "=== PIPELINE DÉMARRÉ : $(date) ==="
 echo "=== Config : $CONFIG ($nb_ops opération(s)) ==="

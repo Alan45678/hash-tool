@@ -1,4 +1,4 @@
-# Guide — NAS Synology
+# Guide - NAS Synology
 
 Déploiement et usage de hash_tool sur NAS Synology avec Docker.
 
@@ -66,18 +66,18 @@ docker run --rm hash_tool version
 
 ```
 /volume1/
-├── docker/
-│   └── hash_tool/          ← scripts et Dockerfile
-├── data/                   ← données à surveiller (ou sous-dossiers par partage)
-│   ├── photos/
-│   ├── documents/
-│   └── backups/
-├── bases/                  ← fichiers .b3 (séparés des données)
-│   ├── hashes_photos.b3
-│   ├── hashes_documents.b3
-│   └── hashes_backups.b3
-└── rapports/               ← résultats verify/compare
-    └── ...
+├== docker/
+│   └== hash_tool/          ← scripts et Dockerfile
+├== data/                   ← données à surveiller (ou sous-dossiers par partage)
+│   ├== photos/
+│   ├== documents/
+│   └== backups/
+├== bases/                  ← fichiers .b3 (séparés des données)
+│   ├== hashes_photos.b3
+│   ├== hashes_documents.b3
+│   └== hashes_backups.b3
+└== rapports/               ← résultats verify/compare
+    └== ...
 ```
 
 ---
@@ -135,7 +135,7 @@ DSM dispose d'un planificateur de tâches intégré (Panneau de configuration �
 LOG="/volume1/rapports/hash-integrity.log"
 MAILTO="admin@example.com"
 
-echo "$(date) — Démarrage vérification intégrité" >> "$LOG"
+echo "$(date) - Démarrage vérification intégrité" >> "$LOG"
 
 docker run --rm \
   -v /volume1/data:/data:ro \
@@ -147,12 +147,12 @@ docker run --rm \
 EXIT=$?
 
 if [ $EXIT -ne 0 ]; then
-    echo "$(date) — ALERTE : vérification échouée (exit $EXIT)" >> "$LOG"
-    # Notification email DSM — nécessite la configuration SMTP dans le Panneau de configuration
+    echo "$(date) - ALERTE : vérification échouée (exit $EXIT)" >> "$LOG"
+    # Notification email DSM - nécessite la configuration SMTP dans le Panneau de configuration
     # synonotify -e "hash_tool : corruption détectée sur $(hostname)"
 fi
 
-echo "$(date) — Fin (exit $EXIT)" >> "$LOG"
+echo "$(date) - Fin (exit $EXIT)" >> "$LOG"
 exit $EXIT
 ```
 

@@ -1,52 +1,26 @@
 # Démarrage rapide
 
-Installation et premier usage en moins de 5 minutes.
+---
 
 ## Prérequis
 
-### Linux / WSL
+| Dépendance | Usage | Installation |
+|---|---|---|
+| `bash >= 4` | Interpréteur shell | Linux natif ; macOS via `brew install bash` ; WSL |
+| `b3sum` | Calcul des empreintes BLAKE3 | `apt install b3sum` / `brew install b3sum` |
+| `jq` | Parsing `pipeline.json` (runner uniquement) | `apt install jq` / `brew install jq` |
+| `find`, `sort`, `awk`, `comm`, `join`, `stat`, `du` | Outils internes | GNU coreutils (natifs sur toute distribution) |
 
-```bash
-# Debian / Ubuntu
-sudo apt install b3sum jq
-
-# Vérifier
-b3sum --version
-jq --version
-bash --version   # doit être >= 4
-```
-
-### macOS
-
-```bash
-brew install b3sum jq bash
-
-# Ajouter bash 5 à /etc/shells si nécessaire
-echo "$(brew --prefix)/bin/bash" | sudo tee -a /etc/shells
-```
-
-### Windows
-
-Utiliser WSL (Windows Subsystem for Linux) avec une distribution Debian ou Ubuntu, puis procéder comme sous Linux.
-
-```bat
-REM Lancement depuis Windows via WSL
-wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
-```
-
-### Docker (aucune dépendance sur l'hôte)
-
-```bash
-docker build -t hash_tool .
-```
-
-Voir la [référence Docker](reference/docker.md) pour l'usage complet.
+!!! note "macOS"
+    `bash` est en version 3.x par défaut sur macOS. hash_tool requiert bash >= 4.
+    ```bash
+    brew install bash
+    # Vérifier : /usr/local/bin/bash --version
+    ```
 
 ---
 
 ## Installation
-
-Aucune installation système requise. Cloner ou copier le dossier `hash_tool/` où vous le souhaitez.
 
 ```bash
 git clone https://github.com/hash_tool/hash_tool.git
@@ -54,126 +28,81 @@ cd hash_tool
 chmod +x src/integrity.sh runner.sh
 ```
 
+Aucune compilation, aucune dépendance système au-delà des outils listés ci-dessus.
+
 ---
 
-## Premier usage
+## Environnements supportés
 
-### Étape 1 — Indexer un dossier
+| Environnement | Méthode | Notes |
+|---|---|---|
+| Linux (Debian, Ubuntu, Alpine, Arch…) | Natif | Environnement de référence |
+| macOS | Natif avec bash 4+ via Homebrew | `brew install bash b3sum jq` |
+| Windows | Via WSL2 | Distributions Ubuntu ou Debian recommandées |
+| NAS Synology | Via Docker (image arm64) | Voir [guide NAS](guides/nas-synology.md) |
+| Serveur headless | Mode `--quiet` + cron | Voir [guide CI/Cron](guides/cron-ci.md) |
 
-```bash
-cd hash_tool
-./src/integrity.sh compute ./mon_dossier hashes_2024-01-15.b3
-```
+---
 
-Sortie attendue :
+## Workflow typique
 
-```
-Base enregistrée : hashes_2024-01-15.b3 (142 fichiers)
-```
+| Étape | Commande | Moment |
+|---|---|---|
+| 1. Indexer | `./src/integrity.sh compute ./dossier bases/hashes_2024-01-15.b3` | Données saines connues |
+| 2. Vérifier | `./src/integrity.sh verify bases/hashes_2024-01-15.b3` | Après transfert / stockage |
+| 3. Comparer | `./src/integrity.sh compare bases/avant.b3 bases/apres.b3` | Entre deux états |
+| 4. Pipeline | `./runner.sh pipelines/pipeline.json` | Automatisation multi-étapes |
 
-Le fichier `hashes_2024-01-15.b3` contient une ligne par fichier :
-
-```
-a1b2c3d4...f0a1b2  ./mon_dossier/document.pdf
-e5f6a7b8...e5f6a7  ./mon_dossier/sous-dossier/image.jpg
-```
-
-!!! warning "Répertoire de travail"
-    Toujours lancer `compute` depuis le dossier qui contient les données, **pas** depuis un dossier parent. Les chemins dans le `.b3` sont relatifs au `pwd` au moment du compute.
-
-    ```bash
-    # Correct
-    cd /mnt/a/mes_donnees
-    /opt/hash_tool/src/integrity.sh compute . /opt/bases/hashes.b3
-
-    # Incorrect — chemins absolus dans la base, non portables
-    /opt/hash_tool/src/integrity.sh compute /mnt/a/mes_donnees /opt/bases/hashes.b3
-    ```
-
-### Étape 2 — Vérifier l'intégrité
+### Exemple concret - archivage sur disque externe
 
 ```bash
-# Depuis le même répertoire qu'au compute
-./src/integrity.sh verify hashes_2024-01-15.b3
-```
+# Brancher le disque externe, VeraCrypt le monte sur /mnt/archive
 
-Sortie si tout est intact :
+# 1. Première indexation - données saines à J0
+cd /mnt/archive
+../hash_tool/src/integrity.sh compute . /mnt/c/bases/archive_2024-01-15.b3
 
-```
-Vérification OK — 142 fichiers intègres.
-Résultats dans : /home/user/integrity_resultats/resultats_hashes_2024-01-15
-  recap.txt
-```
+# 2. Vérification après chaque session - J+30, J+90, etc.
+cd /mnt/archive
+../hash_tool/src/integrity.sh verify /mnt/c/bases/archive_2024-01-15.b3
 
-Sortie si corruption détectée :
-
-```
-████████████████████████████████████████
-  ECHEC : 2 fichier(s) corrompu(s) ou manquant(s)
-████████████████████████████████████████
-
-./mon_dossier/document.pdf: FAILED
-./mon_dossier/archive.zip: FAILED
-
-Résultats dans : /home/user/integrity_resultats/resultats_hashes_2024-01-15
-  recap.txt
-  failed.txt
-```
-
-### Étape 3 — Comparer deux snapshots
-
-```bash
-# Après avoir recalculé une nouvelle base
-./src/integrity.sh compute ./mon_dossier hashes_2024-02-01.b3
-
-# Comparer
-./src/integrity.sh compare hashes_2024-01-15.b3 hashes_2024-02-01.b3
-```
-
-Produit dans `~/integrity_resultats/resultats_hashes_2024-01-15/` :
-
-```
-recap.txt       — résumé texte (modifiés / disparus / nouveaux)
-modifies.b3     — fichiers avec hash différent
-disparus.txt    — fichiers présents dans l'ancienne base, absents de la nouvelle
-nouveaux.txt    — fichiers absents de l'ancienne base, présents dans la nouvelle
-report.html     — rapport visuel interactif
+# 3. Après ajout de fichiers - comparer les deux états
+cd /mnt/archive
+../hash_tool/src/integrity.sh compute . /mnt/c/bases/archive_2024-02-15.b3
+../hash_tool/src/integrity.sh compare \
+  /mnt/c/bases/archive_2024-01-15.b3 \
+  /mnt/c/bases/archive_2024-02-15.b3
 ```
 
 ---
 
-## Usage avec le pipeline
+## Lire les résultats
 
-Pour plusieurs dossiers ou une routine régulière, `runner.sh` + `pipeline.json` est plus robuste que les appels manuels.
+Chaque opération `verify` ou `compare` produit un dossier horodaté dans `~/integrity_resultats/` :
 
-```bash
-# Éditer pipelines/pipeline.json avec vos chemins
-./runner.sh
-
-# Ou avec un fichier de config explicite
-./runner.sh /chemin/vers/mon-pipeline.json
+```
+~/integrity_resultats/
+└== resultats_archive_2024-01-15/
+    ├== recap.txt      ← statut global, compteurs
+    ├== failed.txt     ← fichiers en échec (si applicable)
+    └== report.html    ← rapport visuel autonome (ouvrir dans un navigateur)
 ```
 
-Voir la [référence runner.sh](reference/runner-sh.md) pour le format complet du pipeline.
+Ouvrir `report.html` directement dans un navigateur - aucune connexion requise, aucun serveur.
 
 ---
 
-## Où sont les résultats ?
+## Docker - démarrage rapide
 
-Par défaut dans `~/integrity_resultats/`. Configurable via la variable d'environnement `RESULTATS_DIR` :
+Si les dépendances ne peuvent pas être installées sur l'hôte :
 
 ```bash
-export RESULTATS_DIR=/srv/rapports/integrity
-./src/integrity.sh verify hashes.b3
+docker build -t hash_tool .
+
+docker run --rm \
+  -v /mes/donnees:/data:ro \
+  -v /mes/bases:/bases \
+  hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
 ```
 
-Ou directement dans le pipeline via le champ `resultats` sur les blocs `compare`.
-
----
-
-## Prochaines étapes
-
-- [Référence complète integrity.sh](reference/integrity-sh.md) — toutes les options, variables, exit codes
-- [Référence runner.sh](reference/runner-sh.md) — format pipeline.json
-- [Guide VeraCrypt](guides/veracrypt.md) — workflow multi-disques
-- [Guide CI/Cron](guides/cron-ci.md) — automatisation
+Voir la [référence Docker complète](reference/docker.md) pour les volumes, les environnements Synology, et les options Compose.

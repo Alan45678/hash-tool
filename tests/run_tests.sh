@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# run_tests.sh — suite de tests automatisée pour integrity.sh
+# run_tests.sh - suite de tests automatisée pour integrity.sh
 # Usage    : cd tests && ./run_tests.sh
 # Prérequis: b3sum, stat, du ; integrity.sh dans ../src/
 
@@ -16,8 +16,8 @@ NC='\033[0m'
 
 PASS=0; FAIL=0; TOTAL=0
 
-pass() { echo -e "${GREEN}  PASS${NC} — $1"; ((PASS++)); ((TOTAL++)); }
-fail() { echo -e "${RED}  FAIL${NC} — $1"; ((FAIL++)); ((TOTAL++)); }
+pass() { echo -e "${GREEN}  PASS${NC} - $1"; ((PASS++)); ((TOTAL++)); }
+fail() { echo -e "${RED}  FAIL${NC} - $1"; ((FAIL++)); ((TOTAL++)); }
 
 assert_exit_zero()    { local l="$1"; shift; if "$@" >/dev/null 2>&1;  then pass "$l"; else fail "$l"; fi; }
 assert_exit_nonzero() { local l="$1"; shift; if ! "$@" >/dev/null 2>&1; then pass "$l"; else fail "$l"; fi; }
@@ -62,28 +62,28 @@ run_tests() {
   cd "$WORKDIR"
 
   echo ""
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "  integrity.sh — suite de tests"
+  echo "========================================"
+  echo "  integrity.sh - suite de tests"
   echo "  Workdir : $WORKDIR"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "========================================"
   echo ""
 
-  echo "T00 — ShellCheck"
+  echo "T00 - ShellCheck"
   if command -v shellcheck &>/dev/null; then
     assert_exit_zero "ShellCheck integrity.sh"  shellcheck "$INTEGRITY"
     assert_exit_zero "ShellCheck run_tests.sh"  shellcheck "$0"
   else
-    echo "  SKIP — shellcheck non installé"
+    echo "  SKIP - shellcheck non installé"
   fi
   echo ""
 
-  echo "T01 — Compute de base"
+  echo "T01 - Compute de base"
   bash "$INTEGRITY" compute ./data base_t01.b3 >/dev/null 2>&1
   assert_line_count "base_t01.b3 contient 4 lignes" 4 base_t01.b3
   assert_contains   "format <hash>  <chemin>"       "  ./data/" "$(head -1 base_t01.b3)"
   echo ""
 
-  echo "T02 — Verify sans modification"
+  echo "T02 - Verify sans modification"
   local out_t02; out_t02=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
   assert_not_contains "aucun FAILED" "FAILED" "$out_t02"
   assert_contains     "terminal OK"  "OK"     "$out_t02"
@@ -92,7 +92,7 @@ run_tests() {
   assert_file_absent  "failed.txt absent si 0 échec" "${outdir_t02}/failed.txt"
   echo ""
 
-  echo "T03 — Verify après corruption"
+  echo "T03 - Verify après corruption"
   echo "contenu modifié" > data/beta.txt
   local out_t03; out_t03=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
   assert_contains "ECHEC affiché"    "ECHEC"   "$out_t03"
@@ -103,14 +103,14 @@ run_tests() {
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  echo "T04 — Verify après suppression"
+  echo "T04 - Verify après suppression"
   rm data/gamma.txt
   local out_t04; out_t04=$(bash "$INTEGRITY" verify base_t01.b3 2>&1 || true)
   assert_contains "gamma.txt FAILED" "FAILED" "$out_t04"
   echo "contenu gamma" > data/gamma.txt
   echo ""
 
-  echo "T05 — Compare : aucune différence"
+  echo "T05 - Compare : aucune différence"
   bash "$INTEGRITY" compute ./data base_t05.b3 >/dev/null 2>&1
   bash "$INTEGRITY" compare base_t01.b3 base_t05.b3 >/dev/null 2>&1
   local outdir_t05; outdir_t05=$(ls -d "${RESULTATS_DIR}/resultats_base_t01"* 2>/dev/null | tail -1)
@@ -122,7 +122,7 @@ run_tests() {
   assert_line_count  "nouveaux vide" 0 "${outdir_t05}/nouveaux.txt"
   echo ""
 
-  echo "T06 — Compare : fichier modifié"
+  echo "T06 - Compare : fichier modifié"
   echo "contenu beta modifié" > data/beta.txt
   bash "$INTEGRITY" compute ./data base_t06.b3 >/dev/null 2>&1
   bash "$INTEGRITY" compare base_t01.b3 base_t06.b3 >/dev/null 2>&1
@@ -133,7 +133,7 @@ run_tests() {
   echo "contenu beta" > data/beta.txt
   echo ""
 
-  echo "T07 — Compare : suppression + ajout"
+  echo "T07 - Compare : suppression + ajout"
   bash "$INTEGRITY" compute ./data base_t07_old.b3 >/dev/null 2>&1
   rm data/alpha.txt
   echo "contenu epsilon" > data/epsilon.txt
@@ -146,7 +146,7 @@ run_tests() {
   rm data/epsilon.txt
   echo ""
 
-  echo "T08 — Robustesse : fichier avec espace"
+  echo "T08 - Robustesse : fichier avec espace"
   echo "contenu espace" > "data/fichier avec espace.txt"
   bash "$INTEGRITY" compute ./data base_t08.b3 >/dev/null 2>&1
   local out_t08; out_t08=$(bash "$INTEGRITY" verify base_t08.b3 2>&1 || true)
@@ -154,7 +154,7 @@ run_tests() {
   rm "data/fichier avec espace.txt"
   echo ""
 
-  echo "T09 — Limite : dossier vide ignoré"
+  echo "T09 - Limite : dossier vide ignoré"
   mkdir data/dossier_vide
   bash "$INTEGRITY" compute ./data base_t09.b3 >/dev/null 2>&1
   assert_not_contains "dossier_vide absent" "dossier_vide" "$(cat base_t09.b3)"
@@ -162,7 +162,7 @@ run_tests() {
   rmdir data/dossier_vide
   echo ""
 
-  echo "T10 — Chemin absolu vs relatif"
+  echo "T10 - Chemin absolu vs relatif"
   find "$WORKDIR/data" -type f -print0 | sort -z | xargs -0 b3sum > base_absolu.b3
   find ./data          -type f -print0 | sort -z | xargs -0 b3sum > base_relatif.b3
   assert_contains     "base absolue → chemin absolu"   "  /"      "$(head -1 base_absolu.b3)"
@@ -170,7 +170,7 @@ run_tests() {
   assert_not_contains "bases non interchangeables"     "$(head -1 base_absolu.b3)" "$(head -1 base_relatif.b3)"
   echo ""
 
-  echo "T11 — ETA : base identique à référence"
+  echo "T11 - ETA : base identique à référence"
   find ./data -type f -print0 | sort -z | xargs -0 b3sum > base_ref.b3
   bash "$INTEGRITY" compute ./data base_eta.b3 >/dev/null 2>&1
   assert_exit_zero    "base ETA == référence" diff base_ref.b3 base_eta.b3
@@ -178,7 +178,7 @@ run_tests() {
   assert_not_contains "pas de \\r"            $'\r' "$(cat base_eta.b3)"
   echo ""
 
-  echo "T12 — Mode --quiet"
+  echo "T12 - Mode --quiet"
   bash "$INTEGRITY" compute ./data base_t12.b3 >/dev/null 2>&1
   local out_quiet_ok; out_quiet_ok=$(bash "$INTEGRITY" --quiet verify base_t12.b3 2>&1 || true)
   assert_not_contains "--quiet OK : pas de stdout" "OK"        "$out_quiet_ok"
@@ -195,7 +195,7 @@ run_tests() {
   assert_not_contains "--quiet compute : pas de stdout" "Base enregistrée" "$out_quiet_cmp"
   echo ""
 
-  echo "T13 — Horodatage anti-écrasement"
+  echo "T13 - Horodatage anti-écrasement"
   bash "$INTEGRITY" compute ./data base_t13.b3 >/dev/null 2>&1
   bash "$INTEGRITY" verify base_t13.b3 >/dev/null 2>&1 || true
   sleep 1
@@ -204,13 +204,13 @@ run_tests() {
   if (( nb_r >= 2 )); then pass "deux dossiers distincts"; else fail "écrasement détecté ($nb_r dossier(s))"; fi
   echo ""
 
-  echo "T14 — verify : dossier argument invalide"
+  echo "T14 - verify : dossier argument invalide"
   local out_t14; out_t14=$(bash "$INTEGRITY" verify base_t01.b3 /chemin/inexistant 2>&1 || true)
   assert_contains "ERREUR si dossier invalide" "ERREUR" "$out_t14"
   echo ""
 }
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# == Main ======================================================================
 
 command -v b3sum &>/dev/null || { echo -e "${RED}ERREUR${NC} : b3sum non trouvé."; exit 1; }
 [ -f "$INTEGRITY" ]          || { echo -e "${RED}ERREUR${NC} : integrity.sh introuvable : $INTEGRITY"; exit 1; }
@@ -219,13 +219,13 @@ setup
 run_tests
 teardown
 
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "========================================"
 if [ "$FAIL" -eq 0 ]; then
   echo -e "  ${GREEN}$PASS/$TOTAL tests passés${NC}"
 else
-  echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés — ${RED}$FAIL échec(s)${NC}"
+  echo -e "  ${GREEN}$PASS${NC}/${TOTAL} passés - ${RED}$FAIL échec(s)${NC}"
 fi
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "========================================"
 echo ""
 
 [ "$FAIL" -eq 0 ]

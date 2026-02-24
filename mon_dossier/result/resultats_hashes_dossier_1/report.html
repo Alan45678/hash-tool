@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rapport — hashes_dossier_1.b3 vs hashes_dossier_2.b3</title>
+  <title>Rapport - hashes_dossier_1.b3 vs hashes_dossier_2.b3</title>
   <style>
-    /* ── Tokens ──────────────────────────────────────────────────── */
+    /* == Tokens ==================================================== */
     :root {
       --bg:          #0f1117;
       --bg-card:     #161b27;
@@ -26,7 +26,7 @@
       --radius-lg:   14px;
     }
 
-    /* ── Reset & base ─────────────────────────────────────────────── */
+    /* == Reset & base =============================================== */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -41,7 +41,7 @@
       padding: 0 0 64px;
     }
 
-    /* ── Header ───────────────────────────────────────────────────── */
+    /* == Header ===================================================== */
     .header {
       background: var(--bg-card);
       border-bottom: 1px solid var(--border);
@@ -92,7 +92,7 @@
       font-family: var(--mono);
     }
 
-    /* ── Status badge ─────────────────────────────────────────────── */
+    /* == Status badge =============================================== */
     .status-badge {
       font-family: var(--mono);
       font-size: 11px;
@@ -110,7 +110,7 @@
     .status-ok   { color: var(--accent-ok);   border-color: var(--accent-ok);   background: rgba(34,197,94,.08);  }
     .status-diff { color: var(--accent-diff);  border-color: var(--accent-diff); background: rgba(245,158,11,.08); }
 
-    /* ── Stats bar ────────────────────────────────────────────────── */
+    /* == Stats bar ================================================== */
     .stats-bar {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -145,7 +145,7 @@
     .stat-disparus .stat-value { color: var(--accent-dis); }
     .stat-nouveaux .stat-value { color: var(--accent-nou); }
 
-    /* ── Sections ─────────────────────────────────────────────────── */
+    /* == Sections =================================================== */
     .main {
       max-width: 1100px;
       margin: 0 auto;
@@ -236,7 +236,7 @@
       padding: 4px 0;
     }
 
-    /* ── Footer ───────────────────────────────────────────────────── */
+    /* == Footer ===================================================== */
     .footer {
       text-align: center;
       padding-top: 40px;
@@ -254,10 +254,10 @@
 </head>
 <body>
 
-  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <!-- == En-tête ======================================================== -->
   <header class="header">
     <div class="header-left">
-      <h1>Rapport de comparaison — hash_tool</h1>
+      <h1>Rapport de comparaison - hash_tool</h1>
       <div class="bases-compare">
         <span class="base-name">hashes_dossier_1.b3</span>
         <span class="arrow">→</span>
@@ -268,7 +268,7 @@
     <div class="status-badge status-diff">DIFFÉRENCES DÉTECTÉES</div>
   </header>
 
-  <!-- ── Compteurs ────────────────────────────────────────────────────── -->
+  <!-- == Compteurs ====================================================== -->
   <div class="stats-bar">
     <div class="stat stat-modifies">
       <span class="stat-label">Modifiés</span>
@@ -284,7 +284,7 @@
     </div>
   </div>
 
-  <!-- ── Listes ───────────────────────────────────────────────────────── -->
+  <!-- == Listes ========================================================= -->
   <main class="main">
 
     <div class="section section-modifies">
