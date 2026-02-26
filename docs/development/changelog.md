@@ -4,7 +4,7 @@
 
 
 
-## [1.1.0] - 2026-02-26
+## [1.2.0] - 2026-02-26
 
 ### Ajouté
 - **Système de templating HTML** : Séparation complète de la logique métier et de la présentation. Le fichier `reports/template.html` sert désormais de base unique pour la génération des rapports.
