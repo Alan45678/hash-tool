@@ -11,7 +11,9 @@ integrity_resultats/
 .docker/
 
 # == Fichiers temporaires ======================================================
-temp.txt
+# Exclure les fichiers contenant le mot "temp" n'importe où dans le nom
+*temp*
+
 *.tmp
 *.log
 *.bak
@@ -27,3 +29,10 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# == doc perso =================================================================
+hors_git/
+
+# == fichiers utils de dev =================================================================
+.concat_config.json
+gentxt.txt

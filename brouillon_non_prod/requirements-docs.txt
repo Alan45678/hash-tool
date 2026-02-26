@@ -1,7 +1,0 @@
-mkdocs 
-mkdocs-material
-
-conda activate conda_env_hash_tool 
-
-mkdocs serve 
-
