@@ -229,20 +229,37 @@ _check_help() {
 cmd_compute() {
   _check_help compute "$@"
   _parse_args "$@"
-  [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
 
-  # Détermine le nom du fichier .b3
+  # Vérification des paramètres obligatoires
+  [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
+  [ -d "$OPT_DATA" ] || die "compute : dossier introuvable : $OPT_DATA"
+
+  # 1. Préparation du dossier de sauvegarde
   local save_dir="${OPT_SAVE:-.}"
   mkdir -p "$save_dir"
+  
+  # 2. Calcul du chemin ABSOLU du dossier de sauvegarde pour le sous-shell
+  local save_dir_abs
+  save_dir_abs="$(cd "$save_dir" && pwd)"
+  
+  # 3. Détermination du nom du fichier .b3
   local data_basename
   data_basename="$(basename "$(realpath "$OPT_DATA")")"
-  local b3_file="${save_dir}/hashes_${data_basename}.b3"
+  local b3_file="${save_dir_abs}/hashes_${data_basename}.b3"
 
-  _run_integrity compute "$OPT_DATA" "$b3_file"
+  # 4. Exécution dans un sous-shell
+  # On utilise des guillemets autour de "$OPT_DATA" et "$b3_file" pour gérer les espaces
+  (
+    cd "$OPT_DATA" || exit 1
+    _run_integrity compute "." "$b3_file"
+  )
 
-  # Sidecar
+  # 5. Écriture du Sidecar (Métadonnées)
+  # On vérifie si le fichier .b3 a bien été créé avant d'écrire le sidecar
   if [ -f "$b3_file" ]; then
-    _sidecar_write "$b3_file" "$OPT_DATA" "$OPT_META"
+    local data_path_abs
+    data_path_abs="$(realpath "$OPT_DATA")"
+    _sidecar_write "$b3_file" "$data_path_abs" "$OPT_META"
   fi
 }
 

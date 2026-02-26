@@ -1,8 +1,30 @@
 # Changelog — hash_tool
 
----
 
-## [2.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
+
+
+### [1.1.0] — 2026-02-26
+
+#### Corrigé
+
+-Isolation des chemins relatifs** : Correction d'un bug où l'entrée dans un sous-shell via `cd "$OPT_DATA"` empêchait l'écriture de la base dans le dossier `-save` si celui-ci était renseigné en chemin relatif.
+
+-Résolution absolue des cibles** : Le script transforme désormais systématiquement le chemin `-save` en chemin absolu avant de changer de répertoire de travail. Cela garantit que la base `.b3` est enregistrée exactement là où l'utilisateur l'a demandé, même après un `cd` dans le dossier source.
+
+-Robustesse aux espaces** : Ajout de guillemets doubles manquants dans les fonctions `_run_integrity` et `_sidecar_write` pour supporter les chemins Windows/WSL complexes comportant des espaces et des caractères spéciaux.
+
+#### Ajouté
+
+-Contrôle de conformité** : La commande `verify` émet désormais un avertissement si elle détecte des chemins absolus dans un fichier `.b3`, car cela brise l'invariant de portabilité du logiciel.
+
+-Mode Read-only explicite** : Support de l'option `-readonly` lors du `compute` pour marquer l'état de la source dans le fichier de métadonnées sidecar.
+
+#### Modifié
+
+-Priorité des résultats** : L'option `-save` surcharge désormais systématiquement la variable d'environnement `RESULTATS_DIR` pour toutes les commandes (`compute`, `verify`, `compare`, `runner`).
+
+
+## [1.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
 
 ### Ajouté
 

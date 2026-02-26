@@ -27,20 +27,14 @@ hash_tool
 │   └── index.md
 ├── mon_dossier
 │   ├── bases
-│   │   ├── hashes_dossier_1.b3
-│   │   └── hashes_dossier_2.b3
+│   │   ├── hashes_source.b3
+│   │   └── hashes_source.b3.meta.json
 │   ├── destination
 │   │   ├── fichier (1).txt
 │   │   ├── fichier (2).txt
 │   │   ├── fichier (3).txt
 │   │   └── fichier (4).txt
 │   ├── result
-│   │   └── resultats_hashes_dossier_1
-│   │       ├── disparus.txt
-│   │       ├── modifies.b3
-│   │       ├── nouveaux.txt
-│   │       ├── recap.txt
-│   │       └── report.html
 │   └── source
 │       ├── fichier (1).txt
 │       ├── fichier (2).txt
@@ -71,8 +65,8 @@ hash_tool
 ├── docker-compose.yml
 ├── hash-tool
 ├── mkdocs.yml
-├── requirements-docs.txt
-└── runner.sh
+├── runner.sh
+└── temp commande.txt
 
 
 # === Contenu des fichiers ===
@@ -506,7 +500,24 @@ _run_docker_integrity() {
 
 # == Commandes =================================================================
 
+# _check_help <subcmd> "$@"
+# Si le premier argument positionnel est "help", affiche l'aide de la sous-commande
+# et quitte. À appeler EN TÊTE de chaque cmd_* avant _parse_args.
+_check_help() {
+  local subcmd="$1"
+  shift
+  for arg in "$@"; do
+    case "$arg" in
+      help|--help|-h)
+        cmd_help "$subcmd"
+        exit 0
+        ;;
+    esac
+  done
+}
+
 cmd_compute() {
+  _check_help compute "$@"
   _parse_args "$@"
   [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
 
@@ -526,6 +537,7 @@ cmd_compute() {
 }
 
 cmd_verify() {
+  _check_help verify "$@"
   _parse_args "$@"
   [ -n "$OPT_BASE" ] || die "verify : -base <fichier.b3> requis."
 
@@ -539,6 +551,7 @@ cmd_verify() {
 }
 
 cmd_compare() {
+  _check_help compare "$@"
   _parse_args "$@"
   [ -n "$OPT_OLD" ] || die "compare : -old <ancienne.b3> requis."
   [ -n "$OPT_NEW" ] || die "compare : -new <nouvelle.b3> requis."
@@ -554,6 +567,7 @@ cmd_compare() {
 }
 
 cmd_runner() {
+  _check_help runner "$@"
   _parse_args "$@"
 
   local pipeline_file="${OPT_PIPELINE:-${SCRIPT_DIR}/pipelines/pipeline.json}"
@@ -579,6 +593,7 @@ cmd_runner() {
 }
 
 cmd_list() {
+  _check_help list "$@"
   _parse_args "$@"
   local dir="${OPT_DATA:-${OPT_BASE:-.}}"
 
@@ -1056,10 +1071,6 @@ nav:
     - Roadmap & Positionnement: development/roadmap.md
     - Changelog: development/changelog.md
 
---- Fichier : requirements-docs.txt ---
-mkdocs 
-mkdocs-material
-
 --- Fichier : runner.sh ---
 #!/usr/bin/env bash
 # runner.sh - Exécuteur de pipeline integrity.sh depuis pipeline.json
@@ -1481,6 +1492,24 @@ done
 echo "=== PIPELINE TERMINÉ : $(date) ==="
 
 
+--- Fichier : temp commande.txt ---
+bash \
+hash-tool \
+compute \
+-data "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/source" \
+-save "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/destination" \
+-meta "source, base initiale"
+
+
+bash \
+hash-tool \
+compute \
+-data "/home/me-dell/Bureau/dossier bureau/destination" \
+-save "/home/me-dell/Bureau/dossier bureau/bases" \
+-meta "destination, base initiale" 
+
+
+
 --- Fichier : mon_dossier/destination/fichier (1).txt ---
 Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
 
@@ -1521,6 +1550,20 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 --- Fichier : mon_dossier/source/fichier (4).txt ---
 It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
 
+
+
+--- Fichier : mon_dossier/bases/hashes_source.b3.meta.json ---
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-26T11:49:48Z",
+  "comment": "source initial",
+  "parameters": {
+    "directory": "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/source",
+    "hash_algo": "blake3",
+    "readonly": false,
+    "nb_files": 4
+  }
+}
 
 
 --- Fichier : tests/run_tests.sh ---
@@ -5032,7 +5075,7 @@ esac
 
 ---
 
-## [2.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
+## [1.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
 
 ### Ajouté
 

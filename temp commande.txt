@@ -1,0 +1,21 @@
+bash \
+hash-tool \
+compute \
+-data "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/source" \
+-save "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/bases" \
+-meta "source, base initiale"
+
+
+bash \
+hash-tool \
+compute \
+-data "/home/me-dell/Bureau/dossier bureau/destination" \
+-save "/home/me-dell/Bureau/dossier bureau/bases" \
+-meta "destination, base initiale" 
+
+bash \
+hash-tool \
+compare \
+-old "/home/me-dell/Bureau/dossier bureau/bases/hashes_destination.b3" \
+-new "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/bases/hashes_source.b3" \
+-save "/home/me-dell/Bureau/dossier bureau/rapport" 

@@ -1,0 +1,3978 @@
+# === Arborescence du dossier ===
+
+TODO -- tests
+├── _audit test.md
+├── _cours appliqué -- test.md
+├── _cours appliqué -- test.pdf
+├── _descriptif maj.md
+├── _protocole maj claude.md
+├── ci-cd.md
+├── docker-tests.md
+├── edge-cases.md
+├── fixtures.md
+├── index.md
+├── integration-tests.md
+├── regression-tests.md
+├── strategy.md
+├── tap-format.md
+├── test docker.md
+└── unit-tests.md
+
+
+# === Contenu des fichiers ===
+
+--- Fichier : _audit test.md ---
+## Analyse de la situation actuelle
+
+La suite actuelle (`run_tests.sh` T00-T14, `run_tests_pipeline.sh` TP01-TP12b) est une suite d'**intégration fonctionnelle** bash-pur. Les tests sont bien structurés mais présentent des lacunes structurelles significatives.
+
+---
+
+## Diagnostic des lacunes
+
+**Ce qui manque par couche :**
+
+**1. Tests unitaires de `core.sh`** — inexistants. Les fonctions `core_compute`, `core_verify`, `core_compare`, `core_assert_b3_valid` sont testées uniquement via le pipeline complet `integrity.sh`. Un bug dans `core_compare` est difficile à isoler.
+
+**2. Couverture des cas limites absente :**
+- Fichiers de taille 0 dans `compute` (comportement ETA sur `fsize == 0`)
+- Base `.b3` avec chemins mixtes relatifs/absolus — `core_assert_b3_valid` ne le détecte pas
+- Dossier source avec des milliers de fichiers (performances, comptage ETA)
+- Liens symboliques — comportement non documenté, non testé
+- Noms de fichiers avec newlines — `mapfile -d ''` devrait tenir mais aucun test
+- Fichiers binaires larges — ETA réaliste ?
+
+**3. Tests de régression sur le format `.b3`** — aucun test ne vérifie que le format produit par `core_compute` est **bit-à-bit compatible** avec un `b3sum` direct (T11 le fait partiellement mais pas sur les cas limites).
+
+**4. Tests de l'output HTML** — `report.html` est vérifié uniquement par présence de fichier et présence d'un pattern. Pas de validation de structure HTML, pas de test sur l'échappement (`html_escape`), pas de test sur des chemins avec `<`, `>`, `&`.
+
+**5. Absence totale de CI** — les tests ne tournent que localement, aucune garantie sur les PRs.
+
+**6. Pas de test de performance / régression de temps** — aucun seuil.
+
+**7. Pas de test de `--quiet` sur `compare`** — T12 couvre `verify` et `compute` mais pas `compare`.
+
+**8. `entrypoint.sh` non testé** — la couche Docker est entièrement aveugle.
+
+---
+
+## Recommandations structurées
+
+### Niveau 1 — Tests unitaires `core.sh` (priorité haute)
+
+Créer `tests/run_tests_core.sh` — teste chaque fonction de `core.sh` en isolation, en sourçant directement `core.sh` sans passer par `integrity.sh`.
+
+```bash
+# Pattern : source les modules directement
+QUIET=0
+source "$SCRIPT_DIR/../src/lib/ui.sh"
+source "$SCRIPT_DIR/../src/lib/core.sh"
+
+# Test core_assert_b3_valid
+test_assert_b3_valid_fichier_absent() {
+    core_assert_b3_valid "/tmp/inexistant.b3" 2>/dev/null && fail "doit exit 1" || pass "fichier absent → exit 1"
+}
+
+test_assert_b3_valid_ligne_invalide() {
+    echo "ligne_sans_format" > /tmp/bad.b3
+    core_assert_b3_valid /tmp/bad.b3 2>/dev/null && fail "doit exit 1" || pass "format invalide → exit 1"
+}
+
+# Test core_compare isolation
+test_compare_chemins_avec_esperluette() {
+    echo "aaa...64chars...  ./a&b.txt" > "$old"
+    echo "bbb...64chars...  ./a&b.txt" > "$new"
+    core_compare "$old" "$new" "$outdir"
+    assert_contains "chemin avec & dans modifies" "a&b.txt" "$(cat $outdir/modifies.b3)"
+}
+```
+
+Cas critiques à couvrir :
+- `core_assert_b3_valid` : fichier absent, dossier, vide, format invalide, lignes mixtes valides/invalides
+- `core_compare` : chemins avec espaces, `&`, `<`, `>`, fichiers identiques, tous modifiés, tous disparus, tous nouveaux
+- `core_make_result_dir` : collision de noms, permissions insuffisantes
+- `core_compute` : dossier vide (doit lever une erreur via `core_assert_target_valid`), fichier de taille 0, lien symbolique
+
+### Niveau 2 — Cas limites manquants dans les suites existantes
+
+Ajouter dans `run_tests.sh` :
+
+- **T15** : fichier avec newline dans le nom (`$'nom\nfichier.txt'`) — `mapfile -d ''` doit tenir
+- **T16** : fichier avec caractères HTML (`<script>.txt`, `a&b.txt`) — vérifier l'échappement dans `report.html`
+- **T17** : `compare` sans différence → `report.html` affiche "IDENTIQUES"
+- **T18** : `--quiet` sur `compare` — stdout vide, fichiers produits
+- **T19** : lien symbolique dans le dossier source — comportement documenté (ignoré ou suivi ?)
+- **T20** : `verify` avec `[dossier]` inexistant → exit 1 (T14 couvre déjà mais pas exactement ce cas)
+
+### Niveau 3 — Tests de non-régression du format `.b3`
+
+Fixture figée : créer `tests/fixtures/reference.b3` contenant les hashes attendus pour `tests/fixtures/data/`. À chaque run, `core_compute` doit produire un fichier identique octet par octet. Détecte toute régression dans le format de sortie, le tri, les séparateurs.
+
+```bash
+test_compute_stable() {
+    bash "$INTEGRITY" compute ./fixtures/data /tmp/output.b3
+    diff tests/fixtures/reference.b3 /tmp/output.b3 || fail "régression format .b3"
+    pass "format .b3 stable"
+}
+```
+
+### Niveau 4 — CI GitHub Actions
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get install -y b3sum jq shellcheck
+      - run: cd tests && ./run_tests.sh
+      - run: cd tests && ./run_tests_pipeline.sh
+      - run: cd tests && ./run_tests_core.sh          # nouveau
+      - run: shellcheck src/integrity.sh runner.sh src/lib/*.sh docker/entrypoint.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: /tmp/integrity-test*/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t hash_tool .
+      - run: docker run --rm hash_tool version
+      - run: |
+          docker run --rm \
+            -v /tmp/testdata:/data:ro \
+            -v /tmp/testbases:/bases \
+            hash_tool compute /data /bases/test.b3
+```
+
+Ajouter une matrice pour tester sur Ubuntu 22.04 et 24.04 (versions différentes de `b3sum`, `bash`, `awk`).
+
+### Niveau 5 — Rapport de test structuré
+
+Modifier `run_tests.sh` pour produire un rapport TAP (Test Anything Protocol) — format standard, consommable par n'importe quel CI :
+
+```bash
+echo "TAP version 14"
+echo "1..$TOTAL"
+pass() { echo "ok $TOTAL - $1"; }
+fail() { echo "not ok $TOTAL - $1"; }
+```
+
+Ou JSON minimal pour intégration dashboard :
+
+```bash
+# En fin de suite
+cat > /tmp/test-report.json <<JSON
+{
+  "suite": "run_tests.sh",
+  "timestamp": "$(date -Iseconds)",
+  "total": $TOTAL,
+  "passed": $PASS,
+  "failed": $FAIL
+}
+JSON
+```
+
+---
+
+## Priorisation
+
+| Priorité | Action | Impact | Effort |
+|---|---|---|---|
+| 1 | CI GitHub Actions (minimal) | Détection régression sur PR | ~2h |
+| 2 | `run_tests_core.sh` — tests unitaires | Isolation des bugs | ~4h |
+| 3 | Fixtures de non-régression format `.b3` | Détection silencieuse | ~1h |
+| 4 | Cas limites HTML escaping (T16) | Bug latent confirmé | ~1h |
+| 5 | T15 newlines, T18 `--quiet compare` | Couverture lacunaire | ~1h |
+| 6 | Tests `entrypoint.sh` Docker | Couverture Docker nulle | ~3h |
+| 7 | Rapport TAP / JSON | Intégration dashboard | ~1h |
+
+Le delta le plus impactant à court terme : **CI + tests unitaires `core.sh`**. La suite actuelle fonctionne mais ne détecte les régressions que si quelqu'un pense à lancer les tests manuellement.
+
+--- Fichier : _cours appliqué -- test.md ---
+# Tests logiciels — Cours appliqué à `hash_tool`
+
+> Ce cours couvre les notions abordées dans l'analyse de la suite de tests de `hash_tool` : tests unitaires, d'intégration, de non-régression, CI/CD, rapports de tests. Chaque notion est expliquée puis illustrée avec des exemples tirés du projet.
+
+---
+
+## Table des matières
+
+1. [Pourquoi tester ?](#1-pourquoi-tester-)
+2. [La pyramide des tests](#2-la-pyramide-des-tests)
+3. [Tests unitaires](#3-tests-unitaires)
+4. [Tests d'intégration](#4-tests-dintégration)
+5. [Tests de non-régression](#5-tests-de-non-régression)
+6. [Tests de cas limites (edge cases)](#6-tests-de-cas-limites-edge-cases)
+7. [ShellCheck — analyse statique](#7-shellcheck--analyse-statique)
+8. [Le protocole TAP](#8-le-protocole-tap)
+9. [CI/CD — Intégration et déploiement continus](#9-cicd--intégration-et-déploiement-continus)
+10. [Isolation et reproductibilité](#10-isolation-et-reproductibilité)
+11. [Couverture de tests](#11-couverture-de-tests)
+12. [Fixtures et données de test](#12-fixtures-et-données-de-test)
+13. [Synthèse — Appliquer tout ça à hash_tool](#13-synthèse--appliquer-tout-ça-à-hash_tool)
+
+---
+
+## 1. Pourquoi tester ?
+
+Un test est une vérification automatisée qu'un comportement attendu est bien produit par le code. Sans tests :
+
+- Une modification dans `core.sh` peut casser `compare` sans que personne s'en aperçoive avant qu'un utilisateur perde des données.
+- Impossible de refactoriser avec confiance — chaque changement est un pari.
+- Le debugging est lent : il faut reproduire le problème manuellement à chaque fois.
+
+Avec des tests :
+
+- Un test qui échoue localise immédiatement la régression.
+- Le code peut être modifié, optimisé, réorganisé — les tests garantissent que le comportement observable reste stable.
+- La documentation implicite : un test qui s'appelle `test_compare_chemins_avec_espaces` documente un comportement et une contrainte du système.
+
+### Dans hash_tool
+
+La suite `run_tests.sh` permet de valider en quelques secondes que `integrity.sh` fonctionne correctement sur 14 scénarios. Sans elle, valider manuellement chaque cas (compute, verify OK, verify après corruption, compare avec ajout/suppression, mode quiet…) prendrait 30 minutes et serait oublié à la prochaine modification.
+
+---
+
+## 2. La pyramide des tests
+
+La pyramide des tests est un modèle qui décrit comment répartir les efforts de test selon le niveau d'abstraction.
+
+```
+         /\
+        /  \
+       / E2E\        Tests de bout en bout (End-to-End)
+      /______\       Rares, lents, fragiles
+     /        \
+    / Intégration\   Tests d'intégration
+   /______________\  Moyennement nombreux
+  /                \
+ /   Unitaires      \ Tests unitaires
+/____________________\ Nombreux, rapides, précis
+```
+
+| Niveau | Quoi | Vitesse | Fragilité | Nb recommandé |
+|---|---|---|---|---|
+| Unitaire | Une fonction isolée | Milliseconde | Faible | Maximum |
+| Intégration | Plusieurs modules ensemble | Secondes | Moyenne | Moyen |
+| E2E | Système complet, interface réelle | Minutes | Élevée | Minimum |
+
+### Dans hash_tool
+
+Actuellement, `run_tests.sh` et `run_tests_pipeline.sh` sont **presque exclusivement des tests d'intégration** — ils testent `integrity.sh` et `runner.sh` comme boîtes noires, sans tester les fonctions de `core.sh` individuellement. La pyramide est inversée : le bas (unitaire) est vide, le milieu (intégration) est bien couvert.
+
+---
+
+## 3. Tests unitaires
+
+Un test unitaire vérifie une seule unité de code — généralement une fonction — en isolation complète. Il ne dépend d'aucun autre module, réseau, système de fichiers (sauf si la fonction elle-même écrit des fichiers).
+
+### Caractéristiques
+
+- **Rapide** : pas d'I/O disque, pas de processus externes.
+- **Précis** : si un test unitaire échoue, le bug est dans cette fonction, nulle part ailleurs.
+- **Indépendant** : l'ordre d'exécution n'a pas d'importance.
+
+### Exemple concret — tester `core_assert_b3_valid`
+
+```bash
+# Sans tests unitaires : on teste via integrity.sh
+./src/integrity.sh verify fichier_corrompu.b3
+# → si ça échoue, est-ce core_assert_b3_valid ? core_verify ? ui.sh ?
+
+# Avec tests unitaires : on source core.sh directement
+QUIET=0
+source ./src/lib/ui.sh
+source ./src/lib/core.sh
+
+test_b3_valide_fichier_absent() {
+    core_assert_b3_valid "/tmp/inexistant_xyz.b3" 2>/dev/null
+    # Doit retourner exit code 1
+    [ $? -ne 0 ] && echo "PASS" || echo "FAIL"
+}
+
+test_b3_valide_format_invalide() {
+    echo "cette ligne n'est pas un hash b3sum" > /tmp/bad.b3
+    core_assert_b3_valid /tmp/bad.b3 2>/dev/null
+    [ $? -ne 0 ] && echo "PASS - format invalide rejeté" || echo "FAIL"
+    rm -f /tmp/bad.b3
+}
+```
+
+La différence clé : on **source** `core.sh` au lieu d'appeler `integrity.sh`. Les fonctions deviennent directement accessibles dans le shell courant.
+
+### Pourquoi c'est important ici
+
+`core.sh` contient l'algorithme central : `core_compare` utilise `awk`, `join`, `comm`. Un bug dans la conversion `hash  chemin` → `chemin\thash` produit des faux positifs massifs (comme le bug décrit dans le changelog 0.7 : 26 569 "modifiés" pour 1 seul fichier réellement changé). Un test unitaire sur `core_compare` aurait détecté ça immédiatement.
+
+---
+
+## 4. Tests d'intégration
+
+Un test d'intégration vérifie que plusieurs modules fonctionnent correctement **ensemble**. Il teste les interfaces entre les composants.
+
+### Ce qu'il détecte
+
+- Un module A produit un format que le module B ne sait pas lire.
+- Une variable d'environnement attendue par B n'est pas positionnée par A.
+- Un `cd` dans A modifie le répertoire courant de B (c'est exactement le bug isolé dans `runner.sh` : les `cd` fuyaient entre les blocs du pipeline).
+
+### Exemple — tester l'intégration `core.sh` + `results.sh`
+
+```bash
+# Test d'intégration : core_verify produit des variables
+# que results_write_verify sait exploiter
+
+source ./src/lib/ui.sh
+source ./src/lib/core.sh
+source ./src/lib/results.sh
+
+OUTDIR=$(mktemp -d)
+echo "contenu" > /tmp/fichier_test.txt
+./src/integrity.sh compute /tmp/fichier_test.txt /tmp/base_test.b3
+
+# core_verify positionne CORE_VERIFY_STATUS, NB_OK, etc.
+core_verify /tmp/base_test.b3
+
+# results_write_verify doit savoir lire ces variables
+results_write_verify "$OUTDIR" /tmp/base_test.b3 \
+    "$CORE_VERIFY_STATUS" "$CORE_VERIFY_NB_OK" "$CORE_VERIFY_NB_FAIL" \
+    "$CORE_VERIFY_LINES_FAIL" "$CORE_VERIFY_LINES_ERR"
+
+# Vérifier que recap.txt est produit avec le bon contenu
+grep -q "STATUT : OK" "$OUTDIR/recap.txt" && echo "PASS" || echo "FAIL"
+```
+
+### Dans hash_tool
+
+`run_tests.sh` est une suite d'intégration : elle appelle `integrity.sh` comme le ferait un utilisateur, et vérifie les fichiers produits et les messages affichés. C'est utile et nécessaire, mais insuffisant seul — un test d'intégration qui échoue ne dit pas *où* est le problème.
+
+---
+
+## 5. Tests de non-régression
+
+Un test de non-régression (TNR) vérifie qu'une fonctionnalité qui marchait avant **marche toujours** après une modification. Il capture un comportement connu et le fige.
+
+### Principe
+
+1. À un instant T, le système produit un output correct → on le capture comme référence.
+2. À chaque modification ultérieure, on vérifie que l'output est toujours identique à la référence.
+3. Si l'output change → soit c'est un bug (la modification a cassé quelque chose), soit c'est intentionnel (il faut alors mettre à jour la référence).
+
+### Exemple — non-régression du format `.b3`
+
+```bash
+# Étape 1 : créer la fixture (fait une seule fois, commitée dans le repo)
+mkdir -p tests/fixtures/data
+echo "contenu alpha" > tests/fixtures/data/alpha.txt
+echo "contenu beta"  > tests/fixtures/data/beta.txt
+
+cd tests/fixtures
+../../src/integrity.sh compute ./data reference.b3
+# reference.b3 est commitée dans git
+
+# Étape 2 : test de non-régression (lancé à chaque PR)
+test_format_b3_stable() {
+    cd tests/fixtures
+    ../../src/integrity.sh compute ./data /tmp/output_test.b3
+    diff reference.b3 /tmp/output_test.b3
+    [ $? -eq 0 ] && echo "PASS - format .b3 stable" || echo "FAIL - régression détectée"
+}
+```
+
+Si quelqu'un modifie `core_compute` et introduit accidentellement un espace en trop dans le séparateur, ou change l'ordre de tri — le `diff` échoue immédiatement.
+
+### Ce que le TNR détecte que les autres tests ne détectent pas
+
+Un TNR détecte des **changements subtils de comportement** qui ne cassent pas les tests fonctionnels mais altèrent le format ou le résultat. Par exemple :
+- Un `b3sum` mis à jour qui change le format de sortie.
+- Un `sort` qui change de comportement selon la locale (`LC_ALL`).
+- L'ajout d'une ligne vide dans le `.b3` par une nouvelle version de `find`.
+
+---
+
+## 6. Tests de cas limites (edge cases)
+
+Un cas limite est une entrée qui se situe aux frontières du comportement normal — là où les bugs se cachent le plus souvent.
+
+### Catégories de cas limites
+
+**Valeurs vides ou nulles**
+```bash
+# Que se passe-t-il avec un dossier vide ?
+mkdir /tmp/dossier_vide
+./src/integrity.sh compute /tmp/dossier_vide /tmp/vide.b3
+# core_assert_target_valid doit lever une erreur
+```
+
+**Caractères spéciaux dans les noms**
+
+Les noms de fichiers peuvent contenir des espaces, des newlines, des caractères HTML. Chacun peut casser un traitement textuel naïf.
+
+```bash
+# Espace dans le nom
+echo "contenu" > "tests/data/fichier avec espace.txt"
+# Apostrophe
+echo "contenu" > "tests/data/l'important.txt"
+# Caractère HTML — dangereux dans report.html
+echo "contenu" > "tests/data/<script>alert.txt"
+# Newline dans le nom (cas extrême mais légal sur Linux)
+echo "contenu" > $'tests/data/nom\navec\nnewline.txt'
+```
+
+**Taille extrême**
+```bash
+# Fichier de taille zéro
+touch tests/data/fichier_vide.bin
+# → core_compute : bytes_done += 0, ETA correcte ?
+```
+
+**Cas limites de comparaison**
+
+```bash
+# Tous les fichiers identiques → modifies.b3 vide
+# Tous les fichiers supprimés → disparus.txt contient tout
+# Un seul fichier dans la base → comportement sur base minimale
+```
+
+### Pourquoi les cas limites cassent souvent le code
+
+Le code est typiquement écrit et testé sur des cas "normaux". Les cas limites exposent des hypothèses implicites :
+
+- `awk '{print $2}'` — hypothèse : le chemin ne contient pas d'espace. Faux.
+- `grep -c '.'` — hypothèse : retourne 0 sur flux vide. Faux, `grep` retourne exit code 1 sur flux vide, ce qui crash un script avec `set -e`. (C'est le bug corrigé en v0.6.)
+- `sort -k2` — hypothèse : le tri sur le champ 2 s'arrête au champ 2. Faux, `sort -k2` trie du champ 2 jusqu'à la fin de ligne. (Bug corrigé en v0.6, remplacé par `sort -k2,2`.)
+
+---
+
+## 7. ShellCheck — analyse statique
+
+L'analyse statique examine le code **sans l'exécuter** pour détecter des erreurs potentielles. Pour bash, l'outil de référence est **ShellCheck**.
+
+### Ce que ShellCheck détecte
+
+```bash
+# Variable non quotée → éclate sur les espaces
+for f in $(find . -type f); do     # ← SC2044 : use find -exec or while read
+    echo $f                         # ← SC2086 : double quote to prevent globbing
+done
+
+# Comparaison de chaînes avec [ ] au lieu de [[ ]]
+if [ $VAR == "valeur" ]; then       # ← SC2039 : use [[ ]] in bash
+
+# Variable utilisée avant d'être définie
+echo $UNDEFINED_VAR                 # ← SC2154 : variable referenced but not assigned
+
+# Pipe dans un sous-shell
+cat file | read var                 # ← SC2031 : var will be in a subshell
+```
+
+### Dans hash_tool
+
+Le test T00 dans `run_tests.sh` lance ShellCheck sur `integrity.sh` :
+
+```bash
+# T00 - ShellCheck
+if command -v shellcheck &>/dev/null; then
+    assert_exit_zero "ShellCheck integrity.sh" shellcheck "$INTEGRITY"
+else
+    echo "  SKIP - shellcheck non installé"
+fi
+```
+
+ShellCheck est la première ligne de défense — il détecte des bugs sans même exécuter les scripts. Zéro warning ShellCheck est une condition non négociable avant toute PR.
+
+---
+
+## 8. Le protocole TAP
+
+TAP (Test Anything Protocol) est un format texte standard pour les résultats de tests. Il est lisible par les humains et parseable par les outils CI.
+
+### Format
+
+```
+TAP version 14
+1..5
+ok 1 - core_assert_b3_valid : fichier absent → exit 1
+ok 2 - core_assert_b3_valid : format invalide → exit 1
+not ok 3 - core_compare : chemins avec espaces
+# Expected: beta.txt in modifies.b3
+# Got: (empty)
+ok 4 - core_make_result_dir : horodatage anti-écrasement
+ok 5 - mode --quiet : stdout vide
+```
+
+### Structure
+
+- `1..N` : nombre total de tests annoncé en tête.
+- `ok N - description` : test réussi.
+- `not ok N - description` : test échoué.
+- `# commentaire` : diagnostic supplémentaire (indentation sous un `not ok`).
+
+### Implémentation dans bash
+
+```bash
+#!/usr/bin/env bash
+TOTAL=0; PASS=0; FAIL=0
+
+plan() { echo "1..$1"; }
+ok()     { TOTAL=$((TOTAL+1)); PASS=$((PASS+1)); echo "ok $TOTAL - $1"; }
+not_ok() { TOTAL=$((TOTAL+1)); FAIL=$((FAIL+1)); echo "not ok $TOTAL - $1"; }
+
+plan 3
+
+# Test 1
+if core_assert_b3_valid /tmp/inexistant 2>/dev/null; then
+    not_ok "fichier absent doit échouer"
+else
+    ok "fichier absent → exit 1"
+fi
+
+# Test 2
+echo "aa  ./fichier.txt" > /tmp/valid.b3  # hash trop court
+if core_assert_b3_valid /tmp/valid.b3 2>/dev/null; then
+    not_ok "hash invalide doit échouer"
+else
+    ok "hash invalide → exit 1"
+fi
+```
+
+### Avantage
+
+Le format TAP est **interopérable** : GitHub Actions, GitLab CI, Jenkins, et des dizaines d'outils savent parser TAP et afficher des rapports visuels sans configuration supplémentaire.
+
+---
+
+## 9. CI/CD — Intégration et déploiement continus
+
+### Définitions
+
+**CI (Continuous Integration)** : à chaque push ou pull request, un serveur exécute automatiquement les tests. Si un test échoue, la modification est bloquée ou signalée.
+
+**CD (Continuous Deployment)** : si les tests passent, le code est automatiquement déployé en production.
+
+Pour un outil comme hash_tool, le CD n'est pas pertinent (pas de service web à déployer). La CI, en revanche, est essentielle.
+
+### Pourquoi la CI est indispensable
+
+Sans CI : les tests ne sont lancés que si le développeur y pense. En pratique, ils ne sont lancés qu'avant les releases, et pas systématiquement.
+
+Avec CI : chaque modification est testée automatiquement, dans un environnement propre (pas les dépendances locales du développeur), sur les versions exactes des outils installés.
+
+### GitHub Actions — anatomie d'un workflow
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:              # déclenché à chaque push
+  pull_request:      # déclenché à chaque PR
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest  # environnement propre, recréé à chaque run
+
+    steps:
+      # 1. Récupérer le code
+      - uses: actions/checkout@v4
+
+      # 2. Installer les dépendances
+      - run: sudo apt-get install -y b3sum jq shellcheck
+
+      # 3. Lancer les suites de tests
+      - run: cd tests && ./run_tests.sh
+      - run: cd tests && ./run_tests_pipeline.sh
+
+      # 4. ShellCheck
+      - run: shellcheck src/integrity.sh runner.sh src/lib/*.sh
+
+      # 5. Uploader les artefacts (résultats) même si les tests échouent
+      - uses: actions/upload-artifact@v4
+        if: always()   # ← important : s'exécute même si les steps précédents échouent
+        with:
+          name: test-results
+          path: /tmp/integrity-test*/
+          retention-days: 7
+```
+
+### Matrice de tests
+
+Un test peut passer sur Ubuntu 22.04 et échouer sur 24.04 si la version de `b3sum` ou de `awk` a changé de comportement. La matrice permet de tester plusieurs environnements en parallèle :
+
+```yaml
+jobs:
+  tests:
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        bash: ["5.1", "5.2"]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - run: bash --version
+      - run: cd tests && ./run_tests.sh
+```
+
+### Test Docker dans la CI
+
+```yaml
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t hash_tool .
+      - run: docker run --rm hash_tool version
+      - name: Test compute dans Docker
+        run: |
+          mkdir -p /tmp/testdata /tmp/testbases
+          echo "contenu" > /tmp/testdata/fichier.txt
+          docker run --rm \
+            -v /tmp/testdata:/data:ro \
+            -v /tmp/testbases:/bases \
+            hash_tool compute /data /bases/test.b3
+          test -f /tmp/testbases/test.b3 && echo "PASS" || echo "FAIL"
+```
+
+---
+
+## 10. Isolation et reproductibilité
+
+Un test doit être **isolé** : son résultat ne dépend pas des autres tests, de l'état du système, ni de l'ordre d'exécution. Il doit être **reproductible** : relancé 10 fois dans 10 environnements différents, il donne le même résultat.
+
+### Les ennemis de l'isolation
+
+**État partagé** : une variable globale modifiée par un test affecte le suivant.
+
+```bash
+# ❌ Mauvais : RESULTATS_DIR partagé entre les tests
+export RESULTATS_DIR=/tmp/resultats_partages
+test_verify_ok() { ... }
+test_verify_echec() { ... }   # peut lire les résultats du test précédent
+```
+
+```bash
+# ✓ Correct : chaque test a son propre WORKDIR
+test_verify_ok() {
+    local WORKDIR=$(mktemp -d)
+    export RESULTATS_DIR="$WORKDIR/resultats"
+    # ... test ...
+    rm -rf "$WORKDIR"   # nettoyage garanti
+}
+```
+
+**Répertoire courant** : un test qui fait `cd` et ne revient pas casse le suivant.
+
+```bash
+# ❌ Mauvais
+test_compute() {
+    cd /tmp/montest
+    ../integrity.sh compute . base.b3
+    # Si le test échoue ici, le cd ne revient jamais
+}
+
+# ✓ Correct : sous-shell isolé
+test_compute() {
+    (
+        cd /tmp/montest
+        ../integrity.sh compute . base.b3
+    )   # le cd est confiné dans le sous-shell
+}
+```
+
+**Fichiers temporaires** : un test qui échoue à mi-chemin laisse des fichiers qui perturbent le suivant.
+
+```bash
+# ✓ Correct : trap pour nettoyage garanti même en cas d'échec
+test_compute() {
+    local tmpdir=$(mktemp -d)
+    trap "rm -rf $tmpdir" EXIT   # nettoyage garanti
+    # ... test ...
+}
+```
+
+### Dans hash_tool
+
+`run_tests.sh` utilise un `WORKDIR=$(mktemp -d /tmp/integrity-test.XXXXXX)` créé en `setup()` et détruit en `teardown()`. Tous les tests opèrent dans ce répertoire temporaire, jamais dans les fichiers du projet ou du système hôte.
+
+---
+
+## 11. Couverture de tests
+
+La couverture (coverage) mesure quelle proportion du code est exercée par les tests.
+
+### Types de couverture
+
+**Couverture de lignes** : chaque ligne est-elle exécutée au moins une fois ?
+
+**Couverture de branches** : chaque branche d'un `if`/`case` est-elle testée (chemin vrai ET chemin faux) ?
+
+```bash
+# Cette fonction a 2 branches
+if (( fsize > 0 )); then
+    bytes_done=$(( bytes_done + fsize ))
+    # ← branche testée si fsize > 0
+fi
+# ← branche testée si fsize == 0 (fichier vide)
+
+# Un test avec uniquement des fichiers non-vides → couverture 50% de cette condition
+```
+
+**Couverture de chemins** : chaque combinaison possible de branches est-elle testée ? (Combinatoire explosive, rare en pratique.)
+
+### Lacunes de couverture dans hash_tool
+
+En analysant le code, voici des branches **non testées** :
+
+```bash
+# Dans _core_file_size() — branche BSD
+_core_file_size() {
+    if stat -c%s "$f" 2>/dev/null; then   # ← testé sur Linux
+        return
+    fi
+    stat -f%z "$f"   # ← jamais testé (macOS uniquement)
+}
+
+# Dans core_compute — callback vide
+core_compute "$target" "$hashfile" ""   # ← jamais testé sans callback
+
+# Dans ui_progress_callback — cas bytes_done == 0
+# La branche (bytes_done > 0 && eta_seconds > 0) est testée
+# Mais (bytes_done == 0) — premier fichier, juste après démarrage ?
+```
+
+### Comment mesurer la couverture en bash
+
+Il n'existe pas d'outil de couverture natif pour bash équivalent à `coverage.py`. La méthode pragmatique est manuelle : relire chaque branche du code et vérifier qu'un test l'exerce.
+
+Pour les projets bash critiques, `bashcov` (basé sur `xtrace`) ou simplement `set -x` avec analyse de log permettent de voir quelles lignes sont exécutées.
+
+---
+
+## 12. Fixtures et données de test
+
+Une fixture est un ensemble de données préparées à l'avance, dans un état connu, utilisées comme entrée des tests.
+
+### Types de fixtures
+
+**Données dynamiques** : créées dans le `setup()` du test, détruites dans le `teardown()`.
+
+```bash
+setup() {
+    mkdir -p "$WORKDIR/data/sub"
+    echo "contenu alpha" > "$WORKDIR/data/alpha.txt"
+    echo "contenu beta"  > "$WORKDIR/data/beta.txt"
+}
+```
+
+C'est l'approche de `run_tests.sh` : les fichiers de test sont créés à chaque run. Avantage : pas de fichiers à maintenir dans le repo. Inconvénient : si la fixture est complexe (arborescence de 500 fichiers avec des noms spéciaux), le setup devient lui-même un code à maintenir et à tester.
+
+**Fixtures statiques (commitées dans git)** : fichiers présents dans le repo, utilisés comme référence immuable.
+
+```
+tests/
+└── fixtures/
+    ├── data/
+    │   ├── alpha.txt
+    │   └── beta.txt
+    └── reference.b3   ← résultat attendu, commité dans git
+```
+
+```bash
+test_format_b3_stable() {
+    cd tests/fixtures
+    ../../src/integrity.sh compute ./data /tmp/output.b3 >/dev/null 2>&1
+    diff reference.b3 /tmp/output.b3
+    [ $? -eq 0 ] && pass "format stable" || fail "régression format"
+}
+```
+
+Si `reference.b3` change dans un PR, c'est visible dans le diff git — c'est un signal fort qu'il faut examiner.
+
+### Fixtures pour les cas limites
+
+Certains cas limites sont difficiles à créer dynamiquement de manière fiable. Les fixtures statiques les capturent une fois pour toutes :
+
+```
+tests/fixtures/
+├── edge_cases/
+│   ├── fichier avec espaces.txt
+│   ├── fichier&special<chars>.txt
+│   └── .fichier_cache
+└── reference_edge.b3
+```
+
+---
+
+## 13. Synthèse — Appliquer tout ça à hash_tool
+
+### Ce qui existe et fonctionne bien
+
+`run_tests.sh` (T00-T14) et `run_tests_pipeline.sh` (TP01-TP12b) forment une suite d'intégration solide. L'isolation via `mktemp`, le `teardown()` systématique, les helpers `pass()`/`fail()` — c'est une base professionnelle.
+
+### Ce qui manque, par ordre de priorité
+
+**1. CI GitHub Actions** — sans CI, les tests ne sont lancés que si on y pense. Action : créer `.github/workflows/ci.yml`.
+
+**2. Tests unitaires de `core.sh`** — créer `tests/run_tests_core.sh` qui source `core.sh` directement et teste chaque fonction en isolation. Priorité : `core_compare` (algorithme complexe, bug historique).
+
+**3. Fixture de non-régression du format `.b3`** — commiter `tests/fixtures/reference.b3` et ajouter un test qui vérifie que `core_compute` produit exactement ce fichier.
+
+**4. Cas limites manquants** :
+- Fichier avec newline dans le nom (T15)
+- Caractères HTML dans le nom de fichier → vérifier l'échappement dans `report.html` (T16)
+- `--quiet` sur `compare` (T18)
+- Fichier de taille zéro — comportement ETA (T19)
+
+**5. Rapport TAP** — modifier les suites pour produire un output TAP, consommable par la CI sans configuration supplémentaire.
+
+### Architecture cible de la suite de tests
+
+```
+tests/
+├── run_tests.sh              ← intégration integrity.sh (T00-T20+)
+├── run_tests_pipeline.sh     ← intégration runner.sh (TP01-TP12b+)
+├── run_tests_core.sh         ← unitaires core.sh (nouveau)
+├── run_tests_docker.sh       ← intégration entrypoint.sh (nouveau)
+└── fixtures/
+    ├── data/
+    │   ├── alpha.txt
+    │   ├── beta.txt
+    │   ├── fichier avec espaces.txt
+    │   └── <script>edge.txt
+    └── reference.b3           ← non-régression format .b3
+```
+
+### Règle d'or
+
+Un test n'a de valeur que s'il est **lancé automatiquement**. Un test dans un fichier que personne ne lance est une illusion de couverture. La CI est le seul mécanisme qui garantit que les tests sont effectivement exécutés à chaque modification.
+
+---
+
+*Fin du cours — toutes les notions sont illustrées avec des exemples tirés du code réel de `hash_tool`.*
+
+--- Fichier : _cours appliqué -- test.pdf ---
+[Fichier binaire ou illisible, contenu ignoré]
+
+--- Fichier : _descriptif maj.md ---
+En me basant sur l'audit complet (tests unitaires `core.sh`, non-régression format `.b3`, edge cases, CI GitHub Actions, tests Docker/environnement, protocole TAP, fixtures), voici la structure documentaire que je propose :
+
+```
+docs/development/testing/
+│
+├── index.md
+│   Vue d'ensemble de la stratégie de test : pyramide, suites existantes,
+│   suites à créer, liens vers chaque document.
+│
+├── strategy.md
+│   Décision formelle : objectifs de couverture, règles de priorité,
+│   définition de "done" pour un test, politique ShellCheck zéro warning.
+│
+├── unit-tests.md
+│   Spécification de run_tests_core.sh : liste exhaustive des fonctions à
+│   tester, cas nominal + cas d'erreur pour chaque fonction de core.sh,
+│   mécanisme de sourcing direct, contrat d'isolation.
+│
+├── integration-tests.md
+│   Spécification des extensions à run_tests.sh (T15-T20+) et
+│   run_tests_pipeline.sh : cas manquants identifiés, oracle de chaque test,
+│   comportement attendu documenté.
+│
+├── regression-tests.md
+│   Spécification du mécanisme de non-régression format .b3 : création des
+│   fixtures, procédure de mise à jour de reference.b3, règle de décision
+│   (diff intentionnel vs bug).
+│
+├── edge-cases.md
+│   Catalogue exhaustif des cas limites : noms avec espaces/newlines/
+│   caractères HTML, fichiers vide, base .b3 minimale, locales, etc.
+│   Pour chaque cas : input, comportement attendu, risque si non testé.
+│
+├── docker-tests.md
+│   Spécification de run_tests_docker.sh : tests de build, tests
+│   entrypoint.sh commande par commande, tests de taille d'image, tests
+│   multi-plateforme amd64/arm64, prérequis Docker Buildx.
+│
+├── fixtures.md
+│   Spécification de l'arborescence tests/fixtures/ : quels fichiers
+│   créer, pourquoi chacun, procédure pour ajouter une nouvelle fixture,
+│   règle de nommage.
+│
+├── tap-format.md
+│   Spécification du format TAP à adopter : structure du header, format
+│   ok/not ok, diagnostics, helpers bash à implémenter dans chaque suite,
+│   compatibilité GitHub Actions.
+│
+└── ci-cd.md
+    Spécification du workflow GitHub Actions : jobs (unit, integration,
+    docker), matrice OS, conditions de déclenchement, gestion des
+    artefacts, règles de blocage des PRs.
+```
+
+---
+
+**Logique de la structure :**
+
+- `index.md` + `strategy.md` sont les documents de décision — ils répondent à *pourquoi* et *quoi*.
+- Les cinq fichiers `*-tests.md` + `edge-cases.md` sont les documents de spécification — ils répondent à *comment tester quoi exactement*.
+- `fixtures.md` + `tap-format.md` sont des documents transversaux — ils décrivent des mécanismes utilisés par plusieurs suites.
+- `ci-cd.md` est le document d'infrastructure — il décrit l'automatisation qui donne de la valeur à tout le reste.
+
+Chaque fichier peut être rédigé et implémenté indépendamment, dans l'ordre de priorité de l'audit : `ci-cd.md` → `unit-tests.md` → `regression-tests.md` → `edge-cases.md` → `docker-tests.md`.
+
+--- Fichier : _protocole maj claude.md ---
+Bonne approche. Voici la démarche et les prompts, dans l'ordre.
+
+---
+
+## Principe général
+
+Claude ne peut pas tout générer en un seul prompt — le contexte est trop large et le code produit serait non vérifiable. La bonne méthode : **une session par livrable**, avec à chaque fois le contexte minimal nécessaire et une vérification avant de passer à la suite.
+
+L'ordre est imposé par les dépendances : `helpers-tap.sh` doit exister avant les suites qui le sourcent. Les fixtures doivent exister avant les tests de non-régression. La CI doit référencer des fichiers qui existent.
+
+---
+
+## Étape 1 — `helpers-tap.sh`
+
+**Pourquoi en premier :** toutes les suites de tests le sourcent. C'est la fondation.
+
+**Fichiers à fournir à Claude :**
+- `tap-format.md`
+- `tests/run_tests.sh` (pour comprendre le style et les helpers existants)
+
+**Prompt :**
+```
+Tu vas créer le fichier tests/helpers-tap.sh pour le projet hash_tool.
+
+Voici la spécification : [coller tap-format.md]
+
+Voici la suite de tests existante pour comprendre le style du projet : [coller run_tests.sh]
+
+Contraintes :
+- bash >= 4, set -euo pipefail
+- ShellCheck zéro warning
+- Compatible avec la détection CI (variable $CI) : format coloré en local, format TAP en CI
+- Toutes les fonctions assert_* documentées avec leur signature en commentaire
+- Le fichier doit pouvoir être sourcé sans être exécuté directement (pas de logique au top-level)
+
+Produis uniquement le fichier tests/helpers-tap.sh, complet et prêt à l'emploi.
+```
+
+**Vérification avant de continuer :**
+```bash
+shellcheck tests/helpers-tap.sh
+bash -c 'source tests/helpers-tap.sh && echo "sourcing OK"'
+```
+
+---
+
+## Étape 2 — `tests/fixtures/`
+
+**Pourquoi en deuxième :** les tests de non-régression et plusieurs tests unitaires s'appuient sur les fixtures. Elles doivent exister avant d'écrire les tests qui les utilisent.
+
+**Fichiers à fournir :**
+- `fixtures.md`
+
+**Prompt :**
+```
+Tu vas créer les fichiers de fixtures pour le projet hash_tool.
+
+Voici la spécification : [coller fixtures.md]
+
+Crée les fichiers suivants avec exactement le contenu spécifié :
+- tests/fixtures/data/alpha.txt
+- tests/fixtures/data/beta.txt
+- tests/fixtures/data/gamma.txt
+- tests/fixtures/data/sub/delta.txt
+- tests/fixtures/data-edge/fichier avec espaces.txt
+- tests/fixtures/data-edge/fichier&special.txt
+- tests/fixtures/data-edge/zero_bytes.bin
+
+Pour les fichiers data-edge avec des noms spéciaux (espaces, &), donne-moi les commandes bash 
+exactes pour les créer, car les noms ne peuvent pas être représentés directement dans tous les contextes.
+
+Ne génère pas encore reference.b3 — il sera généré après coup avec la commande réelle.
+```
+
+**Après la création des fichiers, générer `reference.b3` manuellement :**
+```bash
+cd tests/fixtures
+../../src/integrity.sh compute ./data bases/reference.b3
+cat bases/reference.b3   # vérifier le contenu
+git add .
+git commit -m "test(fixtures): add reference data and edge cases"
+```
+
+---
+
+## Étape 3 — `tests/run_tests_core.sh`
+
+**Pourquoi maintenant :** c'est la suite la plus importante (tests unitaires de `core.sh`), et elle ne dépend que de `helpers-tap.sh` et des fixtures.
+
+**Fichiers à fournir :**
+- `unit-tests.md` (spécification complète avec les 53 cas)
+- `src/lib/core.sh` (code à tester)
+- `src/lib/ui.sh` (nécessaire pour `die()`)
+- `tests/helpers-tap.sh` (créé à l'étape 1)
+- `tests/run_tests.sh` (pour le style)
+
+**Prompt — partie 1 : structure + tests CU01–CU27 :**
+```
+Tu vas créer tests/run_tests_core.sh pour le projet hash_tool.
+
+Voici la spécification des tests à implémenter : [coller unit-tests.md]
+
+Voici le code à tester :
+[coller src/lib/core.sh]
+[coller src/lib/ui.sh]
+
+Voici les helpers disponibles : [coller tests/helpers-tap.sh]
+
+Contraintes :
+- bash >= 4, set -euo pipefail, ShellCheck zéro warning
+- Sourcer directement src/lib/ui.sh et src/lib/core.sh (pas passer par integrity.sh)
+- Chaque test est isolé dans sa propre fonction, avec son propre WORKDIR local
+- trap EXIT pour nettoyage garanti
+- Format TAP (via helpers-tap.sh)
+
+Pour cette première partie, implémente :
+- La structure du fichier (shebang, setup, sourcing, teardown)
+- Les tests CU01 à CU27 (core_assert_b3_valid, core_assert_target_valid, core_compute)
+
+Je validerai cette partie avant de te demander la suite.
+```
+
+**Vérification intermédiaire :**
+```bash
+shellcheck tests/run_tests_core.sh
+cd tests && ./run_tests_core.sh 2>&1 | head -40
+```
+
+**Prompt — partie 2 : tests CU28–CU53 :**
+```
+Voici la suite de tests run_tests_core.sh produite à l'étape précédente : [coller le fichier]
+
+Continue en ajoutant les tests :
+- CU28 à CU35 (core_verify)
+- CU36 à CU48 (core_compare — la plus critique)
+- CU49 à CU53 (core_make_result_dir)
+
+Appends ces tests au fichier existant. Respecte le style et la structure déjà en place.
+Fais particulièrement attention à CU42–CU44 : chemins avec espaces, &, et chevrons dans core_compare.
+```
+
+**Vérification finale :**
+```bash
+shellcheck tests/run_tests_core.sh
+cd tests && ./run_tests_core.sh
+# Tous les tests doivent passer
+```
+
+---
+
+## Étape 4 — Extensions de `run_tests.sh` (T15–T20)
+
+**Fichiers à fournir :**
+- `integration-tests.md` (section "Extensions de run_tests.sh")
+- `tests/run_tests.sh` (fichier existant à modifier)
+- `tests/helpers-tap.sh`
+
+**Prompt :**
+```
+Tu vas modifier tests/run_tests.sh pour y ajouter les cas T15 à T20.
+
+Voici la spécification des nouveaux cas : [coller la section "Extensions de run_tests.sh" de integration-tests.md]
+
+Voici le fichier actuel à modifier : [coller run_tests.sh]
+
+Contraintes :
+- Ne pas modifier les cas existants T00–T14
+- Ajouter T15–T20 après T14, avant le bloc de résultats final
+- Migrer les helpers pass()/fail() vers helpers-tap.sh en ajoutant : source "$(dirname "$0")/helpers-tap.sh"
+- ShellCheck zéro warning
+- T16 (HTML escaping) : les assertions doivent vérifier &lt; et &gt; dans report.html, pas <script>
+
+Produis le fichier run_tests.sh complet modifié.
+```
+
+**Vérification :**
+```bash
+shellcheck tests/run_tests.sh
+cd tests && ./run_tests.sh
+```
+
+---
+
+## Étape 5 — Extensions de `run_tests_pipeline.sh` (TP13–TP15)
+
+**Même approche que l'étape 4.**
+
+**Fichiers à fournir :**
+- `integration-tests.md` (section "Extensions de run_tests_pipeline.sh")
+- `tests/run_tests_pipeline.sh` (fichier existant)
+- `tests/helpers-tap.sh`
+
+**Prompt :**
+```
+Tu vas modifier tests/run_tests_pipeline.sh pour y ajouter les cas TP13 à TP15.
+
+Voici la spécification : [coller la section "Extensions de run_tests_pipeline.sh" de integration-tests.md]
+
+Voici le fichier actuel : [coller run_tests_pipeline.sh]
+
+Contraintes :
+- Ne pas modifier les cas existants TP01–TP12b
+- Ajouter TP13–TP15 après TP12b
+- Migrer vers helpers-tap.sh
+- ShellCheck zéro warning
+- TP13 : créer explicitement un dossier source corrompu distinct du dossier source propre
+
+Produis le fichier run_tests_pipeline.sh complet modifié.
+```
+
+---
+
+## Étape 6 — Test de non-régression dans `run_tests.sh`
+
+**Ce test dépend de `reference.b3` généré à l'étape 2.**
+
+**Fichiers à fournir :**
+- `regression-tests.md`
+- `tests/run_tests.sh` (version modifiée à l'étape 4)
+
+**Prompt :**
+```
+Tu vas ajouter un test de non-régression dans tests/run_tests.sh.
+
+Voici la spécification : [coller regression-tests.md]
+
+Voici le fichier actuel : [coller run_tests.sh modifié]
+
+Ajoute une section "T_REG — Non-régression format .b3" avec les tests T_REG01 à T_REG06 
+tels que spécifiés. 
+
+Le test T_REG01 doit :
+- Vérifier que tests/fixtures/bases/reference.b3 existe (SKIP sinon avec tap_skip)
+- Lancer compute sur tests/fixtures/data/
+- Faire un diff bit-à-bit avec reference.b3
+- En cas d'échec, afficher le diff (limité à 20 lignes) pour faciliter le diagnostic
+
+Produis le fichier run_tests.sh complet final.
+```
+
+---
+
+## Étape 7 — `tests/run_tests_docker.sh`
+
+**Cette suite est indépendante — pas de dépendance aux autres suites bash.**
+
+**Fichiers à fournir :**
+- `docker-tests.md`
+- `docker/entrypoint.sh`
+- `tests/helpers-tap.sh`
+
+**Prompt :**
+```
+Tu vas créer tests/run_tests_docker.sh pour le projet hash_tool.
+
+Voici la spécification complète : [coller docker-tests.md]
+
+Voici l'entrypoint à tester : [coller docker/entrypoint.sh]
+
+Voici les helpers disponibles : [coller helpers-tap.sh]
+
+Contraintes :
+- bash >= 4, set -euo pipefail, ShellCheck zéro warning
+- Skip automatique si Docker n'est pas disponible (command -v docker)
+- Skip automatique si l'image hash_tool n'est pas buildée (sauf avec --build)
+- Chaque test TD* crée ses propres tmpdir avec mktemp -d et les nettoie via trap EXIT
+- Les tests TB* (build) sont dans une section séparée et ne tournent que si --build est passé
+- Format TAP via helpers-tap.sh
+
+Implémente tous les tests TB01–TB04, TE01–TE07, TD01–TD11.
+```
+
+**Vérification :**
+```bash
+shellcheck tests/run_tests_docker.sh
+docker build -t hash_tool .
+cd tests && ./run_tests_docker.sh --build
+```
+
+---
+
+## Étape 8 — `.github/workflows/ci.yml`
+
+**Dernière étape — la CI référence tous les fichiers créés précédemment.**
+
+**Fichiers à fournir :**
+- `ci-cd.md`
+- La liste des fichiers de tests existants (pour vérifier les chemins)
+
+**Prompt :**
+```
+Tu vas créer .github/workflows/ci.yml pour le projet hash_tool.
+
+Voici la spécification complète : [coller ci-cd.md]
+
+Les fichiers de tests qui existent maintenant :
+- tests/helpers-tap.sh
+- tests/run_tests.sh
+- tests/run_tests_pipeline.sh
+- tests/run_tests_core.sh
+- tests/run_tests_docker.sh
+- tests/fixtures/bases/reference.b3
+
+Contraintes :
+- Jobs lint, unit, integration, pipeline, non-regression en parallèle (needs: lint uniquement)
+- Job docker-build conditionnel (main, develop, ou PR modifiant Dockerfile/.dockerignore/docker/)
+- Job docker-arm64 avec continue-on-error: true, uniquement sur main
+- Matrice ubuntu-22.04 + ubuntu-24.04 pour unit et integration
+- concurrency avec cancel-in-progress pour éviter les runs redondants sur une même PR
+- Upload d'artefacts TAP avec if: always() sur chaque job
+- Pas de secrets requis
+
+Produis le fichier .github/workflows/ci.yml complet.
+```
+
+**Vérification :**
+```bash
+# Installer actionlint si disponible
+actionlint .github/workflows/ci.yml
+
+# Ou vérifier manuellement la syntaxe YAML
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo "YAML valide"
+```
+
+---
+
+## Récapitulatif de la démarche
+
+| Étape | Livrable | Dépend de | Vérification |
+|---|---|---|---|
+| 1 | `helpers-tap.sh` | — | `shellcheck` + sourcing |
+| 2 | `tests/fixtures/` | — | génération manuelle de `reference.b3` |
+| 3a | `run_tests_core.sh` CU01–CU27 | 1, 2 | `shellcheck` + run partiel |
+| 3b | `run_tests_core.sh` CU28–CU53 | 3a | run complet, 0 FAIL |
+| 4 | `run_tests.sh` T15–T20 | 1 | `shellcheck` + run complet |
+| 5 | `run_tests_pipeline.sh` TP13–TP15 | 1 | `shellcheck` + run complet |
+| 6 | Non-régression dans `run_tests.sh` | 2, 4 | run complet, T_REG01 pass |
+| 7 | `run_tests_docker.sh` | 1, image Docker | `shellcheck` + run avec `--build` |
+| 8 | `ci.yml` | 1–7 tous présents | `actionlint` ou YAML lint |
+
+**Règle absolue :** ne passer à l'étape N+1 que si l'étape N passe ShellCheck et produit zéro FAIL. Un test qui échoue dès la création est soit mal implémenté, soit révèle un bug réel dans le code — dans les deux cas, à traiter avant de continuer.
+
+--- Fichier : ci-cd.md ---
+# CI/CD — Spécification GitHub Actions
+
+---
+
+## Objectifs
+
+1. **Détection automatique des régressions** : chaque push et chaque PR déclenchent les tests.
+2. **Blocage des PRs cassées** : une PR ne peut pas merger si un test échoue.
+3. **Feedback rapide** : les tests unitaires et d'intégration donnent un résultat en < 2 minutes.
+4. **Isolation des tests lents** : les tests Docker (build arm64, QEMU) sont séparés et ne bloquent pas le feedback rapide.
+5. **Artefacts accessibles** : les résultats de tests sont téléchargeables depuis l'interface GitHub même en cas d'échec.
+
+---
+
+## Architecture des jobs
+
+```
+push / PR
+    │
+    ├── [job: lint]          ShellCheck sur tous les scripts
+    │       ↓
+    ├── [job: unit]          run_tests_core.sh    (~30s)
+    │       ↓
+    ├── [job: integration]   run_tests.sh         (~60s)
+    │       ↓
+    ├── [job: pipeline]      run_tests_pipeline.sh (~60s)
+    │
+    └── [job: docker]        (déclenché sur : push main + PR modifiant Dockerfile)
+            ├── docker build amd64
+            ├── run_tests_docker.sh (sans --build, image en cache)
+            └── docker build arm64  (QEMU, séparé, peut échouer sans bloquer)
+```
+
+Les jobs `unit`, `integration`, `pipeline` sont **indépendants et parallèles** — ils peuvent tourner simultanément. Le job `docker` est conditionnel.
+
+---
+
+## Fichier `.github/workflows/ci.yml`
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+# Annuler les runs en cours si un nouveau push arrive sur la même PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  # ============================================================
+  # Job : lint — ShellCheck sur tous les scripts
+  # ============================================================
+  lint:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer ShellCheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: ShellCheck — scripts principaux
+        run: |
+          shellcheck \
+            src/integrity.sh \
+            runner.sh \
+            src/lib/core.sh \
+            src/lib/ui.sh \
+            src/lib/results.sh \
+            src/lib/report.sh \
+            docker/entrypoint.sh
+
+      - name: ShellCheck — suites de tests
+        run: |
+          shellcheck \
+            tests/run_tests.sh \
+            tests/run_tests_pipeline.sh \
+            tests/run_tests_core.sh \
+            tests/run_tests_docker.sh \
+            tests/helpers-tap.sh
+
+  # ============================================================
+  # Job : unit — Tests unitaires core.sh
+  # ============================================================
+  unit:
+    name: Tests unitaires (core.sh)
+    runs-on: ubuntu-latest
+    needs: lint   # ne lance pas les tests si ShellCheck échoue
+
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer les dépendances
+        run: sudo apt-get install -y b3sum
+
+      - name: Lancer run_tests_core.sh
+        run: |
+          cd tests
+          ./run_tests_core.sh 2>&1 | tee /tmp/core-results.tap
+        env:
+          CI: "true"
+
+      - name: Uploader les résultats
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results-${{ matrix.os }}
+          path: /tmp/core-results.tap
+          retention-days: 7
+
+  # ============================================================
+  # Job : integration — Tests d'intégration integrity.sh
+  # ============================================================
+  integration:
+    name: Tests d'intégration (integrity.sh)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    strategy:
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer les dépendances
+        run: sudo apt-get install -y b3sum
+
+      - name: Lancer run_tests.sh
+        run: |
+          cd tests
+          ./run_tests.sh 2>&1 | tee /tmp/integration-results.tap
+        env:
+          CI: "true"
+
+      - name: Uploader les résultats
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-${{ matrix.os }}
+          path: /tmp/integration-results.tap
+          retention-days: 7
+
+  # ============================================================
+  # Job : pipeline — Tests d'intégration runner.sh
+  # ============================================================
+  pipeline:
+    name: Tests pipeline (runner.sh)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer les dépendances
+        run: sudo apt-get install -y b3sum jq
+
+      - name: Lancer run_tests_pipeline.sh
+        run: |
+          cd tests
+          ./run_tests_pipeline.sh 2>&1 | tee /tmp/pipeline-results.tap
+        env:
+          CI: "true"
+
+      - name: Uploader les résultats
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pipeline-test-results
+          path: /tmp/pipeline-results.tap
+          retention-days: 7
+
+  # ============================================================
+  # Job : non-regression — Test de non-régression format .b3
+  # ============================================================
+  non-regression:
+    name: Non-régression format .b3
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installer b3sum
+        run: sudo apt-get install -y b3sum
+
+      - name: Vérifier reference.b3
+        run: |
+          cd tests/fixtures
+          ../../src/integrity.sh compute ./data /tmp/output_reg.b3
+          diff bases/reference.b3 /tmp/output_reg.b3 || {
+            echo "ERREUR : régression du format .b3 détectée"
+            echo "--- reference.b3 (attendu) ---"
+            head -5 bases/reference.b3
+            echo "--- output produit ---"
+            head -5 /tmp/output_reg.b3
+            exit 1
+          }
+          echo "Format .b3 stable"
+
+  # ============================================================
+  # Job : docker-build — Build et tests Docker (amd64)
+  # ============================================================
+  docker-build:
+    name: Docker build + tests (amd64)
+    runs-on: ubuntu-latest
+    needs: lint
+
+    # Ne tourner que sur main, develop, et les PRs modifiant Docker
+    if: |
+      github.ref == 'refs/heads/main' ||
+      github.ref == 'refs/heads/develop' ||
+      contains(github.event.pull_request.changed_files, 'Dockerfile') ||
+      contains(github.event.pull_request.changed_files, '.dockerignore') ||
+      contains(github.event.pull_request.changed_files, 'docker/')
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image Docker amd64
+        run: docker build --platform linux/amd64 -t hash_tool .
+
+      - name: Vérifier la taille de l'image
+        run: |
+          SIZE=$(docker image inspect hash_tool --format='{{.Size}}')
+          SIZE_MB=$(( SIZE / 1024 / 1024 ))
+          echo "Taille image : ${SIZE_MB} Mo"
+          [ "$SIZE_MB" -lt 30 ] || { echo "ERREUR : image trop lourde (${SIZE_MB} Mo)"; exit 1; }
+
+      - name: Lancer run_tests_docker.sh
+        run: |
+          cd tests
+          ./run_tests_docker.sh 2>&1 | tee /tmp/docker-results.tap
+        env:
+          CI: "true"
+
+      - name: Uploader les résultats
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-test-results
+          path: /tmp/docker-results.tap
+          retention-days: 7
+
+  # ============================================================
+  # Job : docker-arm64 — Build arm64 (QEMU, peut être lent)
+  # ============================================================
+  docker-arm64:
+    name: Docker build (arm64)
+    runs-on: ubuntu-latest
+    needs: docker-build
+    # Ce job peut échouer sans bloquer le merge (continue-on-error)
+    continue-on-error: true
+
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image arm64
+        run: |
+          docker buildx build \
+            --platform linux/arm64 \
+            -t hash_tool:arm64 \
+            --load \
+            .
+
+      - name: Test basique arm64
+        run: docker run --rm --platform linux/arm64 hash_tool version
+```
+
+---
+
+## Conditions de blocage des PRs
+
+Configurer dans les **Branch Protection Rules** de GitHub (`Settings > Branches > main`) :
+
+| Check requis | Job concerné | Bloquant |
+|---|---|---|
+| ShellCheck | `lint` | Oui |
+| Tests unitaires (ubuntu-22.04) | `unit` | Oui |
+| Tests unitaires (ubuntu-24.04) | `unit` | Oui |
+| Tests d'intégration (ubuntu-22.04) | `integration` | Oui |
+| Tests d'intégration (ubuntu-24.04) | `integration` | Oui |
+| Tests pipeline | `pipeline` | Oui |
+| Non-régression .b3 | `non-regression` | Oui |
+| Docker build amd64 | `docker-build` | Oui (si Dockerfile modifié) |
+| Docker build arm64 | `docker-arm64` | Non (`continue-on-error: true`) |
+
+---
+
+## Gestion des artefacts
+
+Chaque job uploade ses résultats TAP en artefact. Ils sont accessibles depuis l'onglet "Actions" de GitHub pendant 7 jours.
+
+En cas d'échec, la procédure de diagnostic :
+1. Cliquer sur le job échoué dans l'interface Actions.
+2. Consulter les logs en ligne (résultats TAP affichés dans le terminal).
+3. Télécharger l'artefact correspondant si un contexte plus détaillé est nécessaire.
+
+---
+
+## Déclenchement manuel
+
+Le workflow peut être déclenché manuellement depuis l'interface GitHub Actions (`workflow_dispatch`) :
+
+```yaml
+on:
+  push: ...
+  pull_request: ...
+  workflow_dispatch:    # ← déclenchement manuel
+    inputs:
+      run_docker_arm64:
+        description: 'Lancer le build arm64 (lent)'
+        type: boolean
+        default: false
+```
+
+---
+
+## Secrets et variables d'environnement
+
+Aucun secret n'est requis pour la CI de base — `hash_tool` n'a pas de dépendances réseau dans ses tests (tout est local).
+
+Si des notifications (Slack, email) sont ajoutées dans le futur :
+- `SLACK_WEBHOOK_URL` → `Settings > Secrets > Actions`
+- Ne jamais logger les secrets dans les steps
+
+---
+
+## Durée estimée par run CI
+
+| Job | Durée estimée |
+|---|---|
+| lint (ShellCheck) | ~15s |
+| unit (ubuntu-22.04) | ~30s |
+| unit (ubuntu-24.04) | ~30s |
+| integration (ubuntu-22.04) | ~60s |
+| integration (ubuntu-24.04) | ~60s |
+| pipeline | ~60s |
+| non-regression | ~20s |
+| docker-build + tests amd64 | ~3-4 min |
+| docker-arm64 (QEMU) | ~8-12 min |
+
+**Durée totale pour un push standard** (sans Docker) : ~2 minutes (jobs parallèles).  
+**Durée avec Docker** : ~5 minutes (Docker build en parallèle des autres jobs).
+
+---
+
+## Évolutions futures
+
+| Évolution | Priorité | Description |
+|---|---|---|
+| Publication TAP → rapport HTML | Basse | Utiliser `dorny/test-reporter` pour afficher les résultats dans les PR checks |
+| Cache des dépendances apt | Moyenne | `actions/cache` sur `/var/cache/apt` — gain ~20s par job |
+| Scheduled run nocturne | Basse | `on: schedule: cron: '0 3 * * *'` — détecte les régressions dues à des mises à jour de dépendances système |
+| Notification sur échec | Basse | Webhook Slack sur `main` uniquement, pas sur les PRs |
+
+
+--- Fichier : docker-tests.md ---
+# Tests Docker — Spécification `run_tests_docker.sh`
+
+---
+
+## Périmètre
+
+`run_tests_docker.sh` couvre trois niveaux :
+
+1. **Build** — l'image se construit sans erreur, pour les architectures cibles
+2. **Environnement** — les outils attendus sont présents dans l'image avec les bonnes versions
+3. **Entrypoint** — chaque commande de `docker/entrypoint.sh` produit le résultat attendu
+
+Cette suite est **indépendante** des autres : elle ne source aucun module bash, elle ne dépend pas de `b3sum` sur l'hôte. Elle nécessite uniquement Docker.
+
+---
+
+## Prérequis et skip automatique
+
+```bash
+#!/usr/bin/env bash
+# run_tests_docker.sh
+set -euo pipefail
+
+# Skip si Docker n'est pas disponible
+command -v docker &>/dev/null || {
+    echo "SKIP - Docker non disponible sur cet hôte"
+    exit 0
+}
+
+# Skip si l'image n'est pas buildée (sauf si --build passé en argument)
+if [ "${1:-}" = "--build" ]; then
+    echo "=== Build de l'image ==="
+    docker build -t hash_tool . || { echo "ERREUR : build échoué"; exit 1; }
+fi
+
+docker image inspect hash_tool &>/dev/null || {
+    echo "SKIP - image hash_tool non trouvée. Lancer avec --build ou 'docker build -t hash_tool .'"
+    exit 0
+}
+```
+
+---
+
+## Tests de build (TB)
+
+Ces tests sont séparés des tests d'entrypoint — le build est lent (~2-3 min) et ne doit pas bloquer les tests fonctionnels.
+
+### TB01 — Build amd64 réussi
+
+```bash
+docker build --platform linux/amd64 -t hash_tool:test-amd64 .
+[ $? -eq 0 ] && pass "TB01 build amd64" || fail "TB01 build amd64 échoué"
+docker rmi hash_tool:test-amd64 >/dev/null 2>&1 || true
+```
+
+### TB02 — Build arm64 réussi
+
+```bash
+# Requiert Docker Buildx ou QEMU
+docker build --platform linux/arm64 -t hash_tool:test-arm64 .
+[ $? -eq 0 ] && pass "TB02 build arm64" || fail "TB02 build arm64 échoué"
+docker rmi hash_tool:test-arm64 >/dev/null 2>&1 || true
+```
+
+**Note CI :** TB02 nécessite `docker buildx` avec `--platform linux/arm64` et l'émulation QEMU. Dans GitHub Actions, utiliser `docker/setup-qemu-action` et `docker/setup-buildx-action`.
+
+### TB03 — Taille de l'image finale
+
+```bash
+local size
+size=$(docker image inspect hash_tool --format='{{.Size}}')
+local size_mb=$(( size / 1024 / 1024 ))
+# Seuil : < 30 Mo (image actuelle ~14 Mo, marge pour éviter les faux positifs)
+[ "$size_mb" -lt 30 ] \
+    && pass "TB03 taille image OK : ${size_mb} Mo" \
+    || fail "TB03 image trop lourde : ${size_mb} Mo (seuil 30 Mo)"
+```
+
+**Rationale du seuil :** l'image actuelle fait ~14 Mo. Un seuil à 30 Mo détecte une régression significative (ajout accidentel d'un package lourd) sans être trop strict.
+
+### TB04 — Pas de données utilisateur dans l'image
+
+```bash
+# Vérifier que mon_dossier/ et les .b3 ne sont pas dans l'image (respecte .dockerignore)
+local found
+found=$(docker run --rm hash_tool find / -name "*.b3" -o -name "hashes_*" 2>/dev/null | grep -v "^/proc" || true)
+[ -z "$found" ] \
+    && pass "TB04 pas de données utilisateur dans l'image" \
+    || fail "TB04 données trouvées dans l'image : $found"
+```
+
+---
+
+## Tests d'environnement (TE)
+
+Ces tests vérifient que les outils présents dans l'image sont les bons, aux bonnes versions.
+
+### TE01 — `b3sum` présent et fonctionnel
+
+```bash
+local out
+out=$(docker run --rm hash_tool b3sum --version 2>&1)
+echo "$out" | grep -qi "b3sum" \
+    && pass "TE01 b3sum présent" \
+    || fail "TE01 b3sum absent ou non fonctionnel : $out"
+```
+
+### TE02 — `b3sum` produit un hash valide
+
+```bash
+local hash
+hash=$(docker run --rm hash_tool bash -c 'echo "test" | b3sum')
+echo "$hash" | grep -qE '^[0-9a-f]{64}' \
+    && pass "TE02 b3sum produit un hash valide" \
+    || fail "TE02 hash invalide : $hash"
+```
+
+### TE03 — `jq` présent et fonctionnel
+
+```bash
+local out
+out=$(docker run --rm hash_tool jq --version 2>&1)
+echo "$out" | grep -qi "jq" \
+    && pass "TE03 jq présent" \
+    || fail "TE03 jq absent : $out"
+```
+
+### TE04 — `bash` version >= 4
+
+```bash
+local version
+version=$(docker run --rm hash_tool bash -c 'echo ${BASH_VERSINFO[0]}')
+[ "$version" -ge 4 ] \
+    && pass "TE04 bash >= 4 (version $version)" \
+    || fail "TE04 bash trop ancien : $version"
+```
+
+### TE05 — Outils coreutils présents
+
+```bash
+for tool in find sort awk comm join stat du mktemp; do
+    docker run --rm hash_tool command -v "$tool" >/dev/null 2>&1 \
+        && pass "TE05 $tool présent" \
+        || fail "TE05 $tool absent"
+done
+```
+
+### TE06 — `RESULTATS_DIR` défini à `/resultats`
+
+```bash
+local val
+val=$(docker run --rm hash_tool bash -c 'echo $RESULTATS_DIR')
+[ "$val" = "/resultats" ] \
+    && pass "TE06 RESULTATS_DIR=/resultats" \
+    || fail "TE06 RESULTATS_DIR=$val (attendu /resultats)"
+```
+
+### TE07 — Scripts présents et exécutables
+
+```bash
+for f in /app/runner.sh /app/src/integrity.sh /app/src/lib/report.sh; do
+    docker run --rm hash_tool test -x "$f" \
+        && pass "TE07 $f exécutable" \
+        || fail "TE07 $f absent ou non exécutable"
+done
+```
+
+---
+
+## Tests de l'entrypoint (TD)
+
+### TD01 — Commande `help` : exit 0, affiche de l'aide
+
+```bash
+local out exit_code=0
+out=$(docker run --rm hash_tool help 2>&1) || exit_code=$?
+[ "$exit_code" -eq 0 ] && pass "TD01 help exit 0" || fail "TD01 help exit $exit_code"
+echo "$out" | grep -qi "compute" && pass "TD01 help contient compute" || fail "TD01 help ne contient pas compute"
+echo "$out" | grep -qi "verify"  && pass "TD01 help contient verify"  || fail "TD01 help ne contient pas verify"
+```
+
+### TD02 — Commande sans argument : affiche l'aide (CMD défaut)
+
+```bash
+local out
+out=$(docker run --rm hash_tool 2>&1) || true
+echo "$out" | grep -qi "usage\|compute\|verify" \
+    && pass "TD02 aide par défaut" \
+    || fail "TD02 pas d'aide par défaut"
+```
+
+### TD03 — Commande inconnue : exit 1, message d'erreur
+
+```bash
+local exit_code=0
+local out
+out=$(docker run --rm hash_tool commande_inconnue_xyz 2>&1) || exit_code=$?
+[ "$exit_code" -ne 0 ] && pass "TD03 commande inconnue → exit non-zéro" || fail "TD03 doit exit 1"
+echo "$out" | grep -qi "inconnue\|unknown\|ERREUR" \
+    && pass "TD03 message d'erreur explicite" \
+    || fail "TD03 message d'erreur absent"
+```
+
+### TD04 — Commande `version` : affiche b3sum, jq, bash
+
+```bash
+local out
+out=$(docker run --rm hash_tool version 2>&1)
+echo "$out" | grep -qi "b3sum" && pass "TD04 version contient b3sum" || fail "TD04 version sans b3sum"
+echo "$out" | grep -qi "jq"    && pass "TD04 version contient jq"    || fail "TD04 version sans jq"
+echo "$out" | grep -qi "bash"  && pass "TD04 version contient bash"   || fail "TD04 version sans bash"
+```
+
+### TD05 — Commande `compute` : produit un fichier `.b3`
+
+```bash
+local tmpdata tmpbases
+tmpdata=$(mktemp -d)
+tmpbases=$(mktemp -d)
+echo "contenu test" > "$tmpdata/fichier.txt"
+
+docker run --rm \
+    -v "$tmpdata:/data:ro" \
+    -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/test.b3
+
+[ -f "$tmpbases/test.b3" ] \
+    && pass "TD05 test.b3 produit" \
+    || fail "TD05 test.b3 absent"
+
+grep -qE '^[0-9a-f]{64}  ./fichier.txt' "$tmpbases/test.b3" \
+    && pass "TD05 format b3sum correct" \
+    || fail "TD05 format b3sum incorrect : $(cat "$tmpbases/test.b3")"
+
+rm -rf "$tmpdata" "$tmpbases"
+```
+
+### TD06 — Commande `verify` : OK sur base fraîche
+
+```bash
+local tmpdata tmpbases tmpres
+tmpdata=$(mktemp -d); tmpbases=$(mktemp -d); tmpres=$(mktemp -d)
+echo "contenu test" > "$tmpdata/fichier.txt"
+
+docker run --rm -v "$tmpdata:/data:ro" -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/test.b3 >/dev/null
+
+local out exit_code=0
+out=$(docker run --rm \
+    -v "$tmpdata:/data:ro" \
+    -v "$tmpbases:/bases:ro" \
+    -v "$tmpres:/resultats" \
+    hash_tool verify /bases/test.b3 /data 2>&1) || exit_code=$?
+
+[ "$exit_code" -eq 0 ] && pass "TD06 verify exit 0" || fail "TD06 verify exit $exit_code"
+echo "$out" | grep -qi "OK" && pass "TD06 verify affiche OK" || fail "TD06 verify n'affiche pas OK"
+
+rm -rf "$tmpdata" "$tmpbases" "$tmpres"
+```
+
+### TD07 — Commande `verify` : détecte une corruption
+
+```bash
+local tmpdata tmpbases tmpres
+tmpdata=$(mktemp -d); tmpbases=$(mktemp -d); tmpres=$(mktemp -d)
+echo "contenu original" > "$tmpdata/fichier.txt"
+
+docker run --rm -v "$tmpdata:/data:ro" -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/test.b3 >/dev/null
+
+echo "contenu corrompu" > "$tmpdata/fichier.txt"
+
+local exit_code=0
+docker run --rm \
+    -v "$tmpdata:/data:ro" \
+    -v "$tmpbases:/bases:ro" \
+    -v "$tmpres:/resultats" \
+    hash_tool verify /bases/test.b3 /data >/dev/null 2>&1 || exit_code=$?
+
+[ "$exit_code" -ne 0 ] \
+    && pass "TD07 verify détecte corruption → exit non-zéro" \
+    || fail "TD07 verify aurait dû échouer"
+
+rm -rf "$tmpdata" "$tmpbases" "$tmpres"
+```
+
+### TD08 — Commande `compare` : produit `report.html`
+
+```bash
+local tmpbases tmpres
+tmpbases=$(mktemp -d); tmpres=$(mktemp -d)
+
+# Créer deux bases différentes
+local tmpdata_a tmpdata_b
+tmpdata_a=$(mktemp -d); tmpdata_b=$(mktemp -d)
+echo "v1" > "$tmpdata_a/f.txt"
+echo "v2" > "$tmpdata_b/f.txt"
+
+docker run --rm -v "$tmpdata_a:/data:ro" -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/a.b3 >/dev/null
+docker run --rm -v "$tmpdata_b:/data:ro" -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/b.b3 >/dev/null
+
+docker run --rm \
+    -v "$tmpbases:/bases:ro" \
+    -v "$tmpres:/resultats" \
+    hash_tool compare /bases/a.b3 /bases/b.b3 >/dev/null
+
+local report
+report=$(ls "$tmpres"/resultats_a*/report.html 2>/dev/null | head -1)
+[ -f "$report" ] \
+    && pass "TD08 report.html produit" \
+    || fail "TD08 report.html absent"
+
+rm -rf "$tmpdata_a" "$tmpdata_b" "$tmpbases" "$tmpres"
+```
+
+### TD09 — Flag `--quiet` transmis correctement
+
+```bash
+local tmpdata tmpbases tmpres
+tmpdata=$(mktemp -d); tmpbases=$(mktemp -d); tmpres=$(mktemp -d)
+echo "contenu" > "$tmpdata/f.txt"
+
+docker run --rm -v "$tmpdata:/data:ro" -v "$tmpbases:/bases" \
+    hash_tool compute /data /bases/test.b3 >/dev/null
+
+local out
+out=$(docker run --rm \
+    -v "$tmpdata:/data:ro" \
+    -v "$tmpbases:/bases:ro" \
+    -v "$tmpres:/resultats" \
+    hash_tool --quiet verify /bases/test.b3 /data 2>&1)
+
+[ -z "$out" ] \
+    && pass "TD09 --quiet : stdout vide" \
+    || fail "TD09 --quiet : stdout non vide : $out"
+
+rm -rf "$tmpdata" "$tmpbases" "$tmpres"
+```
+
+### TD10 — Commande `runner` avec pipeline JSON
+
+```bash
+local tmpdata tmpbases tmpres tmppipelines
+tmpdata=$(mktemp -d); tmpbases=$(mktemp -d)
+tmpres=$(mktemp -d); tmppipelines=$(mktemp -d)
+echo "contenu" > "$tmpdata/f.txt"
+
+cat > "$tmppipelines/pipeline.json" <<EOF
+{
+    "pipeline": [
+        { "op": "compute", "source": "/data", "bases": "/bases", "nom": "test.b3" }
+    ]
+}
+EOF
+
+docker run --rm \
+    -v "$tmpdata:/data:ro" \
+    -v "$tmpbases:/bases" \
+    -v "$tmpres:/resultats" \
+    -v "$tmppipelines/pipeline.json:/pipelines/pipeline.json:ro" \
+    hash_tool runner /pipelines/pipeline.json >/dev/null
+
+[ -f "$tmpbases/test.b3" ] \
+    && pass "TD10 runner pipeline : test.b3 produit" \
+    || fail "TD10 runner pipeline : test.b3 absent"
+
+rm -rf "$tmpdata" "$tmpbases" "$tmpres" "$tmppipelines"
+```
+
+### TD11 — Commande `runner` sans pipeline.json monté : erreur explicite
+
+```bash
+local out exit_code=0
+out=$(docker run --rm hash_tool runner 2>&1) || exit_code=$?
+[ "$exit_code" -ne 0 ] && pass "TD11 runner sans pipeline → exit non-zéro" || fail "TD11 doit exit 1"
+echo "$out" | grep -qi "introuvable\|ERREUR\|not found" \
+    && pass "TD11 message d'erreur sur pipeline absent" \
+    || fail "TD11 message d'erreur absent : $out"
+```
+
+---
+
+## Structure du fichier `run_tests_docker.sh`
+
+```bash
+#!/usr/bin/env bash
+# run_tests_docker.sh - Tests de l'image Docker hash_tool
+# Usage : ./run_tests_docker.sh [--build]
+# Prérequis : Docker
+
+set -euo pipefail
+
+# ... helpers pass/fail/assert identiques aux autres suites ...
+
+echo "=== BUILD ==="
+# TB01–TB04
+
+echo "=== ENVIRONNEMENT ==="
+# TE01–TE07
+
+echo "=== ENTRYPOINT ==="
+# TD01–TD11
+
+echo "========================================"
+[ "$FAIL" -eq 0 ] \
+    && echo "  $PASS/$TOTAL tests passés" \
+    || echo "  $PASS/$TOTAL passés - $FAIL échec(s)"
+echo "========================================"
+[ "$FAIL" -eq 0 ]
+```
+
+---
+
+## Durée estimée
+
+| Section | Durée approx. |
+|---|---|
+| Tests d'environnement (TE) | ~10 secondes |
+| Tests entrypoint (TD) | ~60 secondes |
+| Tests de build (TB01 amd64) | ~2-3 minutes |
+| Tests de build (TB02 arm64 avec QEMU) | ~5-10 minutes |
+
+**Recommandation CI :** séparer les tests de build (job `docker-build`) des tests d'entrypoint (job `docker-test`). Les tests d'entrypoint peuvent tourner sur une image pré-buildée en cache. Les tests de build ne tournent que sur les PRs modifiant `Dockerfile`, `.dockerignore` ou `docker/`.
+
+
+--- Fichier : edge-cases.md ---
+# Cas limites — Catalogue exhaustif
+
+---
+
+## Introduction
+
+Un cas limite est une entrée qui se situe aux frontières du comportement normal. C'est là que les bugs se cachent — le code est typiquement développé et testé sur des cas "standards", et les hypothèses implicites sur les entrées ne sont jamais vérifiées.
+
+Ce catalogue recense tous les cas limites identifiés pour `hash_tool`, classés par catégorie. Pour chaque cas : l'input, le comportement attendu, et le risque si le cas n'est pas testé.
+
+---
+
+## Catégorie 1 — Noms de fichiers
+
+### 1.1 Espace dans le nom
+
+| | |
+|---|---|
+| **Input** | `"fichier avec espaces.txt"` |
+| **Comportement attendu** | Indexé correctement, 1 ligne dans `.b3`, verify OK |
+| **Risque** | `awk '{print $2}'` fragmente le chemin — faux positif massif dans `compare` (bug historique v0.7) |
+| **Testé par** | T08 (existant), CU42 (unitaire à créer) |
+
+### 1.2 Plusieurs espaces consécutifs
+
+| | |
+|---|---|
+| **Input** | `"fichier  avec  doubles  espaces.txt"` |
+| **Comportement attendu** | Indexé correctement, 1 ligne, verify OK |
+| **Risque** | Parsing par champ fragmente encore plus — potentiellement confondu avec le séparateur `  ` du format b3sum |
+| **Testé par** | Non testé — à ajouter en T15b |
+
+### 1.3 Newline dans le nom
+
+| | |
+|---|---|
+| **Input** | `$'nom\navec\nnewline.txt'` |
+| **Comportement attendu** | Indexé correctement (1 fichier = 1 ligne dans `.b3`) |
+| **Risque** | `find | wc -l` compte 3 fichiers ; `xargs` sans `-0` éclate le nom ; seuls `find -print0` + `mapfile -d ''` tiennent |
+| **Testé par** | T15 (à créer) |
+| **Note** | Cas légal sur Linux, illégal sur Windows/macOS |
+
+### 1.4 Tabulation dans le nom
+
+| | |
+|---|---|
+| **Input** | `$'nom\tavec\ttab.txt'` |
+| **Comportement attendu** | Indexé correctement |
+| **Risque** | `_b3_to_path_hash` utilise `\t` comme séparateur — une tabulation dans le chemin peut corrompre le parsing |
+| **Testé par** | Non testé — **cas critique à ajouter** |
+| **Note** | `awk '{ print substr($0,67) "\t" substr($0,1,64) }'` — l'offset fixe 67 protège le hash, mais le chemin est copié tel quel avec sa tabulation |
+
+### 1.5 Caractères HTML dans le nom
+
+| | |
+|---|---|
+| **Input** | `"<script>alert.txt"`, `"a&b.txt"`, `"page>2.txt"` |
+| **Comportement attendu** | Indexé correctement dans `.b3` (pas d'échappement dans le fichier texte) ; échappé dans `report.html` |
+| **Risque** | `report.html` affiche `<script>` littéralement → injection HTML dans le rapport |
+| **Testé par** | T16 (à créer) |
+
+### 1.6 Fichier commençant par un tiret
+
+| | |
+|---|---|
+| **Input** | `"-fichier.txt"` |
+| **Comportement attendu** | Indexé correctement |
+| **Risque** | Certains outils interprètent `-` comme un flag CLI |
+| **Testé par** | Non testé — risque faible car `find` et `b3sum` reçoivent le chemin complet |
+
+### 1.7 Nom très long (255 chars, limite ext4)
+
+| | |
+|---|---|
+| **Input** | Nom de 254 caractères |
+| **Comportement attendu** | Indexé correctement |
+| **Risque** | Troncature silencieuse dans certains buffers |
+| **Testé par** | Non testé — risque faible, `b3sum` gère les noms longs |
+
+### 1.8 Fichier caché (commençant par `.`)
+
+| | |
+|---|---|
+| **Input** | `".fichier_cache"` |
+| **Comportement attendu** | Indexé par `find -type f` (find suit les fichiers cachés par défaut) |
+| **Risque** | `ls` ne les montre pas — confusion si on vérifie manuellement le count |
+| **Testé par** | Non testé — à ajouter dans fixtures |
+
+---
+
+## Catégorie 2 — Contenu de fichiers
+
+### 2.1 Fichier de taille zéro
+
+| | |
+|---|---|
+| **Input** | `touch zero.bin` |
+| **Comportement attendu** | Indexé (le hash BLAKE3 d'un fichier vide est défini), `bytes_done` non modifié (branche `fsize > 0` protège le calcul ETA) |
+| **Risque** | Division par zéro dans le calcul ETA si `bytes_done == total_bytes == 0` |
+| **Testé par** | T18 (à créer), CU23 (unitaire) |
+
+### 2.2 Fichier très volumineux (> 4 Go)
+
+| | |
+|---|---|
+| **Input** | Fichier de 5 Go (nécessite un disque disponible) |
+| **Comportement attendu** | Indexé correctement, ETA affichée |
+| **Risque** | Overflow integer dans `bytes_done` si bash utilise des entiers 32 bits (bash 4+ utilise 64 bits — OK) |
+| **Testé par** | Non testé — difficile en CI (espace disque, temps) |
+| **Décision** | Exclus des tests automatiques. Documenté comme supporté (bash 64-bit integers) |
+
+### 2.3 Fichier binaire avec tous les octets possibles
+
+| | |
+|---|---|
+| **Input** | `printf '%b' '\x00\x01...\xff' > binary.bin` |
+| **Comportement attendu** | Indexé correctement, hash stable |
+| **Risque** | Traitements texte naïfs sur le contenu du fichier (aucun dans `hash_tool` — `b3sum` opère sur des octets bruts) |
+| **Testé par** | Non testé — risque faible |
+
+---
+
+## Catégorie 3 — Structure du dossier
+
+### 3.1 Dossier vide
+
+| | |
+|---|---|
+| **Input** | `mkdir dossier_vide` sans fichiers |
+| **Comportement attendu** | `core_assert_target_valid` lève une erreur "aucun fichier régulier" |
+| **Risque** | Base `.b3` vide produite silencieusement, puis `core_assert_b3_valid` rejette la base vide |
+| **Testé par** | T09 (existant, partiellement), CU14 (unitaire) |
+
+### 3.2 Dossier avec uniquement des sous-dossiers vides
+
+| | |
+|---|---|
+| **Input** | `mkdir -p dossier/sub1 dossier/sub2` |
+| **Comportement attendu** | Même qu'un dossier vide — erreur "aucun fichier régulier" |
+| **Risque** | `find -type f` retourne 0 résultat, `total_files=0`, division par zéro potentielle dans ETA |
+| **Testé par** | CU16 (unitaire) |
+
+### 3.3 Arborescence profonde
+
+| | |
+|---|---|
+| **Input** | `a/b/c/d/e/f/g/h/i/j/fichier.txt` (10 niveaux) |
+| **Comportement attendu** | Indexé correctement, chemin complet dans `.b3` |
+| **Risque** | Limites de longueur de chemin sur certains OS (PATH_MAX = 4096 sur Linux) |
+| **Testé par** | Non testé — risque faible |
+
+### 3.4 Lien symbolique
+
+| | |
+|---|---|
+| **Input** | `ln -s cible.txt lien.txt` |
+| **Comportement attendu** | `find -type f` ignore le lien symbolique par défaut — lien non indexé |
+| **Risque** | Comportement non documenté, surprenant pour l'utilisateur qui s'attend à voir le lien indexé |
+| **Testé par** | T19 (à créer) |
+| **Action** | Documenter le comportement dans `reference/integrity-sh.md` |
+
+### 3.5 Dossier avec un seul fichier
+
+| | |
+|---|---|
+| **Input** | Un seul fichier dans le dossier |
+| **Comportement attendu** | Base de 1 ligne, verify OK |
+| **Risque** | Comportement des algorithmes de tri et de comparaison sur des ensembles minimaux |
+| **Testé par** | Partiellement par T01 — à vérifier explicitement |
+
+---
+
+## Catégorie 4 — Fichiers `.b3`
+
+### 4.1 Base avec une seule ligne
+
+| | |
+|---|---|
+| **Input** | `.b3` contenant exactement 1 ligne valide |
+| **Comportement attendu** | `core_assert_b3_valid` accepte, `verify` fonctionne |
+| **Risque** | `comm`, `join` se comportent différemment sur des fichiers à 1 ligne |
+| **Testé par** | Non testé explicitement |
+
+### 4.2 Base avec chemins contenant des espaces
+
+| | |
+|---|---|
+| **Input** | `.b3` dont les chemins contiennent des espaces |
+| **Comportement attendu** | `core_compare` gère correctement (offset fixe 67 dans `awk`) |
+| **Risque** | Parsing par champ espace-séparé casse le join — bug historique v0.7 |
+| **Testé par** | T08 (existant) + CU42/CU43 (unitaires) |
+
+### 4.3 Base avec caractère tabulation dans un chemin
+
+| | |
+|---|---|
+| **Input** | Chemin contenant `\t` dans le `.b3` |
+| **Comportement attendu** | Comportement à définir — `_b3_to_path_hash` utilise `\t` comme séparateur de conversion |
+| **Risque** | Corruption du parsing `chemin\thash` si le chemin contient lui-même un `\t` |
+| **Testé par** | Non testé — **bug potentiel non investigué** |
+| **Action** | Investiguer, documenter le comportement, ajouter un test ou une contrainte explicite |
+
+### 4.4 Deux bases avec des ordres de tri différents
+
+| | |
+|---|---|
+| **Input** | `old.b3` trié selon `LC_ALL=fr_FR`, `new.b3` trié selon `LC_ALL=C` |
+| **Comportement attendu** | `comm` nécessite que les deux fichiers soient triés selon le même ordre |
+| **Risque** | Faux positifs ou faux négatifs dans `compare` si les bases ont été produites avec des locales différentes |
+| **Testé par** | Non testé |
+| **Décision** | Documenter que `compute` doit être exécuté avec `LC_ALL=C` ou équivalent pour garantir la reproductibilité |
+
+---
+
+## Catégorie 5 — Environnement et configuration
+
+### 5.1 `RESULTATS_DIR` avec espaces dans le chemin
+
+| | |
+|---|---|
+| **Input** | `export RESULTATS_DIR="/tmp/mon dossier/resultats"` |
+| **Comportement attendu** | Dossier créé correctement, résultats écrits |
+| **Risque** | `mkdir -p` avec un chemin non quoté |
+| **Testé par** | Non testé |
+
+### 5.2 `RESULTATS_DIR` non accessible (permissions)
+
+| | |
+|---|---|
+| **Input** | `RESULTATS_DIR="/root/resultats"` depuis un utilisateur non-root |
+| **Comportement attendu** | `core_make_result_dir` lève une erreur explicite via `die()` |
+| **Risque** | Erreur cryptique de `mkdir` sans message d'erreur lisible |
+| **Testé par** | Non testé |
+
+### 5.3 Appel depuis un répertoire différent du compute
+
+| | |
+|---|---|
+| **Input** | `compute` lancé depuis `/mnt/data`, `verify` lancé depuis `/home/user` sans argument `[dossier]` |
+| **Comportement attendu** | `b3sum --check` échoue (chemins relatifs résolus depuis mauvais répertoire) |
+| **Risque** | Confusion utilisateur — tous les fichiers semblent manquants |
+| **Testé par** | T14 (partiellement) |
+| **Action** | Ajouter un message d'erreur plus explicite dans ce cas de figure |
+
+---
+
+## Tableau de priorité
+
+| Cas | Priorité | Risque réel | Action |
+|---|---|---|---|
+| Tabulation dans le nom (1.4) | **Haute** | Bug potentiel confirmé dans `_b3_to_path_hash` | Investiguer + tester |
+| Fichier taille zéro (2.1) | Haute | Division par zéro ETA | T18 + CU23 |
+| Caractères HTML (1.5) | Haute | Injection dans rapport | T16 |
+| Newline dans le nom (1.3) | Haute | Comptage incorrect | T15 |
+| Espaces multiples (1.2) | Moyenne | Faux positifs dans compare | T15b |
+| Lien symbolique (3.4) | Moyenne | Comportement surprenant non documenté | T19 + doc |
+| `RESULTATS_DIR` avec espaces (5.1) | Moyenne | Crash silencieux | Test à créer |
+| Fichier très volumineux (2.2) | Faible | Couvert par bash 64-bit integers | Documenté, non testé |
+
+
+--- Fichier : fixtures.md ---
+# Fixtures — Spécification de `tests/fixtures/`
+
+---
+
+## Définition
+
+Une fixture est un ensemble de données figées dans un état connu, commitées dans le dépôt git, utilisées comme entrée reproductible pour les tests. Contrairement aux données créées dynamiquement dans `setup()`, les fixtures sont stables entre les runs et entre les machines.
+
+---
+
+## Arborescence cible
+
+```
+tests/fixtures/
+│
+├── data/                              ← jeu de données standard (4 fichiers)
+│   ├── alpha.txt
+│   ├── beta.txt
+│   ├── gamma.txt
+│   └── sub/
+│       └── delta.txt
+│
+├── data-edge/                         ← jeu de données avec cas limites
+│   ├── fichier avec espaces.txt
+│   ├── fichier&special.txt
+│   ├── <html>chars.txt
+│   ├── .fichier_cache
+│   └── zero_bytes.bin
+│
+├── bases/                             ← bases .b3 de référence
+│   ├── reference.b3                   ← hash de data/ — non-régression format
+│   └── reference-edge.b3             ← hash de data-edge/ — non-régression edge cases
+│
+└── reports/                           ← structures HTML de référence
+    ├── reference-identiques.html      ← rapport compare sans différences
+    └── reference-diff.html            ← rapport compare avec 1 modifié
+```
+
+---
+
+## Contenu des fichiers de données
+
+### `data/` — Jeu standard
+
+Ces fichiers sont figés. Ne jamais les modifier sans régénérer `bases/reference.b3`.
+
+**`data/alpha.txt`**
+```
+contenu alpha
+```
+(terminé par `\n`, encodage UTF-8, pas de BOM)
+
+**`data/beta.txt`**
+```
+contenu beta
+```
+
+**`data/gamma.txt`**
+```
+contenu gamma
+```
+
+**`data/sub/delta.txt`**
+```
+contenu delta
+```
+
+**Propriétés du jeu standard :**
+- 4 fichiers dans 2 niveaux d'arborescence
+- Noms ASCII simples, pas de caractères spéciaux
+- Contenu textuel court et déterministe
+- Suffisant pour tester compute, verify, compare sans ambiguïté
+
+---
+
+### `data-edge/` — Jeu de cas limites
+
+Ces fichiers couvrent les noms et contenus pathologiques.
+
+**`data-edge/fichier avec espaces.txt`**
+```
+contenu avec espaces dans le nom
+```
+Utilisé par : T15 (intégration), CU42 (unitaire)
+
+**`data-edge/fichier&special.txt`**
+```
+contenu avec esperluette dans le nom
+```
+Utilisé par : T16 (HTML escaping), CU43 (unitaire)
+
+**`data-edge/<html>chars.txt`**
+```
+contenu avec chevrons dans le nom
+```
+Utilisé par : T16 (injection HTML dans report.html)
+
+**`data-edge/.fichier_cache`**
+```
+contenu fichier cache
+```
+Utilisé par : vérification que `find -type f` indexe les fichiers cachés
+
+**`data-edge/zero_bytes.bin`**
+Fichier vide — 0 octet. Créé avec `touch`.
+
+Utilisé par : T18 (ETA sur fichier vide), CU23 (unitaire)
+
+---
+
+### `bases/reference.b3`
+
+Hash BLAKE3 de `data/`, produit par `core_compute` depuis `tests/fixtures/`.
+
+**Procédure de génération :**
+```bash
+cd tests/fixtures
+../../src/integrity.sh compute ./data bases/reference.b3
+```
+
+**Contenu attendu (hashes exacts à remplir lors de la génération initiale) :**
+```
+<hash_alpha>  ./data/alpha.txt
+<hash_delta>  ./data/sub/delta.txt
+<hash_beta>   ./data/beta.txt
+<hash_gamma>  ./data/gamma.txt
+```
+
+**Invariants vérifiables sans connaître les hashes :**
+- 4 lignes
+- Triées lexicographiquement : `alpha` < `sub/delta` < `beta` < `gamma`
+
+  **Attention :** l'ordre lexicographique binaire (LC_ALL=C) donne :
+  `./data/alpha.txt` < `./data/beta.txt` < `./data/gamma.txt` < `./data/sub/delta.txt`
+  
+  Le tri est sur le chemin complet, pas juste le nom du fichier. `sub/delta` vient après `gamma` car `s` > `g`.
+
+- Tous les chemins commencent par `./data/`
+- Pas de ligne vide, pas de `\r`
+
+---
+
+### `bases/reference-edge.b3`
+
+Hash BLAKE3 de `data-edge/`.
+
+**Procédure de génération :**
+```bash
+cd tests/fixtures
+../../src/integrity.sh compute ./data-edge bases/reference-edge.b3
+```
+
+**Usage :** test de non-régression sur les cas limites — vérifie que les noms de fichiers avec espaces, `&`, `<>` sont correctement traités et indexés.
+
+---
+
+### `reports/reference-identiques.html`
+
+Rapport HTML produit par `compare` quand les deux bases sont identiques (aucune différence).
+
+**Procédure de génération :**
+```bash
+cd tests/fixtures
+# Comparer reference.b3 avec lui-même
+RESULTATS_DIR=/tmp/fixtures-gen ../../src/integrity.sh compare bases/reference.b3 bases/reference.b3
+cp /tmp/fixtures-gen/resultats_reference/report.html reports/reference-identiques.html
+```
+
+**Usage :** test de régression HTML — vérifier que le statut "IDENTIQUES" et les compteurs à zéro sont correctement rendus.
+
+**Ce qui est comparé** (pas le fichier entier — la date change) :
+```bash
+grep -E '(status-badge|stat-value|IDENTIQUES|DIFFÉRENCES)' reports/reference-identiques.html
+```
+
+---
+
+### `reports/reference-diff.html`
+
+Rapport HTML produit quand il y a 1 fichier modifié, 1 disparu, 1 nouveau.
+
+**Procédure de génération :**
+```bash
+cd tests/fixtures
+
+# Créer une base modifiée
+cp -r data/ data-modified/
+echo "contenu modifié" > data-modified/beta.txt      # modifié
+rm data-modified/gamma.txt                           # disparu
+echo "contenu nouveau" > data-modified/epsilon.txt   # nouveau
+
+../../src/integrity.sh compute ./data          bases/reference.b3
+../../src/integrity.sh compute ./data-modified bases/reference-modified.b3
+
+RESULTATS_DIR=/tmp/fixtures-gen ../../src/integrity.sh compare \
+    bases/reference.b3 bases/reference-modified.b3
+cp /tmp/fixtures-gen/resultats_reference/report.html reports/reference-diff.html
+
+rm -rf data-modified bases/reference-modified.b3
+```
+
+**Usage :** test de régression HTML — vérifier que les listes de fichiers modifiés/disparus/nouveaux sont présentes et correctement formatées.
+
+---
+
+## Règles de nommage
+
+| Règle | Raison |
+|---|---|
+| Noms de fichiers en minuscules, tirets comme séparateurs | Cohérence, compatibilité cross-platform |
+| Pas d'espace dans les noms des fixtures **elles-mêmes** (dossiers, fichiers `.b3`, `.html`) | Les fixtures sont référencées dans les scripts — les espaces cassent les chemins non quotés |
+| Les fichiers dans `data-edge/` peuvent avoir des noms avec caractères spéciaux | C'est leur raison d'être |
+| Les fichiers `.b3` et `.html` de référence sont commitées dans git | Ils constituent la définition du comportement attendu |
+
+---
+
+## Procédure d'ajout d'une nouvelle fixture
+
+1. **Identifier le besoin** : quel cas limite ou comportement doit être couvert ?
+2. **Créer le fichier** dans le sous-dossier approprié (`data/`, `data-edge/`, ou nouveau sous-dossier).
+3. **Documenter le fichier** dans ce document : contenu, usage, tests qui s'en servent.
+4. **Régénérer les bases `.b3`** si le jeu de données standard ou edge est modifié.
+5. **Commiter avec un message explicite** : `test(fixtures): add <nom> for <raison>`
+
+---
+
+## Ce qui ne doit PAS être dans les fixtures
+
+| Type | Raison |
+|---|---|
+| Données personnelles | Commitées dans git, publiques |
+| Fichiers binaires volumineux (> 1 Mo) | Alourdissent le repo sans valeur ajoutée |
+| Fichiers `.b3` produits par des versions différentes de b3sum | Invalides sur d'autres machines |
+| Résultats de tests (`recap.txt`, `failed.txt`) | Produits dynamiquement, ne doivent pas être fixés |
+
+---
+
+## Vérification de l'intégrité des fixtures elles-mêmes
+
+Les fixtures peuvent être corrompues si un éditeur modifie les fins de ligne (`\r\n` au lieu de `\n`) ou l'encodage. Un meta-test peut vérifier leur intégrité :
+
+```bash
+# Vérifier que les fichiers de données sont en format Unix (pas de CRLF)
+test_fixtures_unix_format() {
+    local has_crlf=0
+    while IFS= read -r -d '' f; do
+        if file "$f" | grep -q "CRLF"; then
+            fail "fixture en CRLF : $f"
+            has_crlf=1
+        fi
+    done < <(find tests/fixtures/data -type f -print0)
+    [ "$has_crlf" -eq 0 ] && pass "fixtures au format Unix"
+}
+
+# Vérifier que reference.b3 respecte le format b3sum
+test_fixtures_reference_format() {
+    local invalid
+    invalid=$(grep -cvE '^[0-9a-f]{64}  .+' tests/fixtures/bases/reference.b3 || true)
+    [ "$invalid" -eq 0 ] \
+        && pass "reference.b3 format valide" \
+        || fail "reference.b3 : $invalid ligne(s) invalide(s)"
+}
+```
+
+
+--- Fichier : index.md ---
+# Tests — Vue d'ensemble
+
+**Scope :** documentation de la stratégie de test de `hash_tool`  
+**Statut :** spécification — à implémenter  
+**Référence audit :** réponse d'analyse du 24/02/2026
+
+---
+
+## Situation actuelle
+
+| Suite | Fichier | Type | Cas | Statut |
+|---|---|---|---|---|
+| integrity.sh | `tests/run_tests.sh` | Intégration | T00–T14 | ✅ Existant |
+| runner.sh + pipeline | `tests/run_tests_pipeline.sh` | Intégration | TP01–TP12b | ✅ Existant |
+| core.sh (unitaires) | `tests/run_tests_core.sh` | Unitaire | — | ❌ À créer |
+| Docker + entrypoint | `tests/run_tests_docker.sh` | Environnement | — | ❌ À créer |
+| Non-régression .b3 | fixture `tests/fixtures/reference.b3` | Régression | — | ❌ À créer |
+
+**Diagnostic principal :** la pyramide des tests est inversée. Les tests d'intégration sont bien couverts, mais les tests unitaires (`core.sh`) et les tests d'environnement (Docker) sont absents. La CI n'existe pas — les tests ne sont lancés que manuellement.
+
+---
+
+## Suites à créer
+
+### `tests/run_tests_core.sh` — Tests unitaires
+
+Teste chaque fonction de `src/lib/core.sh` en isolation, par sourcing direct, sans passer par `integrity.sh`. Priorité maximale : `core_compare` (algorithme complexe, bug historique en v0.7).
+
+→ Spécification complète : [unit-tests.md](unit-tests.md)
+
+### Extensions de `run_tests.sh` — Edge cases
+
+Ajout des cas T15 à T20+ couvrant les noms de fichiers avec caractères spéciaux, les fichiers vides, les caractères HTML dans les chemins, le mode `--quiet` sur `compare`.
+
+→ Spécification complète : [edge-cases.md](edge-cases.md) et [integration-tests.md](integration-tests.md)
+
+### `tests/fixtures/` — Données de référence
+
+Arborescence de fichiers figés commitée dans git, utilisée pour les tests de non-régression du format `.b3` et les tests de cas limites.
+
+→ Spécification complète : [fixtures.md](fixtures.md) et [regression-tests.md](regression-tests.md)
+
+### `tests/run_tests_docker.sh` — Tests d'environnement
+
+Teste le build Docker, l'entrypoint commande par commande, la taille de l'image, et le comportement multi-plateforme (amd64/arm64).
+
+→ Spécification complète : [docker-tests.md](docker-tests.md)
+
+### CI GitHub Actions
+
+Workflow automatique déclenché à chaque push et PR : jobs unitaires, intégration, Docker, ShellCheck, matrice OS.
+
+→ Spécification complète : [ci-cd.md](ci-cd.md)
+
+---
+
+## Arborescence cible
+
+```
+tests/
+├── run_tests.sh                   ← existant — intégration integrity.sh (T00–T20+)
+├── run_tests_pipeline.sh          ← existant — intégration runner.sh (TP01–TP12b)
+├── run_tests_core.sh              ← à créer  — unitaires core.sh
+├── run_tests_docker.sh            ← à créer  — environnement Docker
+└── fixtures/
+    ├── data/
+    │   ├── alpha.txt              ← fichier texte standard
+    │   ├── beta.txt               ← fichier texte standard
+    │   ├── fichier avec espaces.txt
+    │   ├── fichier&special.txt
+    │   ├── <html>chars.txt
+    │   └── zero_bytes.bin         ← fichier de taille zéro
+    └── reference.b3               ← hash de référence pour non-régression
+```
+
+---
+
+## Ordre d'implémentation recommandé
+
+| Priorité | Livrable | Valeur | Effort |
+|---|---|---|---|
+| 1 | CI GitHub Actions (squelette minimal) | Détection régression sur PR | ~2h |
+| 2 | `run_tests_core.sh` | Isolation des bugs `core.sh` | ~4h |
+| 3 | `tests/fixtures/` + non-régression `.b3` | Détection régression silencieuse | ~1h |
+| 4 | Edge cases T15–T20 dans `run_tests.sh` | Couverture cas limites | ~2h |
+| 5 | `run_tests_docker.sh` | Couverture environnement Docker | ~3h |
+| 6 | Format TAP dans toutes les suites | Interopérabilité CI | ~2h |
+
+---
+
+## Règle d'or
+
+> Un test n'a de valeur que s'il est lancé automatiquement à chaque modification.  
+> La CI est le seul mécanisme qui garantit cette propriété.  
+> Implémenter la CI en premier, avant même d'écrire de nouveaux tests.
+
+---
+
+## Documents de cette section
+
+| Document | Contenu |
+|---|---|
+| [strategy.md](strategy.md) | Décisions, objectifs de couverture, définition de "done" |
+| [unit-tests.md](unit-tests.md) | Spécification `run_tests_core.sh` |
+| [integration-tests.md](integration-tests.md) | Extensions `run_tests.sh` et `run_tests_pipeline.sh` |
+| [regression-tests.md](regression-tests.md) | Non-régression format `.b3`, fixtures statiques |
+| [edge-cases.md](edge-cases.md) | Catalogue des cas limites |
+| [docker-tests.md](docker-tests.md) | Spécification `run_tests_docker.sh` |
+| [fixtures.md](fixtures.md) | Spécification `tests/fixtures/` |
+| [tap-format.md](tap-format.md) | Format TAP, helpers bash |
+| [ci-cd.md](ci-cd.md) | Workflow GitHub Actions |
+
+
+--- Fichier : integration-tests.md ---
+# Tests d'intégration — Extensions des suites existantes
+
+---
+
+## Périmètre
+
+Ce document spécifie les cas à ajouter aux suites d'intégration existantes :
+- `run_tests.sh` : cas T15 à T20 (extensions de la suite integrity.sh)
+- `run_tests_pipeline.sh` : cas TP13 à TP15 (extensions de la suite runner.sh)
+
+Les cas existants T00–T14 et TP01–TP12b ne sont pas modifiés.
+
+---
+
+## Extensions de `run_tests.sh`
+
+### T15 — Fichier avec newline dans le nom
+
+**Motivation :** les noms de fichiers Linux peuvent légalement contenir des newlines. `find | wc -l` ou `xargs` sans `-0` cassent sur ce cas. `mapfile -d ''` et `find -print0` sont censés tenir — ce test le vérifie.
+
+**Précondition :**
+```bash
+printf "contenu\n" > "$WORKDIR/data/$'nom\navec\nnewline.txt'"
+bash "$INTEGRITY" compute ./data base_t15.b3
+```
+
+**Assertions :**
+- `base_t15.b3` contient exactement autant de lignes que de fichiers dans `./data` (le fichier avec newline compte pour 1)
+- `bash "$INTEGRITY" verify base_t15.b3` → exit 0, aucun FAILED
+
+**Oracle :** si le test échoue, `mapfile -d ''` ou `sort -z` ne gèrent pas correctement les newlines dans les noms — le fichier est compté plusieurs fois ou ignoré.
+
+---
+
+### T16 — Caractères HTML dans les noms de fichiers
+
+**Motivation :** `report.html` est généré via `generate_compare_html`. La fonction `html_escape` est censée protéger contre l'injection HTML. Ce test vérifie que les caractères `<`, `>`, `&` dans les noms de fichiers sont bien échappés dans le rapport.
+
+**Précondition :**
+```bash
+echo "v1" > "$WORKDIR/data_old/<script>alert.txt"
+echo "v1" > "$WORKDIR/data_old/a&b.txt"
+echo "v2" > "$WORKDIR/data_new/<script>alert.txt"   # modifié
+echo "v1" > "$WORKDIR/data_new/a&b.txt"             # inchangé
+bash "$INTEGRITY" compute ./data_old base_t16_old.b3
+bash "$INTEGRITY" compute ./data_new base_t16_new.b3
+bash "$INTEGRITY" compare base_t16_old.b3 base_t16_new.b3
+```
+
+**Assertions sur `report.html` :**
+- Ne contient PAS la chaîne `<script>` littérale (serait une injection)
+- Contient `&lt;script&gt;` (échappement correct)
+- Contient `&amp;` pour le `&` de `a&b.txt`
+- Est un HTML valide (balises ouvertes = balises fermées, au minimum)
+
+**Oracle :** si `<script>` apparaît littéralement dans le HTML, `html_escape` ne fonctionne pas et le rapport est vulnérable à l'injection.
+
+```bash
+# Assertions spécifiques
+local html_content
+html_content=$(cat "$outdir/report.html")
+assert_not_contains "T16 pas de <script> brut"   "<script>"      "$html_content"
+assert_contains     "T16 échappement lt/gt"       "&lt;script&gt;" "$html_content"
+assert_contains     "T16 échappement esperluette" "&amp;"          "$html_content"
+```
+
+---
+
+### T17 — `--quiet` sur `compare`
+
+**Motivation :** T12 couvre `--quiet` sur `verify` et `compute` mais pas sur `compare`. Le mode `--quiet` doit aussi supprimer la sortie de `compare`.
+
+**Précondition :**
+```bash
+bash "$INTEGRITY" compute ./data base_t17a.b3
+echo "contenu modifié" > data/alpha.txt
+bash "$INTEGRITY" compute ./data base_t17b.b3
+```
+
+**Assertions :**
+- `bash "$INTEGRITY" --quiet compare base_t17a.b3 base_t17b.b3` → stdout vide
+- Les fichiers de résultats sont quand même produits (`recap.txt`, `modifies.b3`, `report.html`)
+- Exit code = 0 (compare ne lève pas d'erreur sur les différences)
+
+```bash
+local out_quiet
+out_quiet=$(bash "$INTEGRITY" --quiet compare base_t17a.b3 base_t17b.b3 2>&1)
+assert_not_contains "T17 stdout vide en quiet"      "Résultats"  "$out_quiet"
+assert_not_contains "T17 stdout vide en quiet"      "modifiés"   "$out_quiet"
+local outdir
+outdir=$(ls -d "${RESULTATS_DIR}/resultats_base_t17a"* 2>/dev/null | tail -1)
+assert_file_exists  "T17 recap.txt produit"         "${outdir}/recap.txt"
+assert_file_exists  "T17 report.html produit"       "${outdir}/report.html"
+```
+
+---
+
+### T18 — Fichier de taille zéro dans compute
+
+**Motivation :** dans `core_compute`, la branche `if (( fsize > 0 ))` protège le calcul ETA quand `fsize == 0`. Ce test vérifie que la présence d'un fichier vide ne plante pas le calcul et que le fichier est quand même indexé.
+
+**Précondition :**
+```bash
+echo "contenu" > data/normal.txt
+touch data/zero.bin    # taille zéro
+bash "$INTEGRITY" compute ./data base_t18.b3
+```
+
+**Assertions :**
+- `base_t18.b3` contient exactement 2 lignes
+- La ligne pour `zero.bin` est au format b3sum valide (hash de contenu vide)
+- `bash "$INTEGRITY" verify base_t18.b3` → exit 0
+
+**Note :** le hash BLAKE3 d'un fichier vide est déterministe et connu — il peut être utilisé comme assertion dure si nécessaire.
+
+---
+
+### T19 — Lien symbolique dans le dossier source
+
+**Motivation :** le comportement de `find -type f` sur les liens symboliques dépend de la version de `find` et des flags. Par défaut, `find -type f` ne suit pas les liens symboliques — ils sont ignorés. Ce comportement doit être documenté et vérifié.
+
+**Précondition :**
+```bash
+echo "contenu cible" > data/cible.txt
+ln -s data/cible.txt data/lien.txt    # lien symbolique
+bash "$INTEGRITY" compute ./data base_t19.b3
+```
+
+**Assertions :**
+- `base_t19.b3` contient exactement 1 ligne (le lien symbolique est ignoré par `find -type f`)
+- La ligne présente correspond à `cible.txt`, pas à `lien.txt`
+
+**Si le comportement attendu change** (décision de suivre les liens) : adapter ce test et documenter la décision dans `architecture.md`.
+
+---
+
+### T20 — Horodatage : deux compare successifs sur la même base
+
+**Motivation :** T13 vérifie l'anti-écrasement pour `verify`. Ce test vérifie le même comportement pour `compare`.
+
+**Précondition :**
+```bash
+bash "$INTEGRITY" compute ./data base_t20.b3
+bash "$INTEGRITY" compare base_t20.b3 base_t20.b3   # compare une base avec elle-même
+sleep 1
+bash "$INTEGRITY" compare base_t20.b3 base_t20.b3
+```
+
+**Assertions :**
+- Deux dossiers distincts existent sous `$RESULTATS_DIR` : `resultats_base_t20` et `resultats_base_t20_YYYYMMDD-HHMMSS`
+
+```bash
+local nb
+nb=$(ls -d "${RESULTATS_DIR}/resultats_base_t20"* 2>/dev/null | wc -l)
+[ "$nb" -ge 2 ] && pass "T20 deux dossiers distincts" || fail "T20 écrasement détecté ($nb dossier(s))"
+```
+
+---
+
+## Extensions de `run_tests_pipeline.sh`
+
+### TP13 — Pipeline avec verify qui échoue : les blocs suivants ne s'exécutent pas
+
+**Motivation :** `runner.sh` utilise `set -euo pipefail`. Un `verify` qui échoue doit stopper le pipeline immédiatement. Ce comportement n'est pas explicitement testé.
+
+**Précondition :**
+```json
+{
+    "pipeline": [
+        { "op": "compute", "source": "$WORKDIR/src_a", "bases": "$WORKDIR/bases", "nom": "tp13.b3" },
+        { "op": "verify",  "source": "$WORKDIR/src_a_corrupt", "base": "$WORKDIR/bases/tp13.b3" },
+        { "op": "compute", "source": "$WORKDIR/src_b", "bases": "$WORKDIR/bases", "nom": "tp13_b.b3" }
+    ]
+}
+```
+
+Avec `src_a_corrupt` contenant un fichier modifié par rapport à la base.
+
+**Assertions :**
+- Exit code du runner ≠ 0
+- `tp13_b.b3` n'existe pas (le troisième bloc ne s'est pas exécuté)
+
+---
+
+### TP14 — Champ `nom` avec sous-dossier dans `bases`
+
+**Motivation :** le champ `nom` est concaténé à `bases` via `"$bases_abs/$nom"`. Si `nom` contient un `/`, le comportement doit être défini.
+
+**Cas testé :** `"nom": "sous/hashes.b3"`
+
+**Assertions :**
+- Le dossier `$WORKDIR/bases/sous/` est créé automatiquement (via le `mkdir -p` dans `run_compute`)
+- `hashes.b3` est créé dans ce sous-dossier
+- OU : erreur explicite si les sous-dossiers dans `nom` ne sont pas supportés (dans ce cas, documenter la limite)
+
+---
+
+### TP15 — Pipeline vide (tableau pipeline avec zéro opérations)
+
+**Motivation :** le cas `"pipeline": []` doit être rejeté proprement.
+
+```json
+{ "pipeline": [] }
+```
+
+**Assertions :**
+- Exit code ≠ 0
+- Message d'erreur contient "vide" ou "absent"
+- Aucun effet de bord (aucun fichier créé)
+
+---
+
+## Tableau de synthèse
+
+| ID | Suite | Motivation principale | Risque si absent |
+|---|---|---|---|
+| T15 | run_tests.sh | Newlines dans noms | Crash silencieux sur fichiers exotiques |
+| T16 | run_tests.sh | Injection HTML dans report.html | Rapport corrompu ou vulnérable |
+| T17 | run_tests.sh | `--quiet` sur compare | Mode silencieux partiellement cassé |
+| T18 | run_tests.sh | Fichier taille zéro | Crash ETA ou fichier non indexé |
+| T19 | run_tests.sh | Liens symboliques | Comportement non documenté et non garanti |
+| T20 | run_tests.sh | Anti-écrasement sur compare | Résultats précédents écrasés silencieusement |
+| TP13 | run_tests_pipeline.sh | Arrêt sur verify échoué | Pipeline continue après corruption détectée |
+| TP14 | run_tests_pipeline.sh | `nom` avec sous-dossier | Comportement indéfini, potentiel crash |
+| TP15 | run_tests_pipeline.sh | Pipeline vide | Message d'erreur absent ou cryptique |
+
+
+--- Fichier : regression-tests.md ---
+# Tests de non-régression — Format `.b3` et fixtures statiques
+
+---
+
+## Principe
+
+Un test de non-régression capture un comportement connu et correct, le fige comme référence, puis vérifie à chaque modification que ce comportement est inchangé.
+
+Pour `hash_tool`, le comportement le plus critique à figer est le **format du fichier `.b3`** produit par `core_compute`. Toute modification — même accidentelle — du format de sortie invalide toutes les bases existantes des utilisateurs.
+
+---
+
+## Risques couverts
+
+| Modification silencieuse | Impact utilisateur |
+|---|---|
+| Changement du séparateur (1 espace au lieu de 2) | Toutes les bases existantes invalides pour `b3sum --check` |
+| Changement de l'ordre de tri (locale différente) | `compare` produit des faux positifs massifs |
+| Ajout d'un préfixe ou suffixe dans les chemins | `verify` échoue sur toutes les bases existantes |
+| Ligne vide en fin de fichier | `core_assert_b3_valid` rejette les bases existantes |
+| Retour chariot `\r` introduit | `b3sum --check` échoue sur certains OS |
+| Mise à jour de `b3sum` changeant le format de sortie | Rupture totale de compatibilité |
+
+---
+
+## Structure des fixtures
+
+```
+tests/fixtures/
+├── data/
+│   ├── alpha.txt          ← "contenu alpha\n"
+│   ├── beta.txt           ← "contenu beta\n"
+│   ├── gamma.txt          ← "contenu gamma\n"
+│   └── sub/
+│       └── delta.txt      ← "contenu delta\n"
+└── reference.b3           ← produit par core_compute sur ./data, commité dans git
+```
+
+Le contenu de chaque fichier est **figé et documenté**. Ne jamais modifier les fichiers dans `tests/fixtures/data/` sans régénérer `reference.b3` et expliquer le changement dans la PR.
+
+---
+
+## Génération initiale de `reference.b3`
+
+À faire une seule fois, sur une machine avec `b3sum` installé :
+
+```bash
+cd tests/fixtures
+
+# Créer les fichiers de données
+mkdir -p data/sub
+printf "contenu alpha\n" > data/alpha.txt
+printf "contenu beta\n"  > data/beta.txt
+printf "contenu gamma\n" > data/gamma.txt
+printf "contenu delta\n" > data/sub/delta.txt
+
+# Générer la référence via core_compute
+# (utiliser integrity.sh pour garantir le même chemin de code)
+../../src/integrity.sh compute ./data reference.b3
+
+# Vérifier le contenu
+cat reference.b3
+# Attendu : 4 lignes, chemins commençant par ./data/, triées, format b3sum
+
+# Commiter
+git add data/ reference.b3
+git commit -m "test(fixtures): add reference.b3 for format regression tests"
+```
+
+---
+
+## Test de non-régression — implémentation
+
+Ce test est à ajouter dans `run_tests.sh` comme cas **T_REG01** (ou dans une section dédiée) :
+
+```bash
+echo "T_REG - Non-régression format .b3"
+
+FIXTURES_DIR="$SCRIPT_DIR/fixtures"
+
+# Vérifier que les fixtures existent
+[ -d "$FIXTURES_DIR/data" ] || { echo "SKIP - fixtures absentes"; return; }
+[ -f "$FIXTURES_DIR/reference.b3" ] || { echo "SKIP - reference.b3 absent"; return; }
+
+# Compute sur les fixtures
+( cd "$FIXTURES_DIR" && bash "$INTEGRITY" compute ./data "$WORKDIR/output_reg.b3" >/dev/null 2>&1 )
+
+# Comparaison bit-à-bit
+if diff "$FIXTURES_DIR/reference.b3" "$WORKDIR/output_reg.b3" >/dev/null 2>&1; then
+    pass "T_REG01 format .b3 stable"
+else
+    fail "T_REG01 régression du format .b3 détectée"
+    echo "  Diff :"
+    diff "$FIXTURES_DIR/reference.b3" "$WORKDIR/output_reg.b3" | head -20
+fi
+```
+
+---
+
+## Contenu attendu de `reference.b3`
+
+Exemple de contenu attendu (les hashes réels dépendent du contenu exact des fichiers) :
+
+```
+<hash_alpha_64chars>  ./data/alpha.txt
+<hash_delta_64chars>  ./data/sub/delta.txt
+<hash_beta_64chars>   ./data/beta.txt
+<hash_gamma_64chars>  ./data/gamma.txt
+```
+
+**Invariants vérifiables sans connaître les hashes :**
+- 4 lignes exactement
+- Chaque ligne : 64 chars hex + `  ` (2 espaces) + chemin
+- Chemins triés lexicographiquement (`alpha` < `sub/delta` car `a` < `s`)
+- Pas de ligne vide
+- Pas de `\r` (format Unix)
+- Tous les chemins commencent par `./data/`
+
+Ces invariants peuvent être testés indépendamment du contenu des hashes :
+
+```bash
+# Test des invariants structurels (sans dépendre de reference.b3)
+local b3="$WORKDIR/output_reg.b3"
+
+# Nombre de lignes
+assert_line_count "T_REG02 4 fichiers indexés" 4 "$b3"
+
+# Format de chaque ligne
+local invalid_lines
+invalid_lines=$(grep -cvE '^[0-9a-f]{64}  .+' "$b3" || true)
+[ "$invalid_lines" -eq 0 ] && pass "T_REG03 format b3sum valide" || fail "T_REG03 $invalid_lines ligne(s) invalide(s)"
+
+# Pas de retour chariot
+assert_not_contains "T_REG04 pas de CRLF" $'\r' "$(cat "$b3")"
+
+# Chemins relatifs
+assert_not_contains "T_REG05 pas de chemin absolu" "$(pwd)" "$(cat "$b3")"
+
+# Tri correct
+local sorted_check
+sorted_check=$(sort "$b3")
+[ "$(cat "$b3")" = "$sorted_check" ] && pass "T_REG06 trié" || fail "T_REG06 non trié"
+```
+
+---
+
+## Procédure de mise à jour de `reference.b3`
+
+Quand une modification intentionnelle du comportement change le format de sortie :
+
+### Étape 1 — Vérifier que le changement est délibéré
+
+Le test `T_REG01` échoue. Avant toute mise à jour, répondre aux questions :
+- Pourquoi le format a-t-il changé ?
+- Est-ce documenté dans `CHANGELOG.md` ?
+- Les bases `.b3` existantes des utilisateurs sont-elles impactées ?
+- Faut-il fournir un outil de migration ?
+
+### Étape 2 — Régénérer
+
+```bash
+cd tests/fixtures
+../../src/integrity.sh compute ./data reference.b3
+```
+
+### Étape 3 — Valider manuellement
+
+```bash
+# Vérifier que le nouveau reference.b3 respecte les invariants
+wc -l reference.b3                                  # doit afficher 4
+grep -cE '^[0-9a-f]{64}  .+' reference.b3          # doit afficher 4
+grep -c $'\r' reference.b3 || true                  # doit afficher 0
+```
+
+### Étape 4 — Commiter avec un message explicite
+
+```bash
+git add reference.b3
+git commit -m "fix(fixtures): update reference.b3 — [raison du changement]"
+```
+
+### Étape 5 — Le diff dans la PR est un signal de revue obligatoire
+
+Tout reviewer doit inspecter le diff de `reference.b3`. Un diff non expliqué dans le message de commit est un signal d'alerte.
+
+---
+
+## Fixtures supplémentaires pour les tests de régression HTML
+
+Le rapport `report.html` est aussi sujet à régression. Une fixture statique peut capturer la structure HTML attendue :
+
+```
+tests/fixtures/
+└── reports/
+    └── reference_compare_empty.html    ← rapport quand modifies/disparus/nouveaux sont tous vides
+    └── reference_compare_diff.html     ← rapport avec 1 modifié, 1 disparu, 1 nouveau
+```
+
+Ces fixtures sont plus difficiles à maintenir (le CSS change, la date change). La solution est de comparer uniquement les **parties structurelles** :
+
+```bash
+# Extraire et comparer uniquement le statut et les compteurs, pas le CSS ni la date
+grep -E '(status-badge|stat-value|section-count)' report.html > /tmp/report_structure.txt
+diff tests/fixtures/reports/reference_structure.txt /tmp/report_structure.txt
+```
+
+
+--- Fichier : strategy.md ---
+# Stratégie de test — Décisions et objectifs
+
+---
+
+## Contexte
+
+`hash_tool` est un outil de vérification d'intégrité. Une erreur non détectée dans sa logique de comparaison ou de vérification peut conduire à un faux négatif : une corruption de données passant inaperçue. Le niveau d'exigence sur la fiabilité du code est donc élevé, même si l'outil n'opère pas dans un contexte adversarial.
+
+---
+
+## Objectifs de couverture
+
+### Par module
+
+| Module | Type de test requis | Couverture cible |
+|---|---|---|
+| `src/lib/core.sh` | Unitaire | 100% des fonctions publiques, toutes les branches |
+| `src/lib/ui.sh` | Intégration (via integrity.sh) | Chemins nominaux + mode `--quiet` |
+| `src/lib/results.sh` | Intégration (via integrity.sh) | Fichiers produits, contenu, cas absent |
+| `src/lib/report.sh` | Intégration + edge cases HTML | Échappement, cas vide, cas plein |
+| `src/integrity.sh` | Intégration | T00–T20+, tous les modes |
+| `runner.sh` | Intégration | TP01–TP12b+, tous les champs JSON |
+| `docker/entrypoint.sh` | Environnement | Toutes les commandes, cas d'erreur |
+| `Dockerfile` | Build | amd64, arm64, taille image |
+
+### Par type de test
+
+| Type | Suite | Objectif |
+|---|---|---|
+| Unitaire | `run_tests_core.sh` | Localiser précisément l'origine d'un bug |
+| Intégration | `run_tests.sh`, `run_tests_pipeline.sh` | Valider les interfaces entre modules |
+| Non-régression | fixture `reference.b3` + diff | Détecter les régressions silencieuses de format |
+| Edge cases | T15–T20+ dans `run_tests.sh` | Garantir la robustesse sur les entrées limites |
+| Environnement | `run_tests_docker.sh` | Valider l'image Docker et l'entrypoint |
+
+---
+
+## Définition de "done" pour un test
+
+Un test est considéré complet quand :
+
+1. **Il a un nom explicite** décrivant la condition testée et le résultat attendu.  
+   Exemple : `test_compare_chemins_avec_esperluette_dans_modifies_b3`
+
+2. **Il est isolé** : il ne dépend d'aucun autre test, d'aucun fichier extérieur au `WORKDIR`, d'aucune variable globale non initialisée localement.
+
+3. **Il est reproductible** : relancé 10 fois dans 10 environnements différents, il donne le même résultat.
+
+4. **Il documente l'oracle** : le commentaire ou le nom du test indique ce qui est vérifié et pourquoi c'est le bon résultat attendu.
+
+5. **Il nettoie après lui** : tout fichier temporaire créé est supprimé, même en cas d'échec (via `trap EXIT`).
+
+6. **Il passe ShellCheck** sans warning.
+
+---
+
+## Politique ShellCheck
+
+ShellCheck zéro warning est une condition bloquante. Aucune PR ne peut merger si ShellCheck produit un warning sur les fichiers suivants :
+
+```
+src/integrity.sh
+runner.sh
+src/lib/core.sh
+src/lib/ui.sh
+src/lib/results.sh
+src/lib/report.sh
+docker/entrypoint.sh
+tests/run_tests.sh
+tests/run_tests_pipeline.sh
+tests/run_tests_core.sh        ← nouveau
+tests/run_tests_docker.sh      ← nouveau
+```
+
+Commande de vérification :
+```bash
+shellcheck src/integrity.sh runner.sh src/lib/*.sh docker/entrypoint.sh tests/*.sh
+```
+
+---
+
+## Règles d'écriture des tests
+
+### Isolation
+
+```bash
+# ✓ Correct : WORKDIR isolé par test ou par suite
+local WORKDIR
+WORKDIR=$(mktemp -d /tmp/integrity-test.XXXXXX)
+trap "rm -rf '$WORKDIR'" EXIT
+```
+
+```bash
+# ✓ Correct : cd isolé dans un sous-shell
+( cd "$WORKDIR" && bash "$INTEGRITY" compute . base.b3 )
+```
+
+```bash
+# ❌ Interdit : cd sans sous-shell
+cd "$WORKDIR"
+bash "$INTEGRITY" compute . base.b3
+# Le répertoire courant fuit vers les tests suivants
+```
+
+### Variables d'environnement
+
+```bash
+# ✓ Correct : RESULTATS_DIR local à la suite
+export RESULTATS_DIR="$WORKDIR/resultats"
+
+# ❌ Interdit : RESULTATS_DIR global non réinitialisé entre les suites
+```
+
+### Assertions
+
+Toute assertion doit produire un message explicite en cas d'échec :
+
+```bash
+# ✓ Correct
+assert_contains "modifies.b3 contient beta.txt" "beta.txt" "$(cat modifies.b3)"
+
+# ❌ Insuffisant
+[ -s modifies.b3 ] && pass "ok" || fail "ko"
+# → en cas d'échec, impossible de savoir ce qui était attendu
+```
+
+### Nettoyage garanti
+
+```bash
+# Pattern obligatoire pour tout fichier temporaire
+local tmpfile
+tmpfile=$(mktemp)
+trap "rm -f '$tmpfile'" EXIT
+# ... utilisation de tmpfile ...
+# Pas besoin de rm explicite — le trap s'en charge
+```
+
+---
+
+## Politique de mise à jour des fixtures
+
+Quand un test de non-régression échoue suite à une modification intentionnelle du comportement :
+
+1. Vérifier que la modification est délibérée et documentée dans `CHANGELOG.md`.
+2. Regénérer la fixture : `cd tests/fixtures && ../../src/integrity.sh compute ./data reference.b3`
+3. Commiter `reference.b3` avec un message explicite : `fix(fixtures): update reference.b3 after sort order change in core_compute`
+4. Le diff de `reference.b3` dans la PR est un signal de revue — tout reviewer doit l'examiner.
+
+---
+
+## Politique de mise à jour des suites existantes
+
+À chaque bug corrigé dans le code, un test de non-régression couvrant ce bug doit être ajouté **dans la même PR**. Référence : le changelog documente trois bugs qui auraient été détectés plus tôt avec des tests unitaires (v0.6 : `grep -c '.'`, `sort -k2` ; v0.7 : parsing `awk $2` sur chemins avec espaces).
+
+---
+
+## Ce qui n'est pas testé — limites acceptées
+
+| Scénario | Raison de l'exclusion |
+|---|---|
+| Performances / temps d'exécution | Trop dépendant du matériel, faux positifs en CI |
+| Comportement sur systèmes de fichiers exotiques (NTFS, exFAT) | Environnement CI Linux uniquement |
+| Internationalisation (noms de fichiers non UTF-8) | Comportement documenté comme "octets opaques", hors scope |
+| Comportement sur bash 3.x (macOS défaut) | Rejeté explicitement par `integrity.sh` au démarrage |
+| Concurrence / appels parallèles | `hash_tool` est mono-processus par conception |
+
+
+--- Fichier : tap-format.md ---
+# Format TAP — Spécification et implémentation
+
+---
+
+## Qu'est-ce que TAP ?
+
+TAP (Test Anything Protocol) est un format texte standard pour les résultats de tests. Créé en 1987 pour Perl, il est aujourd'hui supporté par la quasi-totalité des systèmes CI et des outils de test multi-langages.
+
+**Avantage principal :** TAP est lisible par un humain ET parseable par une machine sans configuration supplémentaire. GitHub Actions, GitLab CI, Jenkins et des dizaines d'autres outils savent afficher des rapports visuels à partir de TAP.
+
+---
+
+## Format TAP 14 — Syntaxe
+
+```
+TAP version 14
+1..N
+ok 1 - description du test
+not ok 2 - description du test échoué
+# commentaire ou diagnostic (ignoré par les parseurs)
+ok 3 - description
+not ok 4 - test avec diagnostic
+  ---
+  message: valeur attendue
+  found: valeur obtenue
+  ...
+```
+
+### Règles
+
+| Élément | Syntaxe | Obligatoire |
+|---|---|---|
+| Déclaration de version | `TAP version 14` | Recommandé, première ligne |
+| Plan | `1..N` (N = nombre total de tests) | Oui — doit apparaître avant ou après les tests |
+| Test réussi | `ok N - description` | — |
+| Test échoué | `not ok N - description` | — |
+| Diagnostic | `# texte libre` | Non |
+| YAML block (détail d'échec) | `  ---\n  clé: valeur\n  ...` | Non |
+| Test ignoré | `ok N - description # SKIP raison` | Non |
+| Test attendu en échec | `not ok N - description # TODO raison` | Non |
+
+---
+
+## Implémentation dans les suites bash
+
+### Helpers à inclure dans chaque suite
+
+```bash
+#!/usr/bin/env bash
+# helpers-tap.sh — à sourcer dans chaque suite de tests
+# Usage : source helpers-tap.sh
+
+TAP_TOTAL=0
+TAP_PASS=0
+TAP_FAIL=0
+TAP_TESTS=()   # tableau des résultats pour le plan final
+
+# Déclare le plan en tête (si le nombre est connu à l'avance)
+# Usage : tap_plan 42
+tap_plan() {
+    echo "TAP version 14"
+    echo "1..$1"
+}
+
+# Enregistre un succès
+# Usage : tap_ok "description du test"
+tap_ok() {
+    TAP_TOTAL=$(( TAP_TOTAL + 1 ))
+    TAP_PASS=$(( TAP_PASS + 1 ))
+    printf "ok %d - %s\n" "$TAP_TOTAL" "$1"
+}
+
+# Enregistre un échec avec diagnostic optionnel
+# Usage : tap_not_ok "description" ["message de diagnostic"]
+tap_not_ok() {
+    TAP_TOTAL=$(( TAP_TOTAL + 1 ))
+    TAP_FAIL=$(( TAP_FAIL + 1 ))
+    printf "not ok %d - %s\n" "$TAP_TOTAL" "$1"
+    if [ -n "${2:-}" ]; then
+        printf "  ---\n  message: %s\n  ...\n" "$2"
+    fi
+}
+
+# Skip un test avec raison
+# Usage : tap_skip "description" "raison du skip"
+tap_skip() {
+    TAP_TOTAL=$(( TAP_TOTAL + 1 ))
+    printf "ok %d - %s # SKIP %s\n" "$TAP_TOTAL" "$1" "$2"
+}
+
+# Affiche le résumé final (quand le plan n'est pas connu à l'avance)
+tap_summary() {
+    echo "1..$TAP_TOTAL"
+    echo "# Tests : $TAP_TOTAL | Passés : $TAP_PASS | Échecs : $TAP_FAIL"
+}
+
+# Assertions de haut niveau construites sur tap_ok/tap_not_ok
+
+# assert_exit_zero <label> <commande...>
+assert_exit_zero() {
+    local label="$1"; shift
+    if "$@" >/dev/null 2>&1; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "commande a retourné exit non-zéro : $*"
+    fi
+}
+
+# assert_exit_nonzero <label> <commande...>
+assert_exit_nonzero() {
+    local label="$1"; shift
+    if ! "$@" >/dev/null 2>&1; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "commande aurait dû échouer : $*"
+    fi
+}
+
+# assert_contains <label> <pattern> <chaine>
+assert_contains() {
+    local label="$1" pattern="$2" string="$3"
+    if echo "$string" | grep -q "$pattern"; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "pattern '$pattern' absent dans : $(echo "$string" | head -3)"
+    fi
+}
+
+# assert_not_contains <label> <pattern> <chaine>
+assert_not_contains() {
+    local label="$1" pattern="$2" string="$3"
+    if ! echo "$string" | grep -q "$pattern"; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "pattern '$pattern' présent à tort dans : $(echo "$string" | head -3)"
+    fi
+}
+
+# assert_file_exists <label> <fichier>
+assert_file_exists() {
+    local label="$1" file="$2"
+    if [ -f "$file" ]; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "fichier absent : $file"
+    fi
+}
+
+# assert_file_absent <label> <fichier>
+assert_file_absent() {
+    local label="$1" file="$2"
+    if [ ! -f "$file" ]; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "fichier présent à tort : $file"
+    fi
+}
+
+# assert_line_count <label> <expected> <fichier>
+assert_line_count() {
+    local label="$1" expected="$2" file="$3"
+    local actual
+    actual=$(wc -l < "$file")
+    if [ "$actual" -eq "$expected" ]; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "attendu $expected lignes, obtenu $actual"
+    fi
+}
+
+# assert_eq <label> <expected> <actual>
+assert_eq() {
+    local label="$1" expected="$2" actual="$3"
+    if [ "$expected" = "$actual" ]; then
+        tap_ok "$label"
+    else
+        tap_not_ok "$label" "attendu '$expected', obtenu '$actual'"
+    fi
+}
+```
+
+---
+
+## Exemple de sortie TAP pour `run_tests_core.sh`
+
+```
+TAP version 14
+1..53
+ok 1 - CU01 fichier absent → exit 1
+ok 2 - CU02 chemin est un dossier → exit 1
+ok 3 - CU03 fichier vide → exit 1
+ok 4 - CU04 format invalide → exit 1
+ok 5 - CU05 hash trop court → exit 1
+ok 6 - CU06 hash trop long → exit 1
+ok 7 - CU07 hash avec majuscules → exit 1
+ok 8 - CU08 ligne valide unique → exit 0
+ok 9 - CU09 plusieurs lignes valides → exit 0
+not ok 10 - CU10 mélange valide/invalide → exit 1
+  ---
+  message: attendu exit 1, obtenu 0
+  ...
+ok 11 - CU11 label dans message d'erreur
+# T_CORE02 - core_assert_target_valid
+ok 12 - CU12 dossier absent → exit 1
+...
+```
+
+---
+
+## Intégration avec GitHub Actions
+
+GitHub Actions ne parse pas TAP nativement, mais plusieurs actions le font :
+
+### Option 1 — `dorny/test-reporter`
+
+```yaml
+- name: Run tests (TAP output)
+  run: cd tests && ./run_tests_core.sh > /tmp/core-results.tap || true
+
+- name: Publish test results
+  uses: dorny/test-reporter@v1
+  if: always()
+  with:
+    name: Unit Tests
+    path: /tmp/core-results.tap
+    reporter: tap
+```
+
+### Option 2 — Conversion TAP → JUnit XML (plus universelle)
+
+```bash
+# Installer tap-junit
+npm install -g tap-junit
+
+# Dans la CI
+cd tests && ./run_tests_core.sh | tap-junit --name "core" > /tmp/core-junit.xml
+```
+
+```yaml
+- uses: mikepenz/action-junit-report@v4
+  with:
+    report_paths: /tmp/*-junit.xml
+```
+
+### Option 3 — Sortie colorée en terminal, TAP en CI
+
+Détecter si on est en CI et adapter le format :
+
+```bash
+# En tête de chaque suite
+if [ -n "${CI:-}" ]; then
+    # Format TAP pour la CI
+    tap_ok()     { printf "ok %d - %s\n"     "$((++TAP_TOTAL))" "$1"; }
+    tap_not_ok() { printf "not ok %d - %s\n" "$((++TAP_TOTAL))" "$1"; TAP_FAIL=$((TAP_FAIL+1)); }
+else
+    # Format coloré pour le terminal local
+    GREEN='\033[0;32m'; RED='\033[0;31m'; NC='\033[0m'
+    tap_ok()     { echo -e "${GREEN}  PASS${NC} - $1"; }
+    tap_not_ok() { echo -e "${RED}  FAIL${NC} - $1"; TAP_FAIL=$((TAP_FAIL+1)); }
+fi
+```
+
+---
+
+## Stratégie de migration des suites existantes
+
+Les suites `run_tests.sh` et `run_tests_pipeline.sh` utilisent actuellement des helpers `pass()`/`fail()` avec sortie colorée. La migration vers TAP se fait en deux étapes :
+
+### Étape 1 — Compatibilité ascendante
+
+Remplacer les helpers existants par les helpers TAP tout en conservant la sortie colorée en mode terminal. Seul le format change en CI (`CI` est défini automatiquement dans GitHub Actions).
+
+Avant :
+```bash
+PASS=0; FAIL=0; TOTAL=0
+pass() { echo -e "${GREEN}  PASS${NC} - $1"; ((PASS++)); ((TOTAL++)); }
+fail() { echo -e "${RED}  FAIL${NC} - $1"; ((FAIL++)); ((TOTAL++)); }
+```
+
+Après (compatible backward + TAP en CI) :
+```bash
+source "$(dirname "$0")/helpers-tap.sh"
+```
+
+### Étape 2 — Extraction dans `tests/helpers-tap.sh`
+
+Extraire les helpers dans un fichier commun sourcé par toutes les suites. Avantage : un seul endroit à maintenir.
+
+```
+tests/
+├── helpers-tap.sh             ← helpers communs (nouveau)
+├── run_tests.sh               ← source helpers-tap.sh
+├── run_tests_pipeline.sh      ← source helpers-tap.sh
+├── run_tests_core.sh          ← source helpers-tap.sh
+└── run_tests_docker.sh        ← source helpers-tap.sh
+```
+
+---
+
+## Plan pour `run_tests_core.sh`
+
+Si le nombre total de tests est connu à l'avance (53 cas dans la spécification `unit-tests.md`), utiliser un plan en tête :
+
+```bash
+echo "TAP version 14"
+echo "1..53"
+```
+
+Si le nombre évolue fréquemment (développement actif), utiliser un plan en queue :
+
+```bash
+# ... tous les tests ...
+tap_summary   # affiche "1..N" en fin de fichier
+```
+
+TAP 14 supporte les deux positions pour le plan.
+
+
+--- Fichier : test docker.md ---
+Non, pas vraiment. Voici ce qui existe et ce qui manque :
+
+**Ce qui existe :** zéro test Docker dans les suites actuelles. `entrypoint.sh` n'est jamais testé automatiquement. Le Dockerfile n'est jamais buildé en CI. La seule "vérification" Docker est manuelle : `docker run --rm hash_tool version` que l'utilisateur peut faire à la main.
+
+**Ce qui manque concrètement :**
+
+*Tests de build :*
+- Que le `docker build` réussit (pas d'erreur de syntaxe Dockerfile, pas de package Alpine introuvable, `b3sum` bien installé)
+- Que l'image produite fait bien ~14 Mo et pas 500 Mo (régression de taille)
+- Que le build fonctionne en `--platform linux/arm64` (les NAS Synology)
+
+*Tests de l'entrypoint :*
+- `docker run hash_tool help` → exit 0, affiche de l'aide
+- `docker run hash_tool commande_inconnue` → exit 1, message d'erreur propre
+- `docker run hash_tool version` → affiche les versions de b3sum, jq, bash
+- `docker run hash_tool compute /data /bases/test.b3` avec volumes montés → produit le fichier .b3
+- `docker run hash_tool --quiet verify ...` → le flag `--quiet` est bien transmis à `integrity.sh`
+- `docker run hash_tool runner /pipelines/pipeline.json` → pipeline exécuté
+
+*Tests d'environnement (que les outils dans l'image sont bien ceux attendus) :*
+```bash
+# Vérifier que b3sum est la bonne version et fonctionne
+docker run --rm hash_tool b3sum --version
+# Vérifier que jq est présent
+docker run --rm hash_tool jq --version
+# Vérifier que bash >= 4
+docker run --rm hash_tool bash -c 'echo $BASH_VERSION'
+```
+
+*Test de régression de l'image :*
+```bash
+# Taille de l'image — détecter une régression (ex: on ajoute python par erreur)
+SIZE=$(docker image inspect hash_tool --format='{{.Size}}')
+[ $SIZE -lt 20000000 ] || echo "FAIL : image trop lourde ($SIZE octets)"
+```
+
+*Tests multi-plateforme :*
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t hash_tool:multiarch .
+# Vérifier que les deux architectures produisent les mêmes résultats sur un même jeu de fichiers
+```
+
+Ce serait un fichier `tests/run_tests_docker.sh` séparé, conditionné à la présence de Docker (`command -v docker`), et un job distinct dans la CI GitHub Actions — parce que le build Docker est lent (~2-3 min) et ne doit pas bloquer les tests unitaires rapides.
+
+--- Fichier : unit-tests.md ---
+# Tests unitaires — Spécification `run_tests_core.sh`
+
+---
+
+## Principe
+
+`run_tests_core.sh` source directement `src/lib/core.sh` (et `src/lib/ui.sh` pour `die()`) sans passer par `integrity.sh`. Chaque fonction de `core.sh` est testée en isolation.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="$(mktemp -d /tmp/integrity-core-test.XXXXXX)"
+export RESULTATS_DIR="$WORKDIR/resultats"
+QUIET=0
+
+# Sourcing direct — pas d'appel à integrity.sh
+source "$SCRIPT_DIR/../src/lib/ui.sh"
+source "$SCRIPT_DIR/../src/lib/core.sh"
+
+teardown() { rm -rf "$WORKDIR"; }
+trap teardown EXIT
+```
+
+---
+
+## Fonctions à tester
+
+### `core_assert_b3_valid`
+
+**Signature :** `core_assert_b3_valid <fichier> [label]`
+
+| ID | Cas | Input | Résultat attendu |
+|---|---|---|---|
+| CU01 | Fichier absent | `/tmp/inexistant_xyz.b3` | exit 1, message "introuvable" sur stderr |
+| CU02 | Chemin est un dossier | `mkdir /tmp/un_dossier` | exit 1, message "est un dossier" |
+| CU03 | Fichier vide | `touch /tmp/vide.b3` | exit 1, message "fichier vide" |
+| CU04 | Ligne au format invalide | `echo "pas_un_hash  chemin"` | exit 1, message "format invalide" |
+| CU05 | Hash trop court (63 chars) | `echo "abc...63chars  ./f.txt"` | exit 1 |
+| CU06 | Hash trop long (65 chars) | `echo "abc...65chars  ./f.txt"` | exit 1 |
+| CU07 | Hash avec majuscules | `echo "ABC...64chars  ./f.txt"` | exit 1 — format b3sum est minuscule |
+| CU08 | Ligne valide unique | `echo "aaa...64zeros  ./f.txt"` | exit 0 |
+| CU09 | Plusieurs lignes valides | 4 lignes correctes | exit 0 |
+| CU10 | Mélange valide + invalide | 3 valides + 1 invalide | exit 1, message "ligne(s) ne respectent pas" |
+| CU11 | Label personnalisé dans message d'erreur | `core_assert_b3_valid /tmp/vide.b3 "ma base"` | stderr contient "ma base" |
+
+```bash
+# Exemple d'implémentation — CU04
+test_cu04_format_invalide() {
+    local f="$WORKDIR/bad.b3"
+    echo "pas_un_hash  ./fichier.txt" > "$f"
+    local out
+    out=$(core_assert_b3_valid "$f" 2>&1) && fail "CU04 doit exit 1" || {
+        assert_contains "CU04 message format invalide" "format invalide" "$out"
+    }
+}
+```
+
+---
+
+### `core_assert_target_valid`
+
+**Signature :** `core_assert_target_valid <dossier>`
+
+| ID | Cas | Input | Résultat attendu |
+|---|---|---|---|
+| CU12 | Dossier absent | `/tmp/inexistant_xyz/` | exit 1, message "introuvable" |
+| CU13 | Chemin est un fichier | `touch /tmp/unfichier` | exit 1, message "n'est pas un dossier" |
+| CU14 | Dossier vide | `mkdir /tmp/vide` | exit 1, message "aucun fichier régulier" |
+| CU15 | Dossier avec un fichier | `echo "x" > /tmp/d/f.txt` | exit 0 |
+| CU16 | Dossier avec sous-dossiers uniquement vides | `mkdir /tmp/d/sub` | exit 1 — aucun fichier régulier |
+| CU17 | Dossier avec fichiers dans sous-dossiers | `echo "x" > /tmp/d/sub/f.txt` | exit 0 |
+
+---
+
+### `core_compute`
+
+**Signature :** `core_compute <dossier> <fichier_sortie> [callback]`
+
+| ID | Cas | Condition | Résultat attendu |
+|---|---|---|---|
+| CU18 | Cas nominal sans callback | 3 fichiers, callback="" | hashfile produit, 3 lignes, format correct |
+| CU19 | Format des lignes | 1 fichier connu | ligne = `[0-9a-f]{64}  <chemin>` |
+| CU20 | Tri des chemins | 3 fichiers désordonnés | lignes triées par chemin (ordre lexicographique) |
+| CU21 | Chemin relatif préservé | `compute ./data base.b3` depuis `/tmp` | chemins commencent par `./data/` |
+| CU22 | Fichier avec espace dans le nom | `"fichier test.txt"` | une seule ligne, chemin correct |
+| CU23 | Fichier de taille zéro | `touch zero.bin` | ligne présente, bytes_done non affecté |
+| CU24 | Callback appelé N fois | 5 fichiers, callback compteur | callback appelé exactement 5 fois |
+| CU25 | Callback reçoit les bons arguments | 1 fichier, callback loggeur | args (i, total, bytes_done, total_bytes, eta) cohérents |
+| CU26 | Aucune ligne ETA dans hashfile | compute avec callback actif | hashfile ne contient pas "ETA" ni `\r` |
+| CU27 | Idempotence | compute 2× sur même dossier | les deux hashfiles sont identiques |
+
+```bash
+# Exemple — CU24 : callback appelé N fois
+test_cu24_callback_count() {
+    local dir="$WORKDIR/data_cu24"
+    mkdir -p "$dir"
+    for i in 1 2 3 4 5; do echo "contenu $i" > "$dir/f$i.txt"; done
+
+    local count=0
+    _counter_callback() { count=$((count + 1)); }
+
+    core_compute "$dir" "$WORKDIR/base_cu24.b3" "_counter_callback"
+    [ "$count" -eq 5 ] && pass "CU24 callback appelé 5 fois" || fail "CU24 callback appelé $count fois (attendu 5)"
+}
+```
+
+---
+
+### `core_verify`
+
+**Signature :** `core_verify <fichier_b3_absolu>`
+
+Le répertoire courant doit être celui d'origine du compute avant l'appel.
+
+| ID | Cas | Condition | Résultat attendu |
+|---|---|---|---|
+| CU28 | Tous les fichiers intègres | base correcte, fichiers inchangés | exit 0, CORE_VERIFY_STATUS="OK" |
+| CU29 | Un fichier corrompu | contenu modifié après compute | exit 1, STATUS="ECHEC", NB_FAIL=1 |
+| CU30 | Plusieurs fichiers corrompus | 2 fichiers modifiés | exit 1, NB_FAIL=2 |
+| CU31 | Un fichier supprimé | rm après compute | exit 1, LINES_FAIL contient le chemin |
+| CU32 | Variables CORE_VERIFY_* positionnées | cas nominal | toutes les variables sont non nulles et cohérentes |
+| CU33 | CORE_VERIFY_NB_OK correct | 4 fichiers intègres | NB_OK=4 |
+| CU34 | CORE_VERIFY_LINES_FAIL contient les bons chemins | 1 corruption sur beta.txt | LINES_FAIL contient "beta.txt" |
+| CU35 | STATUS="ERREUR" si b3sum rapporte une erreur | fichier illisible (chmod 000) | STATUS="ERREUR" |
+
+```bash
+# Exemple — CU29
+test_cu29_corruption_detectee() {
+    local dir="$WORKDIR/data_cu29"
+    mkdir -p "$dir"
+    echo "contenu original" > "$dir/alpha.txt"
+    local base="$WORKDIR/base_cu29.b3"
+
+    ( cd "$dir" && core_compute . "$base" "" )
+
+    echo "contenu corrompu" > "$dir/alpha.txt"
+
+    local exit_code=0
+    ( cd "$dir" && core_verify "$(cd "$WORKDIR" && pwd)/base_cu29.b3" ) || exit_code=$?
+
+    [ "$exit_code" -ne 0 ] && pass "CU29 exit code non-zéro" || fail "CU29 doit détecter la corruption"
+    [ "$CORE_VERIFY_STATUS" = "ECHEC" ] && pass "CU29 STATUS=ECHEC" || fail "CU29 STATUS=$CORE_VERIFY_STATUS"
+}
+```
+
+---
+
+### `core_compare`
+
+**Signature :** `core_compare <old> <new> <outdir>`
+
+C'est la fonction la plus critique — un bug ici produit de faux positifs massifs (cf. v0.7).
+
+| ID | Cas | Condition | Résultat attendu |
+|---|---|---|---|
+| CU36 | Bases identiques | même contenu | modifies.b3 vide, disparus.txt vide, nouveaux.txt vide |
+| CU37 | Un fichier modifié | beta.txt changé | modifies.b3 contient beta.txt, NB_MOD=1 |
+| CU38 | Plusieurs fichiers modifiés | 3 fichiers changés | NB_MOD=3, les 3 chemins dans modifies.b3 |
+| CU39 | Un fichier disparu | alpha.txt supprimé dans new | disparus.txt contient alpha.txt, NB_DIS=1 |
+| CU40 | Un fichier nouveau | epsilon.txt ajouté dans new | nouveaux.txt contient epsilon.txt, NB_NOU=1 |
+| CU41 | Combinaison modifié + disparu + nouveau | — | les 3 fichiers dans les 3 listes correctes |
+| CU42 | Chemin avec espace | `"fichier test.txt"` modifié | modifies.b3 contient le chemin complet avec espace |
+| CU43 | Chemin avec `&` | `"a&b.txt"` modifié | chemin correct dans modifies.b3 |
+| CU44 | Chemin avec `<` et `>` | `"<script>.txt"` modifié | chemin correct (pas d'échappement HTML dans .b3) |
+| CU45 | Format de modifies.b3 | 1 fichier modifié | ligne = `nouveau_hash  chemin` (format b3sum) |
+| CU46 | Variables CORE_COMPARE_NB_* | — | NB_MOD, NB_DIS, NB_NOU corrects |
+| CU47 | Fichiers tmp nettoyés | après appel | aucun fichier dans /tmp commençant par le pattern mktemp |
+| CU48 | outdir doit exister avant l'appel | outdir absent | comportement défini (mkdir requis par l'appelant) |
+
+```bash
+# Exemple — CU42 : chemin avec espace
+test_cu42_chemin_avec_espace() {
+    local dir_old="$WORKDIR/old_cu42"
+    local dir_new="$WORKDIR/new_cu42"
+    mkdir -p "$dir_old" "$dir_new"
+
+    echo "contenu v1" > "$dir_old/fichier avec espace.txt"
+    echo "contenu v2" > "$dir_new/fichier avec espace.txt"
+
+    ( cd "$dir_old" && core_compute . "$WORKDIR/old_cu42.b3" "" )
+    ( cd "$dir_new" && core_compute . "$WORKDIR/new_cu42.b3" "" )
+
+    local outdir="$WORKDIR/result_cu42"
+    mkdir -p "$outdir"
+    core_compare "$WORKDIR/old_cu42.b3" "$WORKDIR/new_cu42.b3" "$outdir"
+
+    assert_contains "CU42 chemin avec espace dans modifies.b3" \
+        "fichier avec espace.txt" \
+        "$(cat "$outdir/modifies.b3")"
+    [ "$CORE_COMPARE_NB_MOD" -eq 1 ] && pass "CU42 NB_MOD=1" || fail "CU42 NB_MOD=$CORE_COMPARE_NB_MOD"
+}
+```
+
+---
+
+### `core_make_result_dir`
+
+**Signature :** `core_make_result_dir <fichier_b3> <resultats_dir>`
+
+| ID | Cas | Condition | Résultat attendu |
+|---|---|---|---|
+| CU49 | Création normale | dossier parent existe, pas de collision | dossier `resultats_<nom>` créé, chemin retourné sur stdout |
+| CU50 | Anti-collision — dossier existant | `resultats_<nom>` déjà présent | nouveau dossier `resultats_<nom>_YYYYMMDD-HHMMSS` créé |
+| CU51 | Deux appels successifs | sleep 1 entre les deux | deux dossiers distincts |
+| CU52 | Nom sans extension .b3 | fichier nommé `base` (sans .b3) | dossier `resultats_base` |
+| CU53 | Nom avec chemin imbriqué | `/chemin/vers/hashes.b3` | dossier `resultats_hashes` (basename only) |
+
+---
+
+## Structure du fichier `run_tests_core.sh`
+
+```bash
+#!/usr/bin/env bash
+# run_tests_core.sh - Tests unitaires de src/lib/core.sh
+# Usage : cd tests && ./run_tests_core.sh
+# Prérequis : bash >= 4, b3sum
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKDIR="$(mktemp -d /tmp/integrity-core-test.XXXXXX)"
+export RESULTATS_DIR="$WORKDIR/resultats"
+QUIET=0
+
+source "$SCRIPT_DIR/../src/lib/ui.sh"
+source "$SCRIPT_DIR/../src/lib/core.sh"
+
+# Helpers identiques à run_tests.sh
+PASS=0; FAIL=0; TOTAL=0
+pass() { ... }
+fail() { ... }
+assert_contains() { ... }
+assert_exit_nonzero() { ... }
+
+teardown() { rm -rf "$WORKDIR"; }
+trap teardown EXIT
+
+# == Tests =====================================================================
+
+echo "T_CORE01 - core_assert_b3_valid"
+# ... cas CU01 à CU11
+
+echo "T_CORE02 - core_assert_target_valid"
+# ... cas CU12 à CU17
+
+echo "T_CORE03 - core_compute"
+# ... cas CU18 à CU27
+
+echo "T_CORE04 - core_verify"
+# ... cas CU28 à CU35
+
+echo "T_CORE05 - core_compare"
+# ... cas CU36 à CU48
+
+echo "T_CORE06 - core_make_result_dir"
+# ... cas CU49 à CU53
+
+# == Résultats =================================================================
+echo "========================================"
+[ "$FAIL" -eq 0 ] \
+    && echo "  $PASS/$TOTAL tests passés" \
+    || echo "  $PASS/$TOTAL passés - $FAIL échec(s)"
+echo "========================================"
+[ "$FAIL" -eq 0 ]
+```
+
+---
+
+## Précautions spécifiques au sourcing
+
+Quand `core.sh` est sourcé directement, les fonctions internes `_b3_to_path_hash` et `_core_file_size` sont aussi accessibles. Elles peuvent être testées unitairement si nécessaire :
+
+```bash
+# Test de la fonction interne _b3_to_path_hash
+test_b3_to_path_hash_format() {
+    local f="$WORKDIR/sample.b3"
+    printf '%0.s0' {1..64} > /tmp/hash64  # 64 zéros
+    echo "$(cat /tmp/hash64)  ./dossier/fichier.txt" > "$f"
+
+    local result
+    result=$(_b3_to_path_hash "$f")
+    # Attendu : "./dossier/fichier.txt\t0000...64zeros"
+    echo "$result" | grep -q $'./dossier/fichier.txt\t' \
+        && pass "_b3_to_path_hash format correct" \
+        || fail "_b3_to_path_hash format incorrect : $result"
+}
+```
+
+
