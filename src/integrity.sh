@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # integrity.sh - Vérification d'intégrité par hachage BLAKE3
 #
-# Point d'entrée CLI. Orchestre les modules :
-#   src/lib/core.sh    - logique métier (hachage, vérification, comparaison)
+# Point d'entrée CLI interne. Orchestre les modules :
+#   src/lib/core.sh    - logique métier (hachage, vérification, comparaison, sidecar)
 #   src/lib/ui.sh      - interface terminal (affichage, ETA, progression)
 #   src/lib/results.sh - écriture des fichiers de résultats
 #   src/lib/report.sh  - génération des rapports HTML
 #
 # Usage :
-#   ./integrity.sh [--quiet] compute <dossier> <base.b3>
+#   ./integrity.sh [--quiet] compute <dossier> <base.b3> [commentaire_sidecar]
 #   ./integrity.sh [--quiet] verify  <base.b3> [dossier]
 #   ./integrity.sh [--quiet] compare <ancienne.b3> <nouvelle.b3>
 #
@@ -16,13 +16,23 @@
 #   --quiet   Supprime toute sortie terminal. Écrit uniquement dans les
 #             fichiers de résultats. Exit code propagé sans modification.
 #
+# Sidecar :
+#   compute génère automatiquement <base.b3>.meta.json si jq est disponible.
+#   Le troisième argument optionnel de compute est un commentaire libre.
+#   verify et compare affichent le sidecar si présent (sauf --quiet).
+#
 # Dépendances : b3sum, bash >= 4, find, sort, awk, comm, join, stat, du, mktemp
+#               jq (optionnel - requis pour la génération du sidecar)
 #
 # Exit codes :
 #   0 - succès (voir contrat de chaque mode dans src/lib/core.sh)
 #   1 - erreur (argument manquant, fichier introuvable, corruption détectée)
 
 set -euo pipefail
+
+# == Version ====================================================================
+
+INTEGRITY_VERSION="2.0.0"
 
 # == Prérequis bash =============================================================
 
@@ -60,6 +70,7 @@ done
 MODE="${ARGS[0]:-}"
 ARG2="${ARGS[1]:-}"
 ARG3="${ARGS[2]:-}"
+ARG4="${ARGS[3]:-}"   # commentaire sidecar optionnel pour compute
 
 # == Configuration ==============================================================
 
@@ -72,9 +83,10 @@ RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
 _run_compute() {
   local target="$ARG2"
   local hashfile="$ARG3"
+  local sidecar_comment="${ARG4:-}"
 
-  [ -n "$target"   ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3>"
-  [ -n "$hashfile" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3>"
+  [ -n "$target"   ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
+  [ -n "$hashfile" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
   [ ! -d "$hashfile" ] || die "compute : '$hashfile' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
 
   core_assert_target_valid "$target"
@@ -87,6 +99,12 @@ _run_compute() {
   ui_progress_clear
 
   say "Base enregistrée : $hashfile ($(wc -l < "$hashfile") fichiers)"
+
+  # Sidecar : généré si jq est disponible
+  if command -v jq &>/dev/null; then
+    core_sidecar_write "$hashfile" "$target" "$sidecar_comment" "$INTEGRITY_VERSION"
+    say "Sidecar : ${hashfile}.meta.json"
+  fi
 }
 
 _run_verify() {
@@ -101,6 +119,9 @@ _run_verify() {
   # invalide après changement de répertoire
   local hashfile_abs
   hashfile_abs="$(cd "$(dirname "$b3file")" && pwd)/$(basename "$b3file")"
+
+  # Affichage du sidecar avant le cd (chemin encore valide)
+  (( QUIET )) || core_sidecar_read "$hashfile_abs"
 
   if [ -n "$workdir" ]; then
     [ -d "$workdir" ] || die "verify : '$workdir' n'est pas un dossier valide."
@@ -137,6 +158,12 @@ _run_compare() {
   core_assert_b3_valid "$old" "ancienne base"
   core_assert_b3_valid "$new" "nouvelle base"
 
+  # Affichage des sidecars avant toute opération
+  if (( ! QUIET )); then
+    core_sidecar_read "$old"
+    core_sidecar_read "$new"
+  fi
+
   local outdir
   outdir=$(core_make_result_dir "$old" "$RESULTATS_DIR")
 
@@ -165,13 +192,23 @@ case "$MODE" in
   verify)  _run_verify  ;;
   compare) _run_compare ;;
   *)
-    echo "Usage:"
-    echo "  $0 [--quiet] compute <dossier> <base.b3>"
-    echo "  $0 [--quiet] verify  <base.b3> [dossier]"
-    echo "  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>"
-    echo ""
-    echo "Options:"
-    echo "  --quiet   Silencieux : écrit uniquement dans les fichiers de résultats."
+    cat <<EOF
+Usage :
+  $0 [--quiet] compute <dossier> <base.b3> [commentaire]
+  $0 [--quiet] verify  <base.b3> [dossier]
+  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>
+
+Options :
+  --quiet      Silencieux : écrit uniquement dans les fichiers de résultats.
+
+Arguments optionnels :
+  [commentaire]  Texte libre stocké dans le sidecar <base.b3>.meta.json (compute uniquement).
+                 Nécessite jq.
+
+Note :
+  Pour l'interface complète (list, diff, stats, check-env, version, pipeline),
+  utiliser hash-tool à la racine du projet.
+EOF
     exit 1
     ;;
 esac

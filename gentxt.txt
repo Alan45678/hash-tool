@@ -21,6 +21,8 @@ hash_tool
 │   ├── spec
 │   │   ├── api-interne.md
 │   │   └── b3-format.md
+│   ├── troubleshooting 
+│   │   └── troubleshooting_1.md
 │   ├── getting-started.md
 │   └── index.md
 ├── mon_dossier
@@ -33,13 +35,7 @@ hash_tool
 │   │   ├── fichier (3).txt
 │   │   └── fichier (4).txt
 │   ├── result
-│   │   ├── resultats_hashes_dossier_1
-│   │   │   ├── disparus.txt
-│   │   │   ├── modifies.b3
-│   │   │   ├── nouveaux.txt
-│   │   │   ├── recap.txt
-│   │   │   └── report.html
-│   │   └── resultats_hashes_dossier_1_20260222-100613
+│   │   └── resultats_hashes_dossier_1
 │   │       ├── disparus.txt
 │   │       ├── modifies.b3
 │   │       ├── nouveaux.txt
@@ -51,8 +47,11 @@ hash_tool
 │       ├── fichier (3).txt
 │       └── fichier (4).txt
 ├── pipelines
+│   ├── pipeline-amelioree.json
+│   ├── pipeline-debug-deux-adresses.json
 │   ├── pipeline-debug.json
-│   └── pipeline-veracrypt.json
+│   ├── pipeline-veracrypt.json
+│   └── pipeline.json
 ├── reports
 │   └── template.html
 ├── src
@@ -70,6 +69,7 @@ hash_tool
 ├── Dockerfile
 ├── README.md
 ├── docker-compose.yml
+├── hash-tool
 ├── mkdocs.yml
 ├── requirements-docs.txt
 └── runner.sh
@@ -113,7 +113,6 @@ temp.txt
 
 --- Fichier : .gitignore ---
 # == Données utilisateur =======================================================
-autre/
 *.b3
 
 # == Résultats =================================================================
@@ -294,6 +293,673 @@ services:
     restart: unless-stopped
 
 
+--- Fichier : hash-tool ---
+#!/usr/bin/env bash
+# hash-tool - Interface CLI unique pour hash_tool
+#
+# Abstraction de la couche d'exécution : détecte automatiquement si l'exécution
+# native est possible (b3sum disponible), sinon délègue à Docker.
+#
+# Usage :
+#   hash-tool <commande> [options]
+#
+# Commandes :
+#   compute     Calcule les empreintes d'un dossier.
+#   verify      Vérifie l'intégrité d'un dossier à partir d'une base.
+#   compare     Compare deux bases d'empreintes.
+#   runner      Exécute un pipeline JSON.
+#   list        Liste les bases d'empreintes disponibles dans un dossier.
+#   diff        Affiche les différences entre une base et un dossier courant.
+#   stats       Affiche des statistiques sur une base d'empreintes.
+#   check-env   Analyse l'environnement d'exécution (natif ou conteneur).
+#   version     Affiche la version du logiciel.
+#   help        Affiche cette aide.
+#
+# Dépendances natives : bash >= 4, b3sum, jq
+# Dépendances Docker  : docker (image hash_tool)
+
+set -euo pipefail
+
+# == Version ===================================================================
+
+HASH_TOOL_VERSION="2.0.0"
+
+# == Résolution du répertoire du script ========================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INTEGRITY="$SCRIPT_DIR/src/integrity.sh"
+RUNNER="$SCRIPT_DIR/runner.sh"
+DOCKER_IMAGE="${HASH_TOOL_DOCKER_IMAGE:-hash_tool}"
+
+# == Couleurs ==================================================================
+
+_red()    { echo -e "\033[0;31m$*\033[0m"; }
+_green()  { echo -e "\033[0;32m$*\033[0m"; }
+_yellow() { echo -e "\033[0;33m$*\033[0m"; }
+_cyan()   { echo -e "\033[0;36m$*\033[0m"; }
+_dim()    { echo -e "\033[2m$*\033[0m"; }
+_bold()   { echo -e "\033[1m$*\033[0m"; }
+
+# == Détection de l'environnement ==============================================
+
+_native_available() {
+  command -v b3sum &>/dev/null \
+    && command -v jq   &>/dev/null \
+    && [ -f "$INTEGRITY" ] \
+    && [ -x "$INTEGRITY" ]
+}
+
+_docker_available() {
+  command -v docker &>/dev/null \
+    && docker image inspect "$DOCKER_IMAGE" &>/dev/null 2>&1
+}
+
+_detect_exec_mode() {
+  if _native_available; then
+    echo "native"
+  elif _docker_available; then
+    echo "docker"
+  else
+    echo "none"
+  fi
+}
+
+EXEC_MODE="$(_detect_exec_mode)"
+
+# == Helpers ===================================================================
+
+die() { echo "ERREUR : $*" >&2; exit 1; }
+
+_require_native_or_die() {
+  [ "$EXEC_MODE" = "native" ] || die "Exécution native requise pour cette commande (b3sum, jq, integrity.sh introuvables)."
+}
+
+# Argument parser : extrait les options nommées et les positionne dans des variables
+# Usage : _parse_args "$@"  → positionne OPT_* variables
+_parse_args() {
+  OPT_DATA=""
+  OPT_BASE=""
+  OPT_OLD=""
+  OPT_NEW=""
+  OPT_PIPELINE=""
+  OPT_SAVE=""
+  OPT_META=""
+  OPT_QUIET=0
+  OPT_VERBOSE=0
+  OPT_READONLY=0
+  OPT_EXTRA=()
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -data)      OPT_DATA="$2";     shift 2 ;;
+      -base)      OPT_BASE="$2";     shift 2 ;;
+      -old)       OPT_OLD="$2";      shift 2 ;;
+      -new)       OPT_NEW="$2";      shift 2 ;;
+      -pipeline)  OPT_PIPELINE="$2"; shift 2 ;;
+      -save)      OPT_SAVE="$2";     shift 2 ;;
+      -meta)      OPT_META="$2";     shift 2 ;;
+      -quiet)     OPT_QUIET=1;       shift   ;;
+      -verbose)   OPT_VERBOSE=1;     shift   ;;
+      -readonly)  OPT_READONLY=1;    shift   ;;
+      -help|--help|-h) return 99     ;;  # signal d'aide
+      *)          OPT_EXTRA+=("$1"); shift   ;;
+    esac
+  done
+}
+
+# == Sidecar file ==============================================================
+
+# _sidecar_write <b3_path> <data_dir> [meta_comment]
+_sidecar_write() {
+  local b3_path="$1"
+  local data_dir="$2"
+  local comment="${3:-}"
+  local sidecar_path="${b3_path}.meta.json"
+
+  local nb_files
+  nb_files=$(wc -l < "$b3_path" 2>/dev/null || echo 0)
+
+  jq -n \
+    --arg version  "hash-tool v${HASH_TOOL_VERSION}" \
+    --arg date     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg comment  "$comment" \
+    --arg dir      "$data_dir" \
+    --argjson nb   "$nb_files" \
+    --argjson ro   "$OPT_READONLY" \
+    '{
+      created_by: $version,
+      date:       $date,
+      comment:    $comment,
+      parameters: {
+        directory:  $dir,
+        hash_algo:  "blake3",
+        readonly:   ($ro == 1),
+        nb_files:   $nb
+      }
+    }' > "$sidecar_path"
+
+  echo "Sidecar : $sidecar_path"
+}
+
+# _sidecar_read <b3_path>  →  affiche le sidecar si présent
+_sidecar_read() {
+  local b3_path="$1"
+  local sidecar_path="${b3_path}.meta.json"
+  if [ -f "$sidecar_path" ]; then
+    echo "--- Métadonnées (sidecar) ---"
+    jq '.' "$sidecar_path" 2>/dev/null || cat "$sidecar_path"
+    echo "-----------------------------"
+  fi
+}
+
+# == Exécution native vs Docker ================================================
+
+# Wrapper : exécute integrity.sh en natif ou via Docker
+_run_integrity() {
+  if [ "$EXEC_MODE" = "native" ]; then
+    local quiet_flag=""
+    (( OPT_QUIET )) && quiet_flag="--quiet"
+    bash "$INTEGRITY" $quiet_flag "$@"
+  elif [ "$EXEC_MODE" = "docker" ]; then
+    _run_docker_integrity "$@"
+  else
+    die "Aucun environnement d'exécution disponible. Installez b3sum+jq ou construisez l'image Docker '${DOCKER_IMAGE}'."
+  fi
+}
+
+# Wrapper Docker pour integrity.sh
+_run_docker_integrity() {
+  local args=("$@")
+  # Volumes à monter selon la commande
+  local volumes=()
+
+  case "${args[0]}" in
+    compute)
+      volumes+=(-v "${args[1]}:/data:ro" -v "$(dirname "${args[2]}"):/bases")
+      set -- compute /data "$(basename "${args[2]}")"
+      ;;
+    verify)
+      local base_dir; base_dir="$(dirname "${args[1]}")"
+      local base_name; base_name="$(basename "${args[1]}")"
+      volumes+=(-v "${base_dir}:/bases:ro")
+      [ -n "${args[2]:-}" ] && volumes+=(-v "${args[2]}:/data:ro")
+      set -- verify "/bases/${base_name}" ${args[2]:+/data}
+      ;;
+    compare)
+      local dir_a; dir_a="$(dirname "${args[1]}")"
+      local dir_b; dir_b="$(dirname "${args[2]}")"
+      volumes+=(-v "${dir_a}:/bases_a:ro" -v "${dir_b}:/bases_b:ro")
+      if [ -n "${RESULTATS_DIR:-}" ]; then
+        volumes+=(-v "${RESULTATS_DIR}:/resultats")
+      fi
+      set -- compare "/bases_a/$(basename "${args[1]}")" "/bases_b/$(basename "${args[2]}")"
+      ;;
+    *)
+      die "Commande non supportée en mode Docker : ${args[0]}"
+      ;;
+  esac
+
+  docker run --rm "${volumes[@]}" \
+    -e RESULTATS_DIR="${RESULTATS_DIR:-/resultats}" \
+    "$DOCKER_IMAGE" "$@"
+}
+
+# == Commandes =================================================================
+
+cmd_compute() {
+  _parse_args "$@"
+  [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
+
+  # Détermine le nom du fichier .b3
+  local save_dir="${OPT_SAVE:-.}"
+  mkdir -p "$save_dir"
+  local data_basename
+  data_basename="$(basename "$(realpath "$OPT_DATA")")"
+  local b3_file="${save_dir}/hashes_${data_basename}.b3"
+
+  _run_integrity compute "$OPT_DATA" "$b3_file"
+
+  # Sidecar
+  if [ -f "$b3_file" ]; then
+    _sidecar_write "$b3_file" "$OPT_DATA" "$OPT_META"
+  fi
+}
+
+cmd_verify() {
+  _parse_args "$@"
+  [ -n "$OPT_BASE" ] || die "verify : -base <fichier.b3> requis."
+
+  if [ -n "$OPT_SAVE" ]; then
+    export RESULTATS_DIR="$OPT_SAVE"
+    mkdir -p "$OPT_SAVE"
+  fi
+
+  _sidecar_read "$OPT_BASE"
+  _run_integrity verify "$OPT_BASE" ${OPT_DATA:+"$OPT_DATA"}
+}
+
+cmd_compare() {
+  _parse_args "$@"
+  [ -n "$OPT_OLD" ] || die "compare : -old <ancienne.b3> requis."
+  [ -n "$OPT_NEW" ] || die "compare : -new <nouvelle.b3> requis."
+
+  if [ -n "$OPT_SAVE" ]; then
+    export RESULTATS_DIR="$OPT_SAVE"
+    mkdir -p "$OPT_SAVE"
+  fi
+
+  _sidecar_read "$OPT_OLD"
+  _sidecar_read "$OPT_NEW"
+  _run_integrity compare "$OPT_OLD" "$OPT_NEW"
+}
+
+cmd_runner() {
+  _parse_args "$@"
+
+  local pipeline_file="${OPT_PIPELINE:-${SCRIPT_DIR}/pipelines/pipeline.json}"
+  [ -f "$pipeline_file" ] || die "runner : pipeline introuvable : $pipeline_file"
+
+  if [ -n "$OPT_SAVE" ]; then
+    export RESULTATS_DIR="$OPT_SAVE"
+    mkdir -p "$OPT_SAVE"
+  fi
+
+  if [ "$EXEC_MODE" = "native" ]; then
+    bash "$RUNNER" "$pipeline_file"
+  elif [ "$EXEC_MODE" = "docker" ]; then
+    local pipeline_dir; pipeline_dir="$(dirname "$(realpath "$pipeline_file")")"
+    local pipeline_name; pipeline_name="$(basename "$pipeline_file")"
+    docker run --rm \
+      -v "${pipeline_dir}:/pipelines:ro" \
+      -e RESULTATS_DIR="${RESULTATS_DIR:-/resultats}" \
+      "$DOCKER_IMAGE" runner "/pipelines/${pipeline_name}"
+  else
+    die "Aucun environnement d'exécution disponible."
+  fi
+}
+
+cmd_list() {
+  _parse_args "$@"
+  local dir="${OPT_DATA:-${OPT_BASE:-.}}"
+
+  echo "=== Bases d'empreintes dans : $dir ==="
+  echo ""
+
+  local found=0
+  while IFS= read -r -d '' f; do
+    found=1
+    local nb_files
+    nb_files=$(wc -l < "$f" 2>/dev/null || echo "?")
+    local size
+    size=$(du -sh "$f" 2>/dev/null | cut -f1 || echo "?")
+    local sidecar_flag=""
+    [ -f "${f}.meta.json" ] && sidecar_flag=" [+meta]"
+
+    printf "  %-40s  %6s fichiers  %5s%s\n" "$(basename "$f")" "$nb_files" "$size" "$sidecar_flag"
+
+    # Affiche le commentaire du sidecar si présent
+    if [ -f "${f}.meta.json" ]; then
+      local comment date
+      comment=$(jq -r '.comment // empty' "${f}.meta.json" 2>/dev/null || true)
+      date=$(jq -r '.date // empty' "${f}.meta.json" 2>/dev/null || true)
+      [ -n "$comment" ] && printf "  %s→ %s (%s)\n" "   " "$comment" "$date"
+    fi
+  done < <(find "$dir" -maxdepth 2 -name "*.b3" -type f -print0 | sort -z)
+
+  if (( found == 0 )); then
+    echo "  Aucune base .b3 trouvée dans : $dir"
+  fi
+}
+
+cmd_diff() {
+  _parse_args "$@"
+  [ -n "$OPT_BASE" ] || die "diff : -base <fichier.b3> requis."
+
+  local workdir="${OPT_DATA:-.}"
+  [ -d "$workdir" ] || die "diff : dossier introuvable : $workdir"
+
+  echo "=== DIFF : $(basename "$OPT_BASE") vs $workdir ==="
+  echo ""
+
+  # Fichiers dans la base
+  local tmp_base tmp_dir
+  tmp_base=$(mktemp)
+  tmp_dir=$(mktemp)
+  trap 'rm -f "$tmp_base" "$tmp_dir"' EXIT
+
+  # Extrait les chemins relatifs de la base (colonne 2+)
+  awk '{ print substr($0,67) }' "$OPT_BASE" | sort > "$tmp_base"
+
+  # Parcourt le dossier courant avec le même préfixe que la base
+  local prefix
+  prefix=$(awk '{ p=substr($0,67); sub(/[^/]+$/, "", p); print p; exit }' "$OPT_BASE" 2>/dev/null || echo "./")
+
+  find "$workdir" -type f | sed "s|^${workdir%/}/||" | sed "s|^|${prefix}|" | sort > "$tmp_dir"
+
+  local disparus nouveaux
+  disparus=$(comm -23 "$tmp_base" "$tmp_dir" | wc -l)
+  nouveaux=$(comm -13 "$tmp_base" "$tmp_dir" | wc -l)
+
+  echo "  Fichiers disparus depuis la base : $disparus"
+  if (( disparus > 0 )); then
+    comm -23 "$tmp_base" "$tmp_dir" | while IFS= read -r f; do
+      echo "    - $f"
+    done
+  fi
+  echo ""
+  echo "  Nouveaux fichiers non indexés : $nouveaux"
+  if (( nouveaux > 0 )); then
+    comm -13 "$tmp_base" "$tmp_dir" | while IFS= read -r f; do
+      echo "    + $f"
+    done
+  fi
+
+  rm -f "$tmp_base" "$tmp_dir"
+  trap - EXIT
+}
+
+cmd_stats() {
+  _parse_args "$@"
+  local b3_file="${OPT_BASE:-${OPT_EXTRA[0]:-}}"
+  [ -n "$b3_file" ] || die "stats : -base <fichier.b3> requis."
+  [ -f "$b3_file" ] || die "stats : fichier introuvable : $b3_file"
+
+  echo "=== Statistiques : $(basename "$b3_file") ==="
+  echo ""
+
+  local nb_files
+  nb_files=$(wc -l < "$b3_file")
+  local file_size
+  file_size=$(du -sh "$b3_file" | cut -f1)
+  local b3_path
+  b3_path=$(realpath "$b3_file")
+
+  printf "  Fichier base     : %s\n" "$b3_path"
+  printf "  Taille fichier   : %s\n" "$file_size"
+  printf "  Fichiers indexés : %s\n" "$nb_files"
+
+  # Extensions les plus fréquentes
+  echo ""
+  echo "  Extensions :"
+  awk '{print $NF}' "$b3_file" \
+    | grep -oE '\.[^./]+$' \
+    | sort | uniq -c | sort -rn | head -10 \
+    | while read -r count ext; do
+        printf "    %-12s  %5s fichiers\n" "$ext" "$count"
+      done
+
+  # Sidecar
+  if [ -f "${b3_file}.meta.json" ]; then
+    echo ""
+    _sidecar_read "$b3_file"
+  fi
+}
+
+cmd_check_env() {
+  echo "=== check-env : Analyse de l'environnement ==="
+  echo ""
+
+  # b3sum
+  if command -v b3sum &>/dev/null; then
+    local b3ver; b3ver=$(b3sum --version 2>/dev/null || echo "version inconnue")
+    _green "  [OK] b3sum disponible : $b3ver"
+  else
+    _red   "  [KO] b3sum introuvable (requis pour exécution native)"
+  fi
+
+  # jq
+  if command -v jq &>/dev/null; then
+    local jqver; jqver=$(jq --version 2>/dev/null || echo "version inconnue")
+    _green "  [OK] jq disponible : $jqver"
+  else
+    _red   "  [KO] jq introuvable (requis pour pipelines JSON)"
+  fi
+
+  # bash
+  _green "  [OK] bash $BASH_VERSION"
+  if (( BASH_VERSINFO[0] < 4 )); then
+    _red "  [KO] bash >= 4 requis"
+  fi
+
+  # integrity.sh
+  if [ -f "$INTEGRITY" ] && [ -x "$INTEGRITY" ]; then
+    _green "  [OK] integrity.sh présent et exécutable : $INTEGRITY"
+  else
+    _red   "  [KO] integrity.sh introuvable ou non exécutable : $INTEGRITY"
+  fi
+
+  # runner.sh
+  if [ -f "$RUNNER" ] && [ -x "$RUNNER" ]; then
+    _green "  [OK] runner.sh présent et exécutable : $RUNNER"
+  else
+    _red   "  [KO] runner.sh introuvable ou non exécutable : $RUNNER"
+  fi
+
+  # Docker
+  echo ""
+  if command -v docker &>/dev/null; then
+    local dver; dver=$(docker --version 2>/dev/null || echo "version inconnue")
+    _green "  [OK] Docker disponible : $dver"
+    if docker image inspect "$DOCKER_IMAGE" &>/dev/null 2>&1; then
+      _green "  [OK] Image Docker '$DOCKER_IMAGE' disponible"
+    else
+      _yellow "  [--] Image Docker '$DOCKER_IMAGE' absente (docker build requis)"
+    fi
+  else
+    _yellow "  [--] Docker non disponible (optionnel)"
+  fi
+
+  echo ""
+  echo "  Mode d'exécution sélectionné : $(_bold "$EXEC_MODE")"
+
+  case "$EXEC_MODE" in
+    native) _green "  → Exécution native active" ;;
+    docker) _yellow "  → Exécution Docker active (fallback)" ;;
+    none)   _red    "  → Aucun environnement disponible — impossible d'exécuter" ;;
+  esac
+}
+
+cmd_version() {
+  echo "hash-tool v${HASH_TOOL_VERSION}"
+  echo "Moteur : BLAKE3 (b3sum)"
+  if command -v b3sum &>/dev/null; then
+    b3sum --version 2>/dev/null || true
+  fi
+}
+
+cmd_help() {
+  local subcmd="${1:-}"
+
+  case "$subcmd" in
+    compute)
+      cat <<'EOF'
+hash-tool compute -data <dossier> [-save <dossier>] [-meta <texte>] [-quiet] [-readonly]
+
+  Calcule les empreintes BLAKE3 de tous les fichiers du dossier source.
+  Génère un fichier .b3 et un sidecar .meta.json associé.
+
+  Options :
+    -data <dossier>   Dossier à analyser (requis).
+    -save <dossier>   Dossier de sortie pour le .b3 (défaut : répertoire courant).
+    -meta <texte>     Commentaire stocké dans le sidecar JSON.
+    -quiet            Mode silencieux (pas de sortie terminal).
+    -readonly         Documente le flag dans le sidecar (pas d'effet sur b3sum).
+
+  Exemple :
+    hash-tool compute -data ./donnees -save ./bases -meta "Snapshot initial"
+EOF
+      ;;
+    verify)
+      cat <<'EOF'
+hash-tool verify -base <fichier.b3> [-data <dossier>] [-save <dossier>] [-quiet]
+
+  Vérifie l'intégrité d'un dossier à partir d'une base d'empreintes.
+
+  Options :
+    -base <fichier.b3>  Base d'empreintes (requis).
+    -data <dossier>     Dossier à vérifier (défaut : répertoire courant au moment du compute).
+    -save <dossier>     Dossier de sortie des résultats (surcharge RESULTATS_DIR).
+    -quiet              Mode silencieux.
+
+  Exemple :
+    hash-tool verify -base ./bases/hashes_donnees.b3 -data ./donnees
+EOF
+      ;;
+    compare)
+      cat <<'EOF'
+hash-tool compare -old <ancienne.b3> -new <nouvelle.b3> [-save <dossier>]
+
+  Compare deux bases d'empreintes et produit un rapport HTML.
+
+  Options :
+    -old <ancienne.b3>  Ancienne base (référence).
+    -new <nouvelle.b3>  Nouvelle base (à comparer).
+    -save <dossier>     Dossier de sortie des résultats.
+
+  Exemple :
+    hash-tool compare -old snap1.b3 -new snap2.b3 -save ./rapports
+EOF
+      ;;
+    runner)
+      cat <<'EOF'
+hash-tool runner -pipeline <fichier.json> [-save <dossier>]
+
+  Exécute un pipeline JSON définissant une suite d'opérations.
+  Format pipeline : voir pipelines/pipeline-amelioree.json
+
+  Options :
+    -pipeline <fichier.json>  Fichier pipeline (défaut : pipelines/pipeline.json).
+    -save <dossier>           Dossier de résultats global (surcharge RESULTATS_DIR).
+
+  Exemple :
+    hash-tool runner -pipeline ./pipelines/mon_pipeline.json -save ./resultats
+EOF
+      ;;
+    list)
+      cat <<'EOF'
+hash-tool list [-data <dossier>]
+
+  Liste toutes les bases .b3 disponibles dans un dossier, avec leurs
+  métadonnées sidecar si présentes.
+
+  Options :
+    -data <dossier>  Dossier à parcourir (défaut : répertoire courant).
+
+  Exemple :
+    hash-tool list -data ./bases
+EOF
+      ;;
+    diff)
+      cat <<'EOF'
+hash-tool diff -base <fichier.b3> [-data <dossier>]
+
+  Affiche les différences entre une base d'empreintes et l'état actuel
+  d'un dossier (fichiers disparus, nouveaux fichiers non indexés).
+  Ne recalcule pas les hashes — uniquement comparaison des chemins.
+
+  Options :
+    -base <fichier.b3>  Base de référence (requis).
+    -data <dossier>     Dossier courant à comparer (défaut : .).
+
+  Exemple :
+    hash-tool diff -base ./bases/hashes_donnees.b3 -data ./donnees
+EOF
+      ;;
+    stats)
+      cat <<'EOF'
+hash-tool stats -base <fichier.b3>
+
+  Affiche des statistiques sur une base d'empreintes :
+  nombre de fichiers, taille, distribution des extensions, métadonnées sidecar.
+
+  Options :
+    -base <fichier.b3>  Base à analyser (requis).
+
+  Exemple :
+    hash-tool stats -base ./bases/hashes_donnees.b3
+EOF
+      ;;
+    check-env)
+      cat <<'EOF'
+hash-tool check-env
+
+  Analyse l'environnement d'exécution : vérifie la disponibilité de
+  b3sum, jq, bash >= 4, integrity.sh, runner.sh et Docker.
+  Indique le mode d'exécution sélectionné (natif ou Docker).
+EOF
+      ;;
+    *)
+      cat <<EOF
+hash-tool v${HASH_TOOL_VERSION} - Vérification d'intégrité BLAKE3
+
+Usage : hash-tool <commande> [options]
+
+Commandes :
+  compute     Calcule les empreintes d'un dossier.
+  verify      Vérifie l'intégrité d'un dossier à partir d'une base.
+  compare     Compare deux bases d'empreintes.
+  runner      Exécute un pipeline JSON.
+  list        Liste les bases d'empreintes disponibles.
+  diff        Affiche les différences entre une base et un dossier.
+  stats       Affiche des statistiques sur une base.
+  check-env   Analyse l'environnement d'exécution.
+  version     Affiche la version.
+  help        Affiche cette aide (ou 'help <commande>' pour le détail).
+
+Options générales :
+  -data <chemin>      Dossier à analyser.
+  -base <chemin>      Fichier base d'empreintes (.b3).
+  -old <chemin>       Ancienne base (pour compare).
+  -new <chemin>       Nouvelle base (pour compare).
+  -pipeline <chemin>  Fichier pipeline JSON (pour runner).
+  -save <chemin>      Dossier de sortie pour les résultats.
+  -meta <texte>       Commentaire pour le sidecar JSON (compute).
+  -quiet              Mode silencieux.
+  -verbose            Mode verbeux.
+  -readonly           Marque le compute comme lecture seule dans le sidecar.
+
+Mode d'exécution : $EXEC_MODE
+  L'interface reste identique quel que soit le mode d'exécution.
+  Docker est utilisé en fallback si l'exécution native est impossible.
+
+Exemples :
+  hash-tool compute   -data ./donnees -save ./bases -meta "Snapshot initial"
+  hash-tool verify    -base ./bases/hashes_donnees.b3 -data ./donnees
+  hash-tool compare   -old ancien.b3 -new nouveau.b3 -save ./rapports
+  hash-tool runner    -pipeline ./pipelines/pipeline.json
+  hash-tool list      -data ./bases
+  hash-tool diff      -base ./bases/hashes_donnees.b3 -data ./donnees
+  hash-tool stats     -base ./bases/hashes_donnees.b3
+  hash-tool check-env
+EOF
+      ;;
+  esac
+}
+
+# == Dispatch ==================================================================
+
+CMD="${1:-help}"
+shift || true
+
+case "$CMD" in
+  compute)   cmd_compute   "$@" ;;
+  verify)    cmd_verify    "$@" ;;
+  compare)   cmd_compare   "$@" ;;
+  runner)    cmd_runner    "$@" ;;
+  list)      cmd_list      "$@" ;;
+  diff)      cmd_diff      "$@" ;;
+  stats)     cmd_stats     "$@" ;;
+  check-env) cmd_check_env "$@" ;;
+  version)   cmd_version   "$@" ;;
+  help|-h|--help) cmd_help "$@" ;;
+  *)
+    echo "Commande inconnue : '$CMD'" >&2
+    echo "Utiliser : hash-tool help" >&2
+    exit 1
+    ;;
+esac
+
+
 --- Fichier : mkdocs.yml ---
 site_name: hash_tool
 site_description: Vérification d'intégrité de fichiers par hachage BLAKE3
@@ -398,6 +1064,20 @@ mkdocs-material
 #!/usr/bin/env bash
 # runner.sh - Exécuteur de pipeline integrity.sh depuis pipeline.json
 #
+# Supporte deux formats de pipeline :
+#
+#   Format legacy (rétrocompatible) :
+#     { "pipeline": [ { "op": "compute", "source": "...", "bases": "...", "nom": "..." }, ... ] }
+#
+#   Format étendu (recommandé) :
+#     { "pipeline": [ {
+#         "type":        "compute",
+#         "params":      { "input": "...", "output_dir": "...", "filename": "..." },
+#         "options":     { "quiet": false, "verbose": false, "readonly": false },
+#         "meta":        { "comment": "..." },
+#         "description": "Texte explicatif de l'étape"
+#       }, ... ] }
+#
 # Usage :
 #   ./runner.sh                          # lit pipelines/pipeline.json
 #   ./runner.sh /chemin/pipeline.json    # config explicite
@@ -431,7 +1111,22 @@ nb_ops=$(jq '.pipeline | length' "$CONFIG")
 
 die() { echo "ERREUR : $*" >&2; exit 1; }
 
-# Lit un champ JSON obligatoire - exit si absent ou null
+# Détecte si un bloc utilise le format legacy ("op") ou étendu ("type")
+_bloc_format() {
+  local idx="$1"
+  local has_op has_type
+  has_op=$(jq -r --argjson i "$idx" '.pipeline[$i].op // empty' "$CONFIG")
+  has_type=$(jq -r --argjson i "$idx" '.pipeline[$i].type // empty' "$CONFIG")
+  if [ -n "$has_type" ]; then
+    echo "extended"
+  elif [ -n "$has_op" ]; then
+    echo "legacy"
+  else
+    echo "unknown"
+  fi
+}
+
+# Lit un champ JSON obligatoire dans le format legacy
 require_field() {
   local idx="$1" field="$2"
   local val
@@ -448,9 +1143,42 @@ optional_field() {
   echo "${val:-}"
 }
 
-# == Opérations ================================================================
+# Lit un champ dans params{} du format étendu (obligatoire)
+require_param() {
+  local idx="$1" param="$2"
+  local val
+  val=$(jq -r --argjson i "$idx" ".pipeline[\$i].params.${param} // empty" "$CONFIG" 2>/dev/null || true)
+  [ -n "$val" ] || die "Bloc #$((idx+1)) : params.${param} manquant ou vide."
+  echo "$val"
+}
 
-run_compute() {
+# Lit un champ dans params{} du format étendu (optionnel)
+optional_param() {
+  local idx="$1" param="$2"
+  local val
+  val=$(jq -r --argjson i "$idx" ".pipeline[\$i].params.${param} // empty" "$CONFIG" 2>/dev/null || true)
+  echo "${val:-}"
+}
+
+# Lit un flag dans options{} du format étendu (retourne 0 si absent/false)
+option_flag() {
+  local idx="$1" opt="$2"
+  local val
+  val=$(jq -r --argjson i "$idx" ".pipeline[\$i].options.${opt} // false" "$CONFIG" 2>/dev/null || echo "false")
+  [ "$val" = "true" ] && echo 1 || echo 0
+}
+
+# Lit le commentaire meta du format étendu
+meta_comment() {
+  local idx="$1"
+  local val
+  val=$(jq -r --argjson i "$idx" '.pipeline[$i].meta.comment // empty' "$CONFIG" 2>/dev/null || true)
+  echo "${val:-}"
+}
+
+# == Opérations — Format legacy ================================================
+
+run_compute_legacy() {
   local i="$1"
   local source bases nom
   source=$(require_field "$i" "source")
@@ -463,11 +1191,10 @@ run_compute() {
   mkdir -p "$bases"
   local bases_abs
   bases_abs="$(cd "$bases" && pwd)"
-  # Sous-shell : le cd ne fuite pas vers les blocs suivants
   ( cd "$source" && "$INTEGRITY" compute . "$bases_abs/$nom" )
 }
 
-run_verify() {
+run_verify_legacy() {
   local i="$1"
   local source base
   source=$(require_field "$i" "source")
@@ -482,7 +1209,7 @@ run_verify() {
   ( cd "$source" && "$INTEGRITY" verify "$base_abs" )
 }
 
-run_compare() {
+run_compare_legacy() {
   local i="$1"
   local base_a base_b
   base_a=$(require_field "$i" "base_a")
@@ -492,7 +1219,6 @@ run_compare() {
   [ -f "$base_a" ] || die "Bloc #$((i+1)) compare : base_a introuvable : $base_a"
   [ -f "$base_b" ] || die "Bloc #$((i+1)) compare : base_b introuvable : $base_b"
 
-  # Champ optionnel "resultats" : surcharge RESULTATS_DIR pour ce bloc uniquement
   local resultats_dir
   resultats_dir=$(optional_field "$i" "resultats")
 
@@ -507,6 +1233,240 @@ run_compare() {
   fi
 }
 
+# == Opérations — Format étendu ================================================
+
+run_compute_extended() {
+  local i="$1"
+  local input output_dir filename
+  input=$(require_param "$i" "input")
+  output_dir=$(require_param "$i" "output_dir")
+  filename=$(require_param "$i" "filename")
+
+  local quiet verbose
+  quiet=$(option_flag "$i" "quiet")
+  verbose=$(option_flag "$i" "verbose")
+  local comment
+  comment=$(meta_comment "$i")
+
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== COMPUTE : $input ==="
+  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$comment" ] && echo "    → meta: $comment"
+
+  [ -d "$input" ] || die "Bloc #$((i+1)) compute : dossier source introuvable : $input"
+
+  mkdir -p "$output_dir"
+  local output_abs
+  output_abs="$(cd "$output_dir" && pwd)"
+
+  local quiet_flag=""
+  (( quiet )) && quiet_flag="--quiet"
+
+  # shellcheck disable=SC2086
+  ( cd "$input" && "$INTEGRITY" $quiet_flag compute . "$output_abs/$filename" )
+
+  # Sidecar : génération si jq disponible et commentaire présent
+  local b3_path="${output_abs}/${filename}"
+  if [ -f "$b3_path" ] && command -v jq &>/dev/null; then
+    local nb_files; nb_files=$(wc -l < "$b3_path" 2>/dev/null || echo 0)
+    jq -n \
+      --arg version  "hash-tool runner" \
+      --arg date     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg comment  "$comment" \
+      --arg dir      "$input" \
+      --argjson nb   "$nb_files" \
+      '{
+        created_by: $version,
+        date:       $date,
+        comment:    $comment,
+        parameters: { directory: $dir, hash_algo: "blake3", nb_files: $nb }
+      }' > "${b3_path}.meta.json"
+    echo "    → sidecar : ${b3_path}.meta.json"
+  fi
+}
+
+run_verify_extended() {
+  local i="$1"
+  local input base
+  input=$(require_param "$i" "input")
+  base=$(require_param "$i" "base")
+
+  local quiet; quiet=$(option_flag "$i" "quiet")
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== VERIFY : $input ==="
+  [ -n "$desc" ] && echo "    → $desc"
+
+  [ -d "$input" ] || die "Bloc #$((i+1)) verify : dossier source introuvable : $input"
+  [ -f "$base" ]  || die "Bloc #$((i+1)) verify : base .b3 introuvable : $base"
+
+  local base_abs
+  base_abs="$(cd "$(dirname "$base")" && pwd)/$(basename "$base")"
+
+  local quiet_flag=""
+  (( quiet )) && quiet_flag="--quiet"
+
+  # shellcheck disable=SC2086
+  ( cd "$input" && "$INTEGRITY" $quiet_flag verify "$base_abs" )
+}
+
+run_compare_extended() {
+  local i="$1"
+  local input ref_base output_dir
+  input=$(require_param "$i" "input")
+  ref_base=$(require_param "$i" "reference")
+  output_dir=$(optional_param "$i" "output_dir")
+
+  local quiet; quiet=$(option_flag "$i" "quiet")
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== COMPARE : $(basename "$ref_base") vs $(basename "$input") ==="
+  [ -n "$desc" ] && echo "    → $desc"
+
+  [ -f "$ref_base" ] || die "Bloc #$((i+1)) compare : référence introuvable : $ref_base"
+  [ -f "$input" ]    || die "Bloc #$((i+1)) compare : base courante introuvable : $input"
+
+  local quiet_flag=""
+  (( quiet )) && quiet_flag="--quiet"
+
+  if [ -n "$output_dir" ]; then
+    mkdir -p "$output_dir"
+    local output_abs
+    output_abs="$(cd "$output_dir" && pwd)"
+    echo "    → résultats dans : $output_abs"
+    # shellcheck disable=SC2086
+    RESULTATS_DIR="$output_abs" "$INTEGRITY" $quiet_flag compare "$ref_base" "$input"
+  else
+    # shellcheck disable=SC2086
+    "$INTEGRITY" $quiet_flag compare "$ref_base" "$input"
+  fi
+}
+
+# Pour les commandes sans effet réel dans le pipeline mais documentées
+run_list_extended() {
+  local i="$1"
+  local input_dir
+  input_dir=$(require_param "$i" "input_dir")
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== LIST : $input_dir ==="
+  [ -n "$desc" ] && echo "    → $desc"
+
+  find "$input_dir" -maxdepth 2 -name "*.b3" -type f | sort | while IFS= read -r f; do
+    local nb; nb=$(wc -l < "$f" 2>/dev/null || echo "?")
+    printf "  %-40s  %6s fichiers\n" "$(basename "$f")" "$nb"
+  done
+}
+
+run_diff_extended() {
+  local i="$1"
+  local input ref_dir
+  input=$(require_param "$i" "input")
+  ref_dir=$(require_param "$i" "reference_dir")
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== DIFF : $(basename "$input") vs $ref_dir ==="
+  [ -n "$desc" ] && echo "    → $desc"
+  [ -f "$input" ]  || die "Bloc #$((i+1)) diff : base introuvable : $input"
+  [ -d "$ref_dir" ] || die "Bloc #$((i+1)) diff : dossier introuvable : $ref_dir"
+
+  local tmp_base tmp_dir
+  tmp_base=$(mktemp)
+  tmp_dir=$(mktemp)
+  trap 'rm -f "$tmp_base" "$tmp_dir"' EXIT
+
+  awk '{ print substr($0,67) }' "$input" | sort > "$tmp_base"
+  local prefix
+  prefix=$(awk '{ p=substr($0,67); sub(/[^/]+$/, "", p); print p; exit }' "$input" 2>/dev/null || echo "./")
+  find "$ref_dir" -type f | sed "s|^${ref_dir%/}/||" | sed "s|^|${prefix}|" | sort > "$tmp_dir"
+
+  local dis; dis=$(comm -23 "$tmp_base" "$tmp_dir" | wc -l)
+  local nou; nou=$(comm -13 "$tmp_base" "$tmp_dir" | wc -l)
+  echo "  Disparus : $dis  |  Nouveaux : $nou"
+
+  rm -f "$tmp_base" "$tmp_dir"
+  trap - EXIT
+}
+
+run_stats_extended() {
+  local i="$1"
+  local input
+  input=$(require_param "$i" "input")
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+
+  echo "=== STATS : $(basename "$input") ==="
+  [ -n "$desc" ] && echo "    → $desc"
+  [ -f "$input" ] || die "Bloc #$((i+1)) stats : base introuvable : $input"
+
+  local nb; nb=$(wc -l < "$input")
+  local sz; sz=$(du -sh "$input" | cut -f1)
+  echo "  Fichiers indexés : $nb  |  Taille : $sz"
+}
+
+run_checkenv_extended() {
+  local i="$1"
+  local desc
+  desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
+  echo "=== CHECK-ENV ==="
+  [ -n "$desc" ] && echo "    → $desc"
+  command -v b3sum &>/dev/null && echo "  b3sum : OK" || echo "  b3sum : KO"
+  command -v jq    &>/dev/null && echo "  jq    : OK" || echo "  jq    : KO"
+}
+
+run_version_extended() {
+  local i="$1"
+  echo "=== VERSION ==="
+  command -v b3sum &>/dev/null && b3sum --version || echo "b3sum non disponible"
+}
+
+# == Dispatch par bloc =========================================================
+
+dispatch_bloc() {
+  local i="$1"
+  local fmt
+  fmt=$(_bloc_format "$i")
+
+  case "$fmt" in
+    legacy)
+      local op
+      op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
+      [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
+      case "$op" in
+        compute) run_compute_legacy "$i" ;;
+        verify)  run_verify_legacy  "$i" ;;
+        compare) run_compare_legacy "$i" ;;
+        *)       die "Bloc #$((i+1)) : opération inconnue : '$op'" ;;
+      esac
+      ;;
+    extended)
+      local type
+      type=$(jq -r --argjson i "$i" '.pipeline[$i].type' "$CONFIG")
+      case "$type" in
+        compute)   run_compute_extended   "$i" ;;
+        verify)    run_verify_extended    "$i" ;;
+        compare)   run_compare_extended   "$i" ;;
+        list)      run_list_extended      "$i" ;;
+        diff)      run_diff_extended      "$i" ;;
+        stats)     run_stats_extended     "$i" ;;
+        check-env) run_checkenv_extended  "$i" ;;
+        version)   run_version_extended   "$i" ;;
+        runner)    die "Bloc #$((i+1)) : 'runner' imbriqué non supporté." ;;
+        *)         die "Bloc #$((i+1)) : type inconnu : '$type'" ;;
+      esac
+      ;;
+    *)
+      die "Bloc #$((i+1)) : ni 'op' (legacy) ni 'type' (étendu) trouvé."
+      ;;
+  esac
+}
+
 # == Main ======================================================================
 
 echo "=== PIPELINE DÉMARRÉ : $(date) ==="
@@ -514,20 +1474,12 @@ echo "=== Config : $CONFIG ($nb_ops opération(s)) ==="
 echo ""
 
 for (( i=0; i<nb_ops; i++ )); do
-  op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
-  [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
-
-  case "$op" in
-    compute) run_compute "$i" ;;
-    verify)  run_verify  "$i" ;;
-    compare) run_compare "$i" ;;
-    *)       die "Bloc #$((i+1)) : opération inconnue : '$op'" ;;
-  esac
-
+  dispatch_bloc "$i"
   echo ""
 done
 
 echo "=== PIPELINE TERMINÉ : $(date) ==="
+
 
 --- Fichier : mon_dossier/destination/fichier (1).txt ---
 Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
@@ -547,40 +1499,6 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 --- Fichier : mon_dossier/destination/fichier (4).txt ---
 It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here', making it look like readable English. Many desktop publishing packages and web page editors now use Lorem Ipsum as their default model text, and a search for 'lorem ipsum' will uncover many web sites still in their infancy. Various versions have evolved over the years, sometimes by accident, sometimes on purpose (injected humour and the like).
 
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/disparus.txt ---
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/nouveaux.txt ---
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1_20260222-100613/recap.txt ---
-Commande      : integrity.sh compare hashes_dossier_1.b3 hashes_dossier_2.b3
-Date          : dim. 22 févr. 2026 10:06:13 CET
-Ancienne base : ./mon_dossier/bases/hashes_dossier_1.b3
-Nouvelle base : ./mon_dossier/bases/hashes_dossier_2.b3
-
-Modifiés      : 1
-Disparus      : 0
-Nouveaux      : 0
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1/disparus.txt ---
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1/nouveaux.txt ---
-
-
---- Fichier : mon_dossier/result/resultats_hashes_dossier_1/recap.txt ---
-Commande      : integrity.sh compare hashes_dossier_1.b3 hashes_dossier_2.b3
-Date          : dim. 22 févr. 2026 10:05:31 CET
-Ancienne base : ./mon_dossier/bases/hashes_dossier_1.b3
-Nouvelle base : ./mon_dossier/bases/hashes_dossier_2.b3
-
-Modifiés      : 4
-Disparus      : 0
-Nouveaux      : 0
 
 
 --- Fichier : mon_dossier/source/fichier (1).txt ---
@@ -848,6 +1766,9 @@ echo ""
 #             runner.sh    à ../
 #             integrity.sh à ../src/
 # Usage     : cd tests && ./run_tests_pipeline.sh
+
+echo "TP00 - Permissions integrity.sh"
+if [ -x "$INTEGRITY" ]; then pass "integrity.sh est exécutable"; else fail "integrity.sh non exécutable (chmod +x requis)"; fi
 
 set -euo pipefail
 
@@ -1293,14 +2214,14 @@ echo ""
 #!/usr/bin/env bash
 # integrity.sh - Vérification d'intégrité par hachage BLAKE3
 #
-# Point d'entrée CLI. Orchestre les modules :
-#   src/lib/core.sh    - logique métier (hachage, vérification, comparaison)
+# Point d'entrée CLI interne. Orchestre les modules :
+#   src/lib/core.sh    - logique métier (hachage, vérification, comparaison, sidecar)
 #   src/lib/ui.sh      - interface terminal (affichage, ETA, progression)
 #   src/lib/results.sh - écriture des fichiers de résultats
 #   src/lib/report.sh  - génération des rapports HTML
 #
 # Usage :
-#   ./integrity.sh [--quiet] compute <dossier> <base.b3>
+#   ./integrity.sh [--quiet] compute <dossier> <base.b3> [commentaire_sidecar]
 #   ./integrity.sh [--quiet] verify  <base.b3> [dossier]
 #   ./integrity.sh [--quiet] compare <ancienne.b3> <nouvelle.b3>
 #
@@ -1308,13 +2229,23 @@ echo ""
 #   --quiet   Supprime toute sortie terminal. Écrit uniquement dans les
 #             fichiers de résultats. Exit code propagé sans modification.
 #
+# Sidecar :
+#   compute génère automatiquement <base.b3>.meta.json si jq est disponible.
+#   Le troisième argument optionnel de compute est un commentaire libre.
+#   verify et compare affichent le sidecar si présent (sauf --quiet).
+#
 # Dépendances : b3sum, bash >= 4, find, sort, awk, comm, join, stat, du, mktemp
+#               jq (optionnel - requis pour la génération du sidecar)
 #
 # Exit codes :
 #   0 - succès (voir contrat de chaque mode dans src/lib/core.sh)
 #   1 - erreur (argument manquant, fichier introuvable, corruption détectée)
 
 set -euo pipefail
+
+# == Version ====================================================================
+
+INTEGRITY_VERSION="2.0.0"
 
 # == Prérequis bash =============================================================
 
@@ -1352,6 +2283,7 @@ done
 MODE="${ARGS[0]:-}"
 ARG2="${ARGS[1]:-}"
 ARG3="${ARGS[2]:-}"
+ARG4="${ARGS[3]:-}"   # commentaire sidecar optionnel pour compute
 
 # == Configuration ==============================================================
 
@@ -1364,9 +2296,10 @@ RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
 _run_compute() {
   local target="$ARG2"
   local hashfile="$ARG3"
+  local sidecar_comment="${ARG4:-}"
 
-  [ -n "$target"   ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3>"
-  [ -n "$hashfile" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3>"
+  [ -n "$target"   ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
+  [ -n "$hashfile" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
   [ ! -d "$hashfile" ] || die "compute : '$hashfile' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
 
   core_assert_target_valid "$target"
@@ -1379,6 +2312,12 @@ _run_compute() {
   ui_progress_clear
 
   say "Base enregistrée : $hashfile ($(wc -l < "$hashfile") fichiers)"
+
+  # Sidecar : généré si jq est disponible
+  if command -v jq &>/dev/null; then
+    core_sidecar_write "$hashfile" "$target" "$sidecar_comment" "$INTEGRITY_VERSION"
+    say "Sidecar : ${hashfile}.meta.json"
+  fi
 }
 
 _run_verify() {
@@ -1393,6 +2332,9 @@ _run_verify() {
   # invalide après changement de répertoire
   local hashfile_abs
   hashfile_abs="$(cd "$(dirname "$b3file")" && pwd)/$(basename "$b3file")"
+
+  # Affichage du sidecar avant le cd (chemin encore valide)
+  (( QUIET )) || core_sidecar_read "$hashfile_abs"
 
   if [ -n "$workdir" ]; then
     [ -d "$workdir" ] || die "verify : '$workdir' n'est pas un dossier valide."
@@ -1429,6 +2371,12 @@ _run_compare() {
   core_assert_b3_valid "$old" "ancienne base"
   core_assert_b3_valid "$new" "nouvelle base"
 
+  # Affichage des sidecars avant toute opération
+  if (( ! QUIET )); then
+    core_sidecar_read "$old"
+    core_sidecar_read "$new"
+  fi
+
   local outdir
   outdir=$(core_make_result_dir "$old" "$RESULTATS_DIR")
 
@@ -1457,21 +2405,30 @@ case "$MODE" in
   verify)  _run_verify  ;;
   compare) _run_compare ;;
   *)
-    echo "Usage:"
-    echo "  $0 [--quiet] compute <dossier> <base.b3>"
-    echo "  $0 [--quiet] verify  <base.b3> [dossier]"
-    echo "  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>"
-    echo ""
-    echo "Options:"
-    echo "  --quiet   Silencieux : écrit uniquement dans les fichiers de résultats."
+    cat <<EOF
+Usage :
+  $0 [--quiet] compute <dossier> <base.b3> [commentaire]
+  $0 [--quiet] verify  <base.b3> [dossier]
+  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>
+
+Options :
+  --quiet      Silencieux : écrit uniquement dans les fichiers de résultats.
+
+Arguments optionnels :
+  [commentaire]  Texte libre stocké dans le sidecar <base.b3>.meta.json (compute uniquement).
+                 Nécessite jq.
+
+Note :
+  Pour l'interface complète (list, diff, stats, check-env, version, pipeline),
+  utiliser hash-tool à la racine du projet.
+EOF
     exit 1
     ;;
 esac
 
-
 --- Fichier : src/lib/core.sh ---
 #!/usr/bin/env bash
-# src/lib/core.sh - Logique métier BLAKE3 : hachage, vérification, comparaison
+# src/lib/core.sh - Logique métier BLAKE3 : hachage, vérification, comparaison, sidecar
 #
 # Ce module contient uniquement la logique métier. Il ne produit aucune
 # sortie terminal directement - toute communication avec l'utilisateur
@@ -1482,6 +2439,7 @@ esac
 #
 # == Dépendances ================================================================
 #   b3sum, find, sort, awk, join, comm, mktemp, stat, du
+#   jq (optionnel - requis pour core_sidecar_write et core_sidecar_read)
 #
 # == Invariants globaux =========================================================
 #   - Toutes les fonctions supposent bash >= 4 (vérifié par integrity.sh)
@@ -1792,6 +2750,88 @@ core_make_result_dir() {
   echo "$outdir"
 }
 
+# == Sidecar file ===============================================================
+
+# core_sidecar_write <b3_path> <data_dir> <comment> <version>
+#
+# Génère un fichier <b3_path>.meta.json contenant les métadonnées du compute.
+#
+# Contrat d'entrée :
+#   $1 - chemin du fichier .b3 produit (utilisé pour nommer le sidecar)
+#   $2 - dossier source ayant été haché
+#   $3 - commentaire libre (peut être vide)
+#   $4 - version de l'outil (ex. "integrity.sh v2.0.0" ou "hash-tool v2.0.0")
+#
+# Contrat de sortie :
+#   exit 0  - sidecar créé : <b3_path>.meta.json
+#   exit 1  - jq introuvable (silencieux : pas d'erreur fatale, compute reste valide)
+#   stdout  - aucun
+#
+# Invariants :
+#   - Le fichier .b3 doit exister avant l'appel (nb_files lu via wc -l)
+#   - Si jq est absent, la fonction retourne silencieusement sans créer le sidecar
+#   - Le sidecar n'écrase pas un éventuel sidecar existant : c'est un nouveau compute
+#
+# Effets de bord :
+#   - Écrit <b3_path>.meta.json sur le disque
+core_sidecar_write() {
+  local b3_path="$1"
+  local data_dir="$2"
+  local comment="${3:-}"
+  local version="${4:-integrity.sh}"
+  local sidecar_path="${b3_path}.meta.json"
+
+  # jq requis - absence non fatale
+  command -v jq &>/dev/null || return 0
+
+  local nb_files
+  nb_files=$(wc -l < "$b3_path" 2>/dev/null || echo 0)
+
+  jq -n \
+    --arg version  "$version" \
+    --arg date     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg comment  "$comment" \
+    --arg dir      "$data_dir" \
+    --argjson nb   "$nb_files" \
+    '{
+      created_by: $version,
+      date:       $date,
+      comment:    $comment,
+      parameters: {
+        directory:  $dir,
+        hash_algo:  "blake3",
+        nb_files:   $nb
+      }
+    }' > "$sidecar_path"
+}
+
+# core_sidecar_read <b3_path>
+#
+# Affiche le contenu du sidecar associé à un fichier .b3 si celui-ci existe.
+# Aucun effet si le sidecar est absent ou si jq est indisponible.
+#
+# Contrat d'entrée :
+#   $1 - chemin du fichier .b3 (le sidecar est <b3_path>.meta.json)
+#
+# Contrat de sortie :
+#   exit 0  - toujours
+#   stdout  - contenu JSON formaté si sidecar présent ; rien sinon
+#
+# Effets de bord : aucun
+core_sidecar_read() {
+  local b3_path="$1"
+  local sidecar_path="${b3_path}.meta.json"
+
+  [ -f "$sidecar_path" ] || return 0
+
+  echo "--- Métadonnées (sidecar) ---"
+  if command -v jq &>/dev/null; then
+    jq '.' "$sidecar_path" 2>/dev/null || cat "$sidecar_path"
+  else
+    cat "$sidecar_path"
+  fi
+  echo "-----------------------------"
+}
 
 --- Fichier : src/lib/report.sh ---
 #!/usr/bin/env bash
@@ -2662,6 +3702,134 @@ case "$CMD" in
 esac
 
 
+--- Fichier : pipelines/pipeline-amelioree.json ---
+{
+  "pipeline": [
+    {
+      "type": "compute",
+      "params": {
+        "input":      "/mnt/data/dossier_exemple",
+        "output_dir": "/mnt/bases",
+        "filename":   "hashes_exemple.b3"
+      },
+      "options": {
+        "quiet":    false,
+        "verbose":  false,
+        "readonly": true
+      },
+      "meta": {
+        "comment": "Snapshot initial avant migration"
+      },
+      "description": "Calculer les empreintes du dossier source (lecture seule)"
+    },
+    {
+      "type": "verify",
+      "params": {
+        "input": "/mnt/data/dossier_exemple",
+        "base":  "/mnt/bases/hashes_exemple.b3"
+      },
+      "options": {
+        "quiet": false
+      },
+      "description": "Vérifier l'intégrité immédiatement après compute"
+    },
+    {
+      "type": "compute",
+      "params": {
+        "input":      "/mnt/data/dossier_exemple_v2",
+        "output_dir": "/mnt/bases",
+        "filename":   "hashes_exemple_v2.b3"
+      },
+      "options": {
+        "quiet":    false,
+        "readonly": true
+      },
+      "meta": {
+        "comment": "Snapshot après migration"
+      },
+      "description": "Calculer les empreintes du dossier destination (post-migration)"
+    },
+    {
+      "type": "compare",
+      "params": {
+        "reference":  "/mnt/bases/hashes_exemple.b3",
+        "input":      "/mnt/bases/hashes_exemple_v2.b3",
+        "output_dir": "/mnt/resultats/compare_migration"
+      },
+      "options": {
+        "quiet": false
+      },
+      "description": "Comparer avant/après migration et produire le rapport HTML"
+    },
+    {
+      "type": "list",
+      "params": {
+        "input_dir": "/mnt/bases"
+      },
+      "options": {},
+      "description": "Lister les bases d'empreintes disponibles"
+    },
+    {
+      "type": "diff",
+      "params": {
+        "input":         "/mnt/bases/hashes_exemple.b3",
+        "reference_dir": "/mnt/data/dossier_exemple"
+      },
+      "options": {},
+      "description": "Afficher les différences entre la base et le dossier"
+    },
+    {
+      "type": "stats",
+      "params": {
+        "input": "/mnt/bases/hashes_exemple.b3"
+      },
+      "options": {},
+      "description": "Afficher les statistiques de la base d'empreintes"
+    },
+    {
+      "type": "check-env",
+      "params": {},
+      "options": {},
+      "description": "Vérifier si l'exécution native ou Docker est possible"
+    },
+    {
+      "type": "version",
+      "params": {},
+      "options": {},
+      "description": "Afficher la version du logiciel"
+    }
+  ]
+}
+
+
+--- Fichier : pipelines/pipeline-debug-deux-adresses.json ---
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "./mon_dossier/source",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "/home/me-dell/Bureau/destination",
+            "bases":  "/home/me-dell/Bureau/dossier bureau/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":       "compare",
+            "base_a":   "./mon_dossier/bases/hashes_dossier_1.b3",
+            "base_b":   "/home/me-dell/Bureau/dossier bureau/bases/bases/hashes_dossier_2.b3",
+            "resultats": "./mon_dossier/result"
+        }
+
+    ]
+}
+
 --- Fichier : pipelines/pipeline-debug.json ---
 {
     "pipeline": [
@@ -2731,6 +3899,34 @@ esac
     ]
 }
 
+--- Fichier : pipelines/pipeline.json ---
+{
+    "pipeline": [
+
+        {
+            "op":     "compute",
+            "source": "./mon_dossier/source",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_1.b3"
+        },
+
+        {
+            "op":     "compute",
+            "source": "./mon_dossier/destination",
+            "bases":  "./mon_dossier/bases",
+            "nom":    "hashes_dossier_2.b3"
+        },
+
+        {
+            "op":       "compare",
+            "base_a":   "./mon_dossier/bases/hashes_dossier_1.b3",
+            "base_b":   "./mon_dossier/bases/hashes_dossier_2.b3",
+            "resultats": "./mon_dossier/result"
+        }
+
+    ]
+}
+
 --- Fichier : docs/getting-started.md ---
 # Démarrage rapide
 
@@ -2742,15 +3938,18 @@ esac
 |---|---|---|
 | `bash >= 4` | Interpréteur shell | Linux natif ; macOS via `brew install bash` ; WSL |
 | `b3sum` | Calcul des empreintes BLAKE3 | `apt install b3sum` / `brew install b3sum` |
-| `jq` | Parsing `pipeline.json` (runner uniquement) | `apt install jq` / `brew install jq` |
+| `jq` | Pipelines JSON + sidecar | `apt install jq` / `brew install jq` |
 | `find`, `sort`, `awk`, `comm`, `join`, `stat`, `du` | Outils internes | GNU coreutils (natifs sur toute distribution) |
 
 !!! note "macOS"
     `bash` est en version 3.x par défaut sur macOS. hash_tool requiert bash >= 4.
     ```bash
-    brew install bash
+    brew install bash b3sum jq
     # Vérifier : /usr/local/bin/bash --version
     ```
+
+!!! note "Docker (alternative)"
+    Si les dépendances ne peuvent pas être installées sur l'hôte, `hash-tool` bascule automatiquement sur Docker. Voir [Démarrage rapide Docker](#docker-démarrage-rapide).
 
 ---
 
@@ -2759,10 +3958,17 @@ esac
 ```bash
 git clone https://github.com/hash_tool/hash_tool.git
 cd hash_tool
-chmod +x src/integrity.sh runner.sh
+chmod +x hash-tool src/integrity.sh runner.sh
 ```
 
 Aucune compilation, aucune dépendance système au-delà des outils listés ci-dessus.
+
+### Rendre `hash-tool` accessible globalement (optionnel)
+
+```bash
+sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
+# Ou : ajouter le dossier hash_tool/ au PATH
+```
 
 ---
 
@@ -2774,7 +3980,33 @@ Aucune compilation, aucune dépendance système au-delà des outils listés ci-d
 | macOS | Natif avec bash 4+ via Homebrew | `brew install bash b3sum jq` |
 | Windows | Via WSL2 | Distributions Ubuntu ou Debian recommandées |
 | NAS Synology | Via Docker (image arm64) | Voir [guide NAS](guides/nas-synology.md) |
-| Serveur headless | Mode `--quiet` + cron | Voir [guide CI/Cron](guides/cron-ci.md) |
+| Serveur headless | Mode `-quiet` + cron | Voir [guide CI/Cron](guides/cron-ci.md) |
+
+---
+
+## Vérifier l'environnement
+
+Avant toute utilisation, diagnostiquer l'environnement :
+
+```bash
+hash-tool check-env
+```
+
+Sortie attendue :
+
+```
+=== check-env : Analyse de l'environnement ===
+
+  [OK] b3sum disponible : b3sum 1.5.4
+  [OK] jq disponible : jq-1.7
+  [OK] bash 5.2.15(1)-release
+  [OK] integrity.sh présent et exécutable : /opt/hash_tool/src/integrity.sh
+  [OK] runner.sh présent et exécutable : /opt/hash_tool/runner.sh
+  [--] Docker non disponible (optionnel)
+
+  Mode d'exécution sélectionné : native
+  → Exécution native active
+```
 
 ---
 
@@ -2782,31 +4014,80 @@ Aucune compilation, aucune dépendance système au-delà des outils listés ci-d
 
 | Étape | Commande | Moment |
 |---|---|---|
-| 1. Indexer | `./src/integrity.sh compute ./dossier bases/hashes_2024-01-15.b3` | Données saines connues |
-| 2. Vérifier | `./src/integrity.sh verify bases/hashes_2024-01-15.b3` | Après transfert / stockage |
-| 3. Comparer | `./src/integrity.sh compare bases/avant.b3 bases/apres.b3` | Entre deux états |
-| 4. Pipeline | `./runner.sh pipelines/pipeline.json` | Automatisation multi-étapes |
+| 1. Indexer | `hash-tool compute -data ./dossier -save ./bases -meta "..."` | Données saines connues |
+| 2. Vérifier | `hash-tool verify -base ./bases/hashes_dossier.b3` | Après transfert / stockage |
+| 3. Comparer | `hash-tool compare -old avant.b3 -new apres.b3` | Entre deux états |
+| 4. Inspecter | `hash-tool diff -base ./bases/hashes_dossier.b3 -data ./dossier` | Contrôle rapide (sans recalcul) |
+| 5. Pipeline | `hash-tool runner -pipeline ./pipelines/pipeline-amelioree.json` | Automatisation multi-étapes |
 
-### Exemple concret - archivage sur disque externe
+### Exemple concret — archivage sur disque externe
 
 ```bash
-# Brancher le disque externe, VeraCrypt le monte sur /mnt/archive
+# Disque monté sur /mnt/archive
 
-# 1. Première indexation - données saines à J0
-cd /mnt/archive
-../hash_tool/src/integrity.sh compute . /mnt/c/bases/archive_2024-01-15.b3
+# 1. Première indexation — données saines à J0
+hash-tool compute \
+  -data /mnt/archive \
+  -save /mnt/c/bases \
+  -meta "Snapshot initial archive 2024-01-15"
 
-# 2. Vérification après chaque session - J+30, J+90, etc.
-cd /mnt/archive
-../hash_tool/src/integrity.sh verify /mnt/c/bases/archive_2024-01-15.b3
+# 2. Vérification après chaque session — J+30, J+90, etc.
+hash-tool verify \
+  -base /mnt/c/bases/hashes_archive.b3 \
+  -data /mnt/archive
 
-# 3. Après ajout de fichiers - comparer les deux états
-cd /mnt/archive
-../hash_tool/src/integrity.sh compute . /mnt/c/bases/archive_2024-02-15.b3
-../hash_tool/src/integrity.sh compare \
-  /mnt/c/bases/archive_2024-01-15.b3 \
-  /mnt/c/bases/archive_2024-02-15.b3
+# 3. Après ajout de fichiers — voir ce qui a changé sans recalculer
+hash-tool diff \
+  -base /mnt/c/bases/hashes_archive.b3 \
+  -data /mnt/archive
+
+# 4. Nouveau snapshot puis comparaison
+hash-tool compute \
+  -data /mnt/archive \
+  -save /mnt/c/bases \
+  -meta "Snapshot après ajout collection 2024-02-15"
+
+hash-tool compare \
+  -old /mnt/c/bases/hashes_archive_avant.b3 \
+  -new /mnt/c/bases/hashes_archive_apres.b3 \
+  -save /mnt/c/rapports
 ```
+
+---
+
+## Sidecar file — métadonnées associées aux bases
+
+Chaque `compute` génère automatiquement un fichier `.meta.json` à côté du `.b3` :
+
+```bash
+hash-tool compute -data ./donnees -save ./bases -meta "Snapshot initial"
+```
+
+Produit :
+
+```
+./bases/
+├── hashes_donnees.b3           ← empreintes BLAKE3
+└── hashes_donnees.b3.meta.json ← métadonnées (date, commentaire, paramètres)
+```
+
+Contenu du sidecar :
+
+```json
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-26T14:30:00Z",
+  "comment": "Snapshot initial",
+  "parameters": {
+    "directory": "./donnees",
+    "hash_algo": "blake3",
+    "readonly": false,
+    "nb_files": 1247
+  }
+}
+```
+
+Les commandes `verify`, `compare` et `stats` affichent automatiquement les métadonnées sidecar si le fichier est présent.
 
 ---
 
@@ -2816,23 +4097,35 @@ Chaque opération `verify` ou `compare` produit un dossier horodaté dans `~/int
 
 ```
 ~/integrity_resultats/
-└== resultats_archive_2024-01-15/
-    ├== recap.txt      ← statut global, compteurs
-    ├== failed.txt     ← fichiers en échec (si applicable)
-    └== report.html    ← rapport visuel autonome (ouvrir dans un navigateur)
+└── resultats_hashes_archive/
+    ├── recap.txt      ← statut global, compteurs
+    ├── failed.txt     ← fichiers en échec (si applicable)
+    ├── modifies.b3    ← fichiers modifiés (compare uniquement)
+    ├── disparus.txt   ← fichiers disparus (compare uniquement)
+    ├── nouveaux.txt   ← nouveaux fichiers (compare uniquement)
+    └── report.html    ← rapport visuel autonome
 ```
 
-Ouvrir `report.html` directement dans un navigateur - aucune connexion requise, aucun serveur.
+Ouvrir `report.html` directement dans un navigateur — aucune connexion requise, aucun serveur.
 
 ---
 
-## Docker - démarrage rapide
+## Docker — démarrage rapide
 
-Si les dépendances ne peuvent pas être installées sur l'hôte :
+Si les dépendances ne peuvent pas être installées sur l'hôte, `hash-tool` détecte Docker automatiquement et l'utilise en fallback :
 
 ```bash
+# Build une fois
 docker build -t hash_tool .
 
+# Ensuite, hash-tool fonctionne identiquement
+# (le mode d'exécution est sélectionné automatiquement)
+hash-tool check-env   # affichera : Mode d'exécution : docker
+```
+
+Ou directement via Docker :
+
+```bash
 docker run --rm \
   -v /mes/donnees:/data:ro \
   -v /mes/bases:/bases \
@@ -2841,30 +4134,54 @@ docker run --rm \
 
 Voir la [référence Docker complète](reference/docker.md) pour les volumes, les environnements Synology, et les options Compose.
 
+---
+
+## Commandes disponibles
+
+```
+hash-tool compute     Calcule les empreintes d'un dossier.
+hash-tool verify      Vérifie l'intégrité d'un dossier à partir d'une base.
+hash-tool compare     Compare deux bases d'empreintes.
+hash-tool runner      Exécute un pipeline JSON.
+hash-tool list        Liste les bases d'empreintes disponibles.
+hash-tool diff        Affiche les différences entre une base et un dossier.
+hash-tool stats       Affiche des statistiques sur une base.
+hash-tool check-env   Analyse l'environnement d'exécution.
+hash-tool version     Affiche la version.
+hash-tool help        Affiche l'aide (ou 'help <commande>' pour le détail).
+```
+
+Aide détaillée par commande :
+
+```bash
+hash-tool help compute
+hash-tool help verify
+hash-tool help runner
+# etc.
+```
 
 --- Fichier : docs/index.md ---
 # hash_tool
 
-hash_tool détecte la corruption silencieuse de fichiers en comparant des empreintes BLAKE3 prises à des instants différents. Il fonctionne depuis la ligne de commande, ne requiert aucune installation complexe, et produit un rapport HTML lisible sans outil supplémentaire.
+hash_tool détecte la corruption silencieuse de fichiers en comparant des empreintes BLAKE3 prises à des instants différents. Il fonctionne depuis une interface CLI unique, ne requiert aucune installation complexe, et produit un rapport HTML lisible sans outil supplémentaire.
 
-
-
+---
 
 ## Principe
 
-`integrity.sh` calcule une empreinte cryptographique de chaque fichier d'un dossier, stocke ces empreintes dans un fichier `.b3`, puis permet de vérifier ultérieurement que rien n'a changé. `runner.sh` orchestre plusieurs opérations via un fichier `pipeline.json`.
+`hash-tool` est l'interface CLI unique. Il détecte automatiquement si l'exécution native est possible (`b3sum` disponible), sinon délègue à Docker — sans que l'utilisateur ait à s'en préoccuper. En interne, `src/integrity.sh` calcule les empreintes et `runner.sh` orchestre les pipelines.
 
 ```
-┌=============┐    compute     ┌==============┐
-│  Dossier    │ =============► │  base.b3     │
-│  de données │                │  (hashes)    │
-└=============┘                └==============┘
+┌=============┐    compute     ┌==============┐    ┌==================┐
+│  Dossier    │ =============► │  base.b3     │    │  base.b3         │
+│  de données │                │  (hashes)    │    │  .meta.json      │ ← sidecar
+└=============┘                └==============┘    └==================┘
                                       │
                      verify / compare │
                                       ▼
                                ┌==============┐
-                               │  Rapport     │
                                │  recap.txt   │
+                               │  failed.txt  │
                                │  report.html │
                                └==============┘
 ```
@@ -2873,34 +4190,37 @@ hash_tool détecte la corruption silencieuse de fichiers en comparant des emprei
 
 ## Cas d'usage
 
-- **Archivage long terme** - vérifier qu'un disque n'a pas développé de secteurs défectueux
-- **Transfert de données** - confirmer qu'une copie est bit-à-bit identique à la source
-- **VeraCrypt** - indexer des partitions chiffrées avant démontage, vérifier après remontage
-- **Monitoring périodique** - cron hebdomadaire sur un NAS ou serveur
+- **Archivage long terme** — vérifier qu'un disque n'a pas développé de secteurs défectueux
+- **Transfert de données** — confirmer qu'une copie est bit-à-bit identique à la source
+- **VeraCrypt** — indexer des partitions chiffrées avant démontage, vérifier après remontage
+- **Monitoring périodique** — cron hebdomadaire sur un NAS ou serveur
+- **Automatisation CI/CD** — mode `--quiet`, exit code propagé, image Docker légère
 
 ---
 
 ## Démarrage rapide
 
-=== "Script direct"
+=== "CLI unique (recommandé)"
 
     ```bash
     # 1. Indexer un dossier
-    ./src/integrity.sh compute ./mon_dossier hashes_$(date +%Y-%m-%d).b3
+    hash-tool compute -data ./mon_dossier -save ./bases -meta "Snapshot initial"
 
     # 2. Vérifier l'intégrité
-    ./src/integrity.sh verify hashes_$(date +%Y-%m-%d).b3
+    hash-tool verify -base ./bases/hashes_mon_dossier.b3
 
     # 3. Comparer deux snapshots
-    ./src/integrity.sh compare ancien.b3 nouveau.b3
+    hash-tool compare -old snap1.b3 -new snap2.b3 -save ./rapports
+
+    # 4. Vérifier l'environnement
+    hash-tool check-env
     ```
 
 === "Pipeline JSON"
 
     ```bash
-    # Éditer pipelines/pipeline.json, puis :
-    ./runner.sh                              # lit pipelines/pipeline.json
-    ./runner.sh /chemin/vers/pipeline.json   # config explicite
+    # Éditer pipelines/pipeline-amelioree.json, puis :
+    hash-tool runner -pipeline ./pipelines/pipeline-amelioree.json
     ```
 
 === "Docker"
@@ -2912,16 +4232,14 @@ hash_tool détecte la corruption silencieuse de fichiers en comparant des emprei
       hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
     ```
 
-=== Mode `--quiet`
-
-Supprime toute sortie terminal, écrit uniquement dans les fichiers de résultats. Exit code propagé.
+=== "Mode --quiet (CI/cron)"
 
     ```bash
     # Hook pre-commit git
-    ./src/integrity.sh --quiet verify base.b3 || { echo "Corruption détectée"; exit 1; }
+    hash-tool verify -base base.b3 -quiet || { echo "Corruption détectée"; exit 1; }
 
     # Monitoring cron
-    0 3 * * * /opt/hash_tool/src/integrity.sh --quiet verify /data/base.b3 || mail -s "ALERT" admin@example.com
+    0 3 * * * hash-tool verify -base /data/base.b3 -quiet || mail -s "ALERT" admin@example.com
     ```
 
 ---
@@ -2930,29 +4248,32 @@ Supprime toute sortie terminal, écrit uniquement dans les fichiers de résultat
 
 | Situation | Commande |
 |---|---|
-| Première indexation | `compute` |
-| Vérifier après transfert / stockage | `verify` |
-| Comparer deux snapshots | `compare` |
-| Pipeline multi-dossiers / VeraCrypt | `runner.sh` + `pipeline.json` |
+| Première indexation | `hash-tool compute` |
+| Vérifier après transfert / stockage | `hash-tool verify` |
+| Comparer deux snapshots | `hash-tool compare` |
+| Lister les bases disponibles | `hash-tool list` |
+| Voir les fichiers nouveaux/disparus sans recalculer | `hash-tool diff` |
+| Statistiques sur une base | `hash-tool stats` |
+| Pipeline multi-étapes / VeraCrypt | `hash-tool runner` |
+| Diagnostic de l'environnement | `hash-tool check-env` |
 | Contrôle ad hoc d'un fichier unique | `b3sum fichier.bin` |
-| Intégration CI/cron | `--quiet verify` |
 
-
-
+---
 
 ## Configuration
 
 `RESULTATS_DIR` définit le dossier racine des résultats (défaut : `~/integrity_resultats`).
-Peut être surchargé par variable d'environnement, ou par le champ `resultats` dans `pipeline.json`.
+Peut être surchargé par variable d'environnement ou via l'option `-save`.
 
 ---
 
 ## Règles d'utilisation critiques
 
 - **Chemins relatifs** dans les bases `.b3`. `runner.sh` gère le `cd` automatiquement.
-- **Répertoire de travail** : lancer `verify` depuis le même répertoire qu'au `compute`, ou passer ce répertoire en second argument.
+- **Répertoire de travail** : lancer `verify` depuis le même répertoire qu'au `compute`, ou passer `-data <dossier>`.
 - **Stockage séparé** : stocker les `.b3` sur un support distinct des données.
 - **Nommage daté** : `hashes_2024-01-15.b3`, jamais `hashes_latest.b3`.
+- **Sidecar** : le fichier `.meta.json` associé à chaque `.b3` est optionnel mais recommandé pour la traçabilité.
 
 ---
 
@@ -2981,7 +4302,7 @@ docker run --rm \
   hash_tool runner
 ```
 
-Voir [docs/reference/docker.md](docs/reference/docker.md) pour la documentation complète (NAS, cron, ARM64, Compose).
+Voir [docs/reference/docker.md](reference/docker.md) pour la documentation complète.
 
 ---
 
@@ -3000,52 +4321,35 @@ apt install shellcheck
 
 ---
 
-## Documentation
+## Structure du projet
 
-```bash
-# Installer les dépendances
-pip install mkdocs mkdocs-material
-
-# Prévisualiser en local
-mkdocs serve    # http://localhost:8000
-
-# Générer le site statique
-mkdocs build    # → site/
 ```
-
----
-
-
-
----
-
-## Structure de la documentation
-
-La documentation est organisée en trois niveaux :
-
-### Documentation utilisateur
-Pour installer, configurer et utiliser hash_tool sans connaître son implémentation interne.
-
-- [Démarrage rapide](getting-started.md) - installation et premier usage
-- [Guide VeraCrypt](guides/veracrypt.md) - workflow multi-disques
-- [Guide CI/Cron](guides/cron-ci.md) - automatisation
-- [Guide NAS Synology](guides/nas-synology.md) - déploiement NAS
-
-### Documentation développeur
-Pour comprendre l'architecture, contribuer au code ou intégrer les modules.
-
-- [Architecture](development/architecture.md) - décisions techniques et rationale
-- [Contribuer](development/contributing.md) - conventions, tests, processus de release
-- [Changelog](development/changelog.md) - historique des versions
-- [API interne](spec/api-interne.md) - contrats des modules
-
-### Documentation de référence
-Spécifications formelles et référence exhaustive des commandes.
-
-- [Spécification format `.b3`](spec/b3-format.md) - grammaire, invariants, exemples
-- [Référence integrity.sh](reference/integrity-sh.md) - modes, arguments, exit codes, limites
-- [Référence runner.sh](reference/runner-sh.md) - format pipeline.json, comportements
-- [Référence Docker](reference/docker.md) - build, volumes, Compose, cron, ARM64
+hash_tool/
+├── hash-tool                  ← CLI unique (point d'entrée utilisateur)
+├── src/
+│   ├── integrity.sh           ← dispatcher CLI (compute, verify, compare)
+│   └── lib/
+│       ├── core.sh            ← logique métier (hachage, vérification, comparaison)
+│       ├── ui.sh              ← interface terminal (affichage, ETA, progression)
+│       ├── results.sh         ← écriture fichiers de résultats
+│       └── report.sh          ← génération HTML
+├── runner.sh                  ← orchestrateur pipeline (formats legacy + étendu)
+├── pipelines/
+│   ├── pipeline.json              ← pipeline legacy simple
+│   ├── pipeline-amelioree.json    ← pipeline format étendu (toutes les commandes)
+│   ├── pipeline-veracrypt.json    ← pipeline VeraCrypt multi-disques
+│   └── pipeline-debug.json        ← pipeline de test local
+├── reports/
+│   └── template.html          ← template HTML de référence
+├── docs/
+│   ├── spec/                  ← spécifications formelles
+│   ├── reference/             ← référence des commandes
+│   ├── guides/                ← guides utilisateur
+│   └── development/           ← documentation développeur
+└── tests/
+    ├── run_tests.sh           ← T00–T14
+    └── run_tests_pipeline.sh  ← TP01–TP12b
+```
 
 ---
 
@@ -3053,44 +4357,38 @@ Spécifications formelles et référence exhaustive des commandes.
 
 | Outil | Requis par | Installation |
 |---|---|---|
-| `bash >= 4` | `integrity.sh`, `runner.sh` | Natif Linux/macOS |
-| `b3sum` | `integrity.sh` | `apt install b3sum` |
-| `jq` | `runner.sh` | `apt install jq` |
+| `bash >= 4` | `hash-tool`, `integrity.sh`, `runner.sh` | Natif Linux ; macOS via `brew install bash` |
+| `b3sum` | `integrity.sh` | `apt install b3sum` / `brew install b3sum` |
+| `jq` | `hash-tool`, `runner.sh` | `apt install jq` / `brew install jq` |
 | `find`, `sort`, `awk`, `comm`, `join`, `stat`, `du` | `integrity.sh` | GNU coreutils (natifs) |
+| `docker` (optionnel) | `hash-tool` (fallback) | Uniquement si b3sum non disponible |
 
 !!! note "macOS"
     `bash` est en version 3.x par défaut sur macOS. Installer bash 5 via Homebrew : `brew install bash`.
 
----
+--- Fichier : docs/troubleshooting /troubleshooting_1.md ---
 
-## Structure du projet
+# troubleshooting 1 : titre
 
-```
-hash_tool/
-├== src/
-│   ├== integrity.sh           ← dispatcher CLI
-│   └== lib/
-│       ├== core.sh            ← logique métier (hachage, vérification, comparaison)
-│       ├== ui.sh              ← interface terminal (affichage, ETA, progression)
-│       ├== results.sh         ← écriture fichiers de résultats
-│       └== report.sh          ← génération HTML
-├== runner.sh                  ← orchestrateur pipeline
-├== pipelines/
-│   ├== pipeline.json          ← pipeline de test local
-│   └== pipeline-full.json     ← pipeline VeraCrypt multi-disques
-├== reports/
-│   └== template.html          ← template HTML de référence
-├== docs/
-│   ├== spec/                  ← spécifications formelles
-│   │   ├== b3-format.md       ← format .b3
-│   │   └== api-interne.md     ← contrats des modules
-│   ├== reference/             ← référence des commandes
-│   ├== guides/                ← guides utilisateur
-│   └== development/           ← documentation développeur
-└== tests/
-    ├== run_tests.sh           ← T00–T14
-    └== run_tests_pipeline.sh  ← TP01–TP12b
-```
+## Commande 
+
+bash ./runner.sh ./pipelines/pipeline-debug.json
+
+## Message d'erreur 
+
+=== PIPELINE DÉMARRÉ : mar. 24 févr. 2026 13:22:40 CET ===
+=== Config : ./pipelines/pipeline-debug.json (3 opération(s)) ===
+
+=== COMPUTE : ./mon_dossier/source ===
+./runner.sh: ligne 70: /media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/src/integrity.sh: Permission non accordée
+
+## Solution 
+
+chmod +x ./src/integrity.sh ./src/lib/*.sh
+
+## Explication 
+
+à écrire 
 
 
 --- Fichier : docs/spec/api-interne.md ---
@@ -3514,776 +4812,520 @@ Ces fonctionnalités ne sont pas planifiées avec une date. Elles sont identifi�
 
 
 --- Fichier : docs/development/architecture.md ---
-# Architecture
-
-Décisions techniques, choix d'implémentation, flux de données et rationale.
-
----
-
-## Vue d'ensemble
-
-hash_tool est organisé en quatre couches avec séparation stricte des responsabilités :
-
-```
-runner.sh                      ← orchestration pipeline (entrée utilisateur)
-    └== src/integrity.sh       ← dispatcher CLI (parsing args, orchestration)
-            ├== src/lib/core.sh      ← logique métier pure
-            ├== src/lib/ui.sh        ← interface terminal (affichage, ETA)
-            ├== src/lib/results.sh   ← écriture fichiers de résultats
-            └== src/lib/report.sh    ← génération rapports HTML
-```
-
-Les dépendances sont **strictement unidirectionnelles** : `integrity.sh` orchestre les modules, les modules ne se connaissent pas entre eux.
-
-### Rationale de la séparation
-
-La séparation n'est pas un exercice de style. Elle résout des problèmes concrets :
-
-- **Testabilité** : `core_compute()`, `core_verify()`, `core_compare()` peuvent être testés sans terminal, sans affichage, sans effets de bord UI.
-- **Mode `--quiet`** : activé dans `ui.sh` uniquement. Le code métier n'a pas à savoir si on est en mode silencieux.
-- **Réutilisabilité** : `src/lib/core.sh` peut être sourcé par un script tiers pour utiliser les fonctions métier sans l'interface CLI.
-- **Maintenance** : modifier le format d'affichage de l'ETA ne touche pas à la logique de hachage, et vice versa.
-
----
-
-## Flux de données
-
-### Mode `compute`
-
-```
-integrity.sh
-    │
-    ├= core_assert_target_valid(target)
-    │      ↓ exit 1 si invalide
-    │
-    ├= core_compute(target, hashfile, callback=ui_progress_callback)
-    │      │
-    │      ├= find -type f -print0 | sort -z → liste fichiers
-    │      ├= pour chaque fichier :
-    │      │       b3sum fichier >> hashfile
-    │      │       callback(i, total, bytes_done, total_bytes, eta)
-    │      │           └= ui_progress_callback → printf > /dev/tty
-    │      └= retour : hashfile contient N lignes "<hash>  <chemin>"
-    │
-    ├= ui_progress_clear()     → efface ligne ETA du terminal
-    └= say("Base enregistrée") → stdout
-```
-
-### Mode `verify`
-
-```
-integrity.sh
-    │
-    ├= core_assert_b3_valid(b3file)
-    ├= résolution chemin absolu (avant cd)
-    ├= cd workdir (si ARG3 fourni)
-    ├= core_make_result_dir → outdir
-    │
-    ├= core_verify(hashfile_abs)
-    │      │
-    │      ├= b3sum --check hashfile → raw output
-    │      ├= parsing raw → CORE_VERIFY_LINES_OK/FAIL/ERR
-    │      └= positionne CORE_VERIFY_STATUS, NB_OK, NB_FAIL
-    │
-    ├= results_write_verify(outdir, ...) → outdir/recap.txt, outdir/failed.txt
-    └= ui_show_verify_result(...)        → stdout
-```
-
-### Mode `compare`
-
-```
-integrity.sh
-    │
-    ├= core_assert_b3_valid(old), core_assert_b3_valid(new)
-    ├= core_make_result_dir → outdir
-    │
-    ├= core_compare(old, new, outdir)
-    │      │
-    │      ├= _b3_to_path_hash(old) → tmp_old : "chemin\thash"
-    │      ├= _b3_to_path_hash(new) → tmp_new : "chemin\thash"
-    │      ├= join inner → modifies.b3
-    │      ├= comm -23   → disparus.txt
-    │      ├= comm -13   → nouveaux.txt
-    │      └= positionne CORE_COMPARE_NB_MOD/DIS/NOU
-    │
-    ├= results_write_compare(outdir, ...) → outdir/recap.txt
-    ├= generate_compare_html(...)         → outdir/report.html
-    └= ui_show_compare_result(...)        → stdout
-```
-
----
-
-## Choix algorithmique - BLAKE3
-
-### Comparaison MD5 / SHA-256 / BLAKE3
-
-| Critère | MD5 | SHA-256 | BLAKE3 |
-|---|---|---|---|
-| Vitesse sur fichiers volumineux | Rapide | Lent | Très rapide (~3× SHA-256) |
-| Sécurité cryptographique | Cassé | Solide | Solide |
-| Parallélisation | Non | Non | Oui (SIMD, multi-thread) |
-| Adapté à l'intégrité de fichiers | Oui* | Oui | Oui (référence actuelle) |
-
-\* MD5 est suffisant pour détecter la corruption accidentelle mais ne doit plus être utilisé pour des usages sécuritaires.
-
-### Rationale
-
-xxHash3 est techniquement suffisant pour détecter des erreurs accidentelles - pas d'adversaire dans ce cas d'usage. BLAKE3 est retenu pour une seule raison : **coût marginal nul sur disque**. Sur HDD (150 Mo/s) ou SATA SSD (500 Mo/s), le disque est le goulot. BLAKE3 à ~1 Go/s sur un cœur n'est jamais le facteur limitant. Le headroom cryptographique est gratuit.
-
-Si le besoin évolue vers un contexte adversarial (signature, authentification), BLAKE3 reste utilisable sans changer de workflow ni de format de base. Voir `SECURITY.md` pour le modèle de menace.
-
-### Pourquoi ne pas SHA-256 ou SHA-512
-
-- BLAKE3 est ~3–5× plus rapide que SHA-256 sur les mêmes données
-- Format de sortie `b3sum` identique à `sha256sum` - interopérabilité conservée
-- `b3sum` disponible dans Alpine, Debian, Ubuntu, Homebrew sans compilation
-
----
-
-## Format du fichier `.b3`
-
-Voir la spécification normative complète : [`docs/spec/b3-format.md`](../spec/b3-format.md).
-
-Résumé des invariants :
-- Format natif `b3sum` : `<hash64>  <chemin>` (deux espaces)
-- Chemins **relatifs** obligatoires
-- Trié par chemin (ordre binaire, LC_ALL=C)
-- Pas de ligne vide, pas de commentaire, format Unix (LF)
-
-### Rationale du format natif b3sum
-
-Le format `b3sum` natif est délibérément conservé plutôt qu'un format propriétaire :
-
-- **Interopérabilité directe** : `b3sum --check base.b3` fonctionne sans post-traitement
-- **Lisibilité humaine** : `grep`, `awk`, `sort` opèrent directement
-- **Zéro parser dédié** : l'offset fixe hash=64 chars + SEP=2 chars est exploité dans `core_compare()` pour parser les lignes sans ambiguïté même avec des espaces dans les chemins :
-  ```bash
-  awk '{ print substr($0,67) "\t" substr($0,1,64) }' base.b3
-  ```
-
----
-
-## Chemins relatifs - décision fondamentale
-
-Les bases `.b3` stockent des **chemins relatifs**. C'est une contrainte non négociable.
-
-### Rationale
-
-Un chemin absolu `/mnt/veracrypt1/photos/img.jpg` devient invalide si la partition est remontée sur `/mnt/veracrypt2/`. Un chemin relatif `./photos/img.jpg` reste valide quel que soit le point de montage, dès lors que `verify` est lancé depuis le bon répertoire.
-
-`runner.sh` encapsule cette contrainte via `cd "$source"` + `integrity.sh compute . ...` - l'utilisateur n'a pas à y penser.
-
-### Impact sur `verify`
-
-`b3sum --check` résout les chemins relatifs depuis le `pwd`. Avant tout `cd`, `integrity.sh` résout le chemin absolu du fichier `.b3` :
-
-```bash
-hashfile_abs="$(cd "$(dirname "$b3file")" && pwd)/$(basename "$b3file")"
-# cd vers le répertoire de travail d'origine
-cd "$workdir"
-# Utilise l'absolu - le relatif serait invalide après le cd
-b3sum --check "$hashfile_abs"
-```
-
----
-
-## Isolation des sous-shells dans `runner.sh`
-
-Chaque opération `compute` et `verify` est exécutée dans un sous-shell :
-
-```bash
-( cd "$source" && "$INTEGRITY" compute . "$bases_abs/$nom" )
-```
-
-Le `cd` est isolé dans `( )` - il ne fuite pas vers les blocs suivants du pipeline.
-
-Pour `RESULTATS_DIR` sur les blocs `compare` avec champ `resultats` :
-
-```bash
-RESULTATS_DIR="$resultats_abs" "$INTEGRITY" compare "$base_a" "$base_b"
-```
-
-Variable préfixée à la commande - scope limité à cet appel, sans `export`, sans modification du processus parent.
-
----
-
-## Robustesse aux noms de fichiers avec espaces
-
-Trois points critiques dans l'implémentation :
-
-**1. `find -print0` + `sort -z` + `mapfile -d ''`**
-
-```bash
-mapfile -d '' files < <(find "$target" -type f -print0 | sort -z)
-```
-
-`find -print0` sépare les chemins par des octets nuls. `sort -z` trie sur le même séparateur. `mapfile -d ''` charge le tableau sans ambiguïté avec des espaces ou des newlines dans les noms.
-
-**2. Séparateur tab dans `core_compare()`**
-
-Après conversion `hash  chemin` → `chemin\thash`, toutes les opérations (`sort`, `join`, `comm`, `cut`) utilisent `-t $'\t'`. Un chemin contenant des espaces ne fragmente pas les champs.
-
-**3. `"$@"` et guillemets systématiques**
-
-Tous les arguments sont propagés entre guillemets doubles. ShellCheck enforce ce point (T00 dans la suite de tests).
-
----
-
-## Progression ETA - pourquoi casser le pipeline `xargs`
-
-Le pipeline naturel `find | sort | xargs b3sum` est une boîte noire : `b3sum` ne remonte aucune progression.
-
-Intercaler `pv` est invalide : mesurer le débit sur le flux concaténé `cat | pv | b3sum` produit un hash unique du flux, pas une ligne par fichier.
-
-La boucle bash fichier par fichier est la seule approche compatible avec le format `.b3`. Le coût en performance est nul sur HDD (disque = goulot). Sur SSD NVMe avec `-P 4`, la parallélisation `xargs` offrirait +20–40% - mais l'ETA est incompatible avec le parallélisme sans complexité majeure.
-
-### Rationale de l'écriture sur `/dev/tty`
-
-La progression est écrite sur `/dev/tty` directement :
-
-```bash
-printf "\r[%d/%d] ETA : %dm %02ds   " ... > /dev/tty
-```
-
-`/dev/tty` est le terminal courant, indépendamment des redirections. Garantit que la progression n'est **jamais** capturée dans le fichier `.b3` ni dans un pipe parent.
-
-### Separation via callback
-
-`core_compute()` reçoit un nom de fonction callback au lieu d'appeler directement `ui_progress_callback()`. Ceci permet :
-- Tests unitaires de `core_compute()` avec un callback vide ou mock
-- Découplage de la logique métier de la logique d'affichage
-
----
-
-## Rapport HTML - CSS inline
-
-`report.html` est autonome : tout le CSS est inline, aucune dépendance externe.
-
-### Rationale
-
-Le rapport doit être lisible hors ligne, sur un NAS sans accès internet, dans un gestionnaire de fichiers local. Un CDN externe (`fonts.googleapis.com`) serait inaccessible dans ces contextes.
-
-L'import Google Fonts dans le CSS est donc purement décoratif - le fallback `system-ui, sans-serif` fonctionne parfaitement sans réseau.
-
----
-
-## Horodatage anti-écrasement
-
-`core_make_result_dir()` vérifie l'existence du dossier cible et ajoute un suffixe `_YYYYMMDD-HHMMSS` en cas de collision.
-
-### Rationale
-
-Conserver l'historique complet des vérifications a plus de valeur que d'économiser de l'espace disque. Un résultat écrasé silencieusement est une donnée perdue.
-
----
-
-## Structure `src/` vs racine
-
-- **`runner.sh` à la racine** : point d'entrée utilisateur, visible directement
-- **`src/`** : code interne non destiné à être appelé directement dans le cas général
-- **`src/lib/`** : modules internes sourcés par `integrity.sh`. La structure prépare l'extension : `notify.sh`, `export.sh`, etc.
-
----
-
-## Validation JSON dans `runner.sh`
-
-```bash
-jq empty "$CONFIG" 2>/dev/null || { echo "ERREUR : JSON invalide : $CONFIG" >&2; exit 1; }
-```
-
-`jq empty` parse le JSON sans produire de sortie. L'erreur brute de `jq` est redirigée vers `/dev/null` ; le message d'erreur est celui de `runner.sh`, pas une stacktrace interne de `jq`.
-
----
-
-## Dépendances externes - décisions
-
-| Outil | Alternatif envisagé | Raison du choix |
-|---|---|---|
-| `b3sum` | `sha256sum`, `xxhash` | BLAKE3, performance, format compatible |
-| `jq` | parser bash custom | Validation JSON native, robustesse, maintenabilité |
-| Alpine 3.19 (Docker) | Ubuntu, Debian slim | ~14 Mo vs ~80 Mo, `b3sum` disponible dans community |
-| `bash >= 4` | `sh`, `dash` | `mapfile`, tableaux, `BASH_VERSINFO` |
-
+#!/usr/bin/env bash
+# integrity.sh - Vérification d'intégrité par hachage BLAKE3
+#
+# Point d'entrée CLI interne. Orchestre les modules :
+#   src/lib/core.sh    - logique métier (hachage, vérification, comparaison, sidecar)
+#   src/lib/ui.sh      - interface terminal (affichage, ETA, progression)
+#   src/lib/results.sh - écriture des fichiers de résultats
+#   src/lib/report.sh  - génération des rapports HTML
+#
+# Usage :
+#   ./integrity.sh [--quiet] compute <dossier> <base.b3> [commentaire_sidecar]
+#   ./integrity.sh [--quiet] verify  <base.b3> [dossier]
+#   ./integrity.sh [--quiet] compare <ancienne.b3> <nouvelle.b3>
+#
+# Options :
+#   --quiet   Supprime toute sortie terminal. Écrit uniquement dans les
+#             fichiers de résultats. Exit code propagé sans modification.
+#
+# Sidecar :
+#   compute génère automatiquement <base.b3>.meta.json si jq est disponible.
+#   Le troisième argument optionnel de compute est un commentaire libre.
+#   verify et compare affichent le sidecar si présent (sauf --quiet).
+#
+# Dépendances : b3sum, bash >= 4, find, sort, awk, comm, join, stat, du, mktemp
+#               jq (optionnel - requis pour la génération du sidecar)
+#
+# Exit codes :
+#   0 - succès (voir contrat de chaque mode dans src/lib/core.sh)
+#   1 - erreur (argument manquant, fichier introuvable, corruption détectée)
+
+set -euo pipefail
+
+# == Version ====================================================================
+
+INTEGRITY_VERSION="2.0.0"
+
+# == Prérequis bash =============================================================
+
+(( BASH_VERSINFO[0] >= 4 )) || {
+  echo "ERREUR : bash >= 4 requis (actuel : $BASH_VERSION)" >&2
+  exit 1
+}
+
+# == Résolution des chemins =====================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# == Chargement des modules =====================================================
+
+for _module in ui core results report; do
+  _path="$SCRIPT_DIR/lib/${_module}.sh"
+  [ -f "$_path" ] || { echo "ERREUR : module introuvable : $_path" >&2; exit 1; }
+  # shellcheck source=/dev/null
+  source "$_path"
+done
+unset _module _path
+
+# == Parsing des arguments ======================================================
+
+QUIET=0
+ARGS=()
+
+for arg in "$@"; do
+  case "$arg" in
+    --quiet) QUIET=1 ;;
+    *)       ARGS+=("$arg") ;;
+  esac
+done
+
+MODE="${ARGS[0]:-}"
+ARG2="${ARGS[1]:-}"
+ARG3="${ARGS[2]:-}"
+ARG4="${ARGS[3]:-}"   # commentaire sidecar optionnel pour compute
+
+# == Configuration ==============================================================
+
+# Dossier racine des résultats. Peut être surchargé par variable d'environnement.
+# runner.sh surcharge cette valeur via export pour isoler les runs de pipeline.
+RESULTATS_DIR="${RESULTATS_DIR:-${HOME}/integrity_resultats}"
+
+# == Handlers des modes =========================================================
+
+_run_compute() {
+  local target="$ARG2"
+  local hashfile="$ARG3"
+  local sidecar_comment="${ARG4:-}"
+
+  [ -n "$target"   ] || die "compute : dossier cible manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
+  [ -n "$hashfile" ] || die "compute : fichier de sortie .b3 manquant.\nUsage : $0 compute <dossier> <base.b3> [commentaire]"
+  [ ! -d "$hashfile" ] || die "compute : '$hashfile' est un dossier. Le fichier .b3 de sortie doit être un chemin de fichier."
+
+  core_assert_target_valid "$target"
+
+  # Utilise ui_progress_callback uniquement si QUIET == 0
+  local callback=""
+  (( QUIET )) || callback="ui_progress_callback"
+
+  core_compute "$target" "$hashfile" "$callback"
+  ui_progress_clear
+
+  say "Base enregistrée : $hashfile ($(wc -l < "$hashfile") fichiers)"
+
+  # Sidecar : généré si jq est disponible
+  if command -v jq &>/dev/null; then
+    core_sidecar_write "$hashfile" "$target" "$sidecar_comment" "$INTEGRITY_VERSION"
+    say "Sidecar : ${hashfile}.meta.json"
+  fi
+}
+
+_run_verify() {
+  local b3file="$ARG2"
+  local workdir="${ARG3:-}"
+
+  [ -n "$b3file" ] || die "verify : fichier .b3 manquant.\nUsage : $0 verify <base.b3> [dossier]"
+
+  core_assert_b3_valid "$b3file" "base"
+
+  # Résolution du chemin absolu AVANT le cd : un chemin relatif deviendrait
+  # invalide après changement de répertoire
+  local hashfile_abs
+  hashfile_abs="$(cd "$(dirname "$b3file")" && pwd)/$(basename "$b3file")"
+
+  # Affichage du sidecar avant le cd (chemin encore valide)
+  (( QUIET )) || core_sidecar_read "$hashfile_abs"
+
+  if [ -n "$workdir" ]; then
+    [ -d "$workdir" ] || die "verify : '$workdir' n'est pas un dossier valide."
+    cd "$workdir"
+  fi
+
+  local outdir
+  outdir=$(core_make_result_dir "$hashfile_abs" "$RESULTATS_DIR")
+
+  # core_verify positionne les variables CORE_VERIFY_* dans le scope courant
+  local exit_code=0
+  core_verify "$hashfile_abs" || exit_code=$?
+
+  results_write_verify \
+    "$outdir" "$hashfile_abs" \
+    "$CORE_VERIFY_STATUS" "$CORE_VERIFY_NB_OK" "$CORE_VERIFY_NB_FAIL" \
+    "$CORE_VERIFY_LINES_FAIL" "$CORE_VERIFY_LINES_ERR"
+
+  ui_show_verify_result \
+    "$CORE_VERIFY_STATUS" "$CORE_VERIFY_NB_OK" "$CORE_VERIFY_NB_FAIL" \
+    "$CORE_VERIFY_LINES_FAIL" "$CORE_VERIFY_LINES_ERR" \
+    "$outdir"
+
+  return $exit_code
+}
+
+_run_compare() {
+  local old="$ARG2"
+  local new="$ARG3"
+
+  [ -n "$old" ] || die "compare : fichier ancienne base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+  [ -n "$new" ] || die "compare : fichier nouvelle base manquant.\nUsage : $0 compare <ancienne.b3> <nouvelle.b3>"
+
+  core_assert_b3_valid "$old" "ancienne base"
+  core_assert_b3_valid "$new" "nouvelle base"
+
+  # Affichage des sidecars avant toute opération
+  if (( ! QUIET )); then
+    core_sidecar_read "$old"
+    core_sidecar_read "$new"
+  fi
+
+  local outdir
+  outdir=$(core_make_result_dir "$old" "$RESULTATS_DIR")
+
+  # core_compare positionne CORE_COMPARE_NB_* dans le scope courant
+  core_compare "$old" "$new" "$outdir"
+
+  results_write_compare \
+    "$outdir" "$old" "$new" \
+    "$CORE_COMPARE_NB_MOD" "$CORE_COMPARE_NB_DIS" "$CORE_COMPARE_NB_NOU"
+
+  generate_compare_html \
+    "$old" "$new" \
+    "$CORE_COMPARE_NB_MOD" "$CORE_COMPARE_NB_DIS" "$CORE_COMPARE_NB_NOU" \
+    "${outdir}/modifies.b3" "${outdir}/disparus.txt" "${outdir}/nouveaux.txt" \
+    "${outdir}/report.html"
+
+  ui_show_compare_result \
+    "$CORE_COMPARE_NB_MOD" "$CORE_COMPARE_NB_DIS" "$CORE_COMPARE_NB_NOU" \
+    "$outdir"
+}
+
+# == Dispatch ===================================================================
+
+case "$MODE" in
+  compute) _run_compute ;;
+  verify)  _run_verify  ;;
+  compare) _run_compare ;;
+  *)
+    cat <<EOF
+Usage :
+  $0 [--quiet] compute <dossier> <base.b3> [commentaire]
+  $0 [--quiet] verify  <base.b3> [dossier]
+  $0 [--quiet] compare <ancienne.b3> <nouvelle.b3>
+
+Options :
+  --quiet      Silencieux : écrit uniquement dans les fichiers de résultats.
+
+Arguments optionnels :
+  [commentaire]  Texte libre stocké dans le sidecar <base.b3>.meta.json (compute uniquement).
+                 Nécessite jq.
+
+Note :
+  Pour l'interface complète (list, diff, stats, check-env, version, pipeline),
+  utiliser hash-tool à la racine du projet.
+EOF
+    exit 1
+    ;;
+esac
 
 --- Fichier : docs/development/changelog.md ---
-# Changelog - hash_tool / integrity.sh
+# Changelog — hash_tool
 
-## [0.15] - Documentation restructurée
+---
 
-maj de la doc 
-
-## [0.14] - Documentation restructurée
+## [2.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
 
 ### Ajouté
+
+**`hash-tool` — CLI unique (nouveau fichier à la racine)**
+
+- Interface CLI unifiée. L'utilisateur invoque toujours `hash-tool <commande>`, indépendamment du mode d'exécution réel.
+- Détection automatique du mode d'exécution : natif (`b3sum` + `jq` disponibles) ou Docker (`hash_tool` image disponible). Aucune intervention utilisateur requise.
+- Parser d'arguments uniforme : `-data`, `-base`, `-old`, `-new`, `-pipeline`, `-save`, `-meta`, `-quiet`, `-verbose`, `-readonly`.
+- Nouvelles commandes : `list`, `diff`, `stats`, `check-env`, `version`, `help` (global + par sous-commande).
+- Variable d'environnement `HASH_TOOL_DOCKER_IMAGE` pour spécifier l'image Docker à utiliser (défaut : `hash_tool`).
+
+**Sidecar file (`.meta.json`)**
+
+- `compute` génère automatiquement `<base.b3>.meta.json` à côté du fichier `.b3`.
+- Champs : `created_by`, `date` (ISO 8601 UTC), `comment` (depuis `-meta`), `parameters` (répertoire, algorithme, nb_fichiers, readonly).
+- `verify`, `compare`, `stats` affichent le sidecar si présent.
+- Le runner (format étendu) génère également le sidecar via `meta.comment` dans le pipeline JSON.
+
+**Commande `list`**
+
+- `hash-tool list -data <dossier>` : parcourt le dossier sur 2 niveaux, liste toutes les bases `.b3` avec leur nombre de fichiers, taille, et commentaire sidecar si présent.
+- Indicateur `[+meta]` si un sidecar est associé.
+
+**Commande `diff`**
+
+- `hash-tool diff -base <fichier.b3> [-data <dossier>]` : compare les chemins de la base avec l'état actuel du dossier.
+- Ne recalcule pas les hashes — uniquement comparaison des chemins.
+- Affiche les fichiers disparus et les nouveaux fichiers non indexés.
+
+**Commande `stats`**
+
+- `hash-tool stats -base <fichier.b3>` : affiche le chemin absolu, la taille du fichier `.b3`, le nombre de fichiers indexés, la distribution des extensions (top 10), et le sidecar si présent.
+
+**Commande `check-env`**
+
+- `hash-tool check-env` : vérifie la disponibilité de `b3sum`, `jq`, `bash >= 4`, `integrity.sh`, `runner.sh`, Docker et l'image Docker.
+- Indique le mode d'exécution sélectionné : `native`, `docker`, ou `none`.
+
+**Commande `version`**
+
+- `hash-tool version` : affiche la version `hash-tool` et la version `b3sum`.
+
+**Commande `help`**
+
+- `hash-tool help` : aide globale avec toutes les commandes et options.
+- `hash-tool help <commande>` : aide détaillée par sous-commande.
+
+**`runner.sh` — format pipeline étendu**
+
+- Nouveau format `type / params / options / meta / description` — rétrocompatible avec le format legacy `op / source / bases / nom`.
+- Détection automatique du format par la présence de `"op"` (legacy) ou `"type"` (étendu).
+- Support des nouvelles opérations dans le pipeline : `list`, `diff`, `stats`, `check-env`, `version`.
+- Génération du sidecar dans les blocs `compute` (format étendu) si `meta.comment` est fourni.
+- Champ `options` par bloc : `quiet`, `verbose`, `readonly`.
+- Champ `description` : documentation lisible directement dans le JSON.
+
+**`pipelines/pipeline-amelioree.json`**
+
+- Nouveau fichier pipeline de référence au format étendu, couvrant toutes les commandes disponibles.
+
+### Modifié
+
+- `runner.sh` : ajout de la fonction `dispatch_bloc()` qui détecte le format (legacy/étendu) et route vers la bonne implémentation. Fonctions `run_*_legacy()` et `run_*_extended()` séparées pour chaque opération.
+
+### Non modifié
+
+- `src/integrity.sh` : inchangé — les nouvelles commandes sont intégralement gérées dans `hash-tool`.
+- `src/lib/core.sh`, `src/lib/ui.sh`, `src/lib/results.sh`, `src/lib/report.sh` : inchangés.
+- Tous les pipelines existants (format legacy) : rétrocompatibles sans modification.
+
+### Installation
+
+```bash
+chmod +x hash-tool runner.sh src/integrity.sh
+# Optionnel : accès global
+sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
+```
+
+---
+
+## [0.18] — debug
+
+### Ajouté
+
+- Dans `brouillon_non_prod` : documents `.md` décrivant les prochains travaux (architecture de test, CLI améliorée).
+
+---
+
+## [0.17] — debug
+
+### Ajouté
+
+- Ajout de `brouillon_non_prod` au git : documents de travail non inclus dans le délivrable mais conservés dans le dépôt pour référence.
+
+---
+
+## [0.16] — debug
+
+### Ajouté
+
+- Dossier `troubleshooting/` et fichier `troubleshooting_1.md` : premier cas documenté (Permission non accordée sur `integrity.sh` — solution : `chmod +x`).
+
+---
+
+## [0.15] — Documentation restructurée
+
+- Mise à jour de la documentation.
+
+---
+
+## [0.14] — Documentation complète MkDocs
+
+### Ajouté
+
 - `docs/` : documentation complète au format MkDocs Material.
-  - `index.md` : page d'accueil, vue d'ensemble, structure du projet.
-  - `getting-started.md` : installation, prérequis, premier usage pas à pas.
-  - `reference/integrity-sh.md` : référence exhaustive - modes, arguments, variables, exit codes, limites.
-  - `reference/runner-sh.md` : schéma complet pipeline.json, comportements, messages d'erreur.
+  - `index.md` : vue d'ensemble, structure du projet.
+  - `getting-started.md` : installation, prérequis, premier usage.
+  - `reference/integrity-sh.md` : référence exhaustive.
+  - `reference/runner-sh.md` : format pipeline.json, comportements, messages d'erreur.
   - `reference/docker.md` : build, volumes, Compose, cron, Synology, ARM64.
   - `guides/veracrypt.md` : workflow multi-disques, lanceur Windows `.bat`.
-  - `guides/cron-ci.md` : cron Linux, GitHub Actions, GitLab CI, hooks Git, patterns de notification.
-  - `guides/nas-synology.md` : DSM 7, Container Manager, planificateur de tâches.
-  - `development/architecture.md` : décisions techniques documentées (BLAKE3, chemins relatifs, ETA, CSS inline, etc.).
+  - `guides/cron-ci.md` : cron Linux, GitHub Actions, GitLab CI, hooks Git.
+  - `guides/nas-synology.md` : DSM 7, Container Manager.
+  - `development/architecture.md` : décisions techniques documentées.
   - `development/contributing.md` : couverture tests, conventions, processus de release.
-  - `development/changelog.md` : historique reformaté Keep a Changelog.
-- `mkdocs.yml` : configuration MkDocs Material, navigation, extensions pymdownx, thème sombre/clair.
-- `CONTRIBUTING.md` : guide de contribution à la racine du projet.
-- README-docker.md : readme juste pour docker. 
-- README-docs.md : readme juste pour la documentation. 
-- README-tests.md : readme juste pour les tests. 
+  - `development/changelog.md` : historique.
+- `mkdocs.yml` : configuration MkDocs Material, navigation, thème sombre/clair.
 
 ### Supprimé
-- `docs/*.docx`, `docs/*.pdf` : binaires non diffables retirés du repo. Générer depuis le markdown via `pandoc` si nécessaire.
-- `temp.txt` : ajouté au `.gitignore`.
 
-### Modifié
-- `pipelines/pipeline full.json` → `pipelines/pipeline-full.json` : suppression de l'espace dans le nom de fichier.
-
-## [0.13] - Débug de la dockerisation et documentation 
-
-### Ajouté
-
-- `hash_tool-positionnement-open-source.docx` : positionnement du projet dans l'environnement open source actuel, preuve de valeur du projet.
-- `hash_tool-presentation.docx` : présentation macro du projet, sans rentrer dans les details de l'implémentation. 
+- `docs/*.docx`, `docs/*.pdf` : binaires non diffables retirés du repo.
 
 ### Modifié
 
-- Modification du `Dockerfile` pour debug : Installer b3sum depuis Alpine community. b3sum est disponible dans les packages Alpine Linux Alpine Linux, ce qui est plus propre et évite le wget GitHub. Plus de multi-stage, plus de wget, plus de problème de nom. La version fournie par Alpine 3.19 est stable et maintenue. C'est la solution la plus robuste.
+- `pipelines/pipeline full.json` → `pipelines/pipeline-full.json` : suppression de l'espace.
 
+---
 
-## [0.12] - Dockerisation
+## [0.13] — Débug dockerisation et documentation
 
 ### Ajouté
 
-- `Dockerfile` : image multi-stage basée sur Alpine 3.19.
-  - Stage `fetcher` : télécharge le binaire officiel `b3sum` musl depuis GitHub Releases, le vérifie (auto-vérification via `b3sum --check`). Supporte `amd64`, `arm64`, `armv7`.
-  - Stage final : Alpine + `bash` + `jq` + `coreutils` + `findutils` + binaire `b3sum` copié. Image finale ~14 Mo sans toolchain Rust.
-  - `ARG B3SUM_VERSION` : version b3sum paramétrable au build.
+- `hash_tool-positionnement-open-source.docx` : positionnement dans l'écosystème open source.
+- `hash_tool-presentation.docx` : présentation macro du projet.
 
-- `docker/entrypoint.sh` : dispatcher des commandes.
-  - `compute`, `verify`, `compare` → délégués à `src/integrity.sh`.
-  - `runner [pipeline.json]` → délégué à `runner.sh` (défaut : `/pipelines/pipeline.json`).
-  - `shell` / `bash` → shell interactif debug.
-  - `help`, `version` → affichage inline.
-  - `--quiet` supporté en premier argument.
+### Modifié
 
-- `docker-compose.yml` : trois services.
-  - `integrity` : commandes ponctuelles (compute/verify/compare).
-  - `pipeline` : exécution de `runner.sh` avec `pipeline.json` monté.
-  - `cron` : profil optionnel (`--profile cron`) pour vérification périodique.
-  - Section `x-volumes` : chemins à adapter en un seul endroit.
+- `Dockerfile` : `b3sum` installé depuis Alpine community (`apk add b3sum`) au lieu de `wget` GitHub. Plus propre, plus robuste, évite les erreurs de nom de binaire.
 
+---
+
+## [0.12] — Dockerisation
+
+### Ajouté
+
+- `Dockerfile` : image Alpine 3.19 avec `bash`, `jq`, `b3sum`, `coreutils`, `findutils`. Image ~14 Mo.
+- `docker/entrypoint.sh` : dispatcher des commandes (`compute`, `verify`, `compare`, `runner`, `shell`, `help`, `version`). `--quiet` supporté en premier argument.
+- `docker-compose.yml` : trois services — `integrity`, `pipeline`, `cron` (profil optionnel).
 - `.dockerignore` : exclut données, résultats, tests, docs du contexte de build.
-
-- `docs/docker.md` : guide complet - build, commandes, volumes, NAS Synology, cron Debian, taille image, mise à jour b3sum.
 
 ### Volumes conventionnels
 
-| Volume conteneur | Usage |
+| Volume | Usage |
 |---|---|
 | `/data` | Données à hacher (`:ro` recommandé) |
 | `/bases` | Fichiers `.b3` |
 | `/pipelines` | Fichiers `pipeline.json` |
 | `/resultats` | Résultats compare/verify |
 
-`RESULTATS_DIR=/resultats` est défini par défaut dans l'image.
-
 ---
 
- - Restructuration + rapport HTML compare
+## [0.11] — Restructuration + rapport HTML compare
 
-### Restructuration du projet
+### Restructuration
 
 ```
 hash_tool/
-├== runner.sh                  ← inchangé (point d'entrée)
-├== src/
-│   ├== integrity.sh           ← déplacé depuis la racine
-│   └== lib/
-│       └== report.sh          ← nouveau, extrait de integrity.sh
-├== pipelines/
-│   ├== pipeline.json          ← déplacé depuis la racine
-│   └== pipeline-full.json     ← renommé depuis "pipeline full.json"
-└== reports/
-    └== template.html          ← nouveau, barebone HTML de référence
+├── runner.sh                  ← inchangé
+├── src/
+│   ├── integrity.sh           ← déplacé depuis la racine
+│   └── lib/
+│       └── report.sh          ← nouveau, extrait de integrity.sh
+├── pipelines/
+│   ├── pipeline.json          ← déplacé depuis la racine
+│   └── pipeline-full.json     ← renommé
+└── reports/
+    └── template.html          ← nouveau
 ```
 
-Motivations :
-- `src/` isole le code des fichiers de configuration et de données.
-- `src/lib/` prépare l'extension à d'autres modules (ex. `notify.sh`, `export.sh`).
-- `pipelines/` centralise les configurations de pipeline, évite la pollution de la racine.
-- `reports/` documente la structure HTML attendue, sert de référence pour la personnalisation.
+### Ajouté
+
+- `src/lib/report.sh` : `generate_compare_html()` — rapport HTML autonome (CSS inline, thème sombre, compteurs, badge statut).
+- `reports/template.html` : template de référence.
+- `pipeline.json` : champ optionnel `"resultats"` sur les blocs `compare`.
+- `tests/run_tests_pipeline.sh` : cas **TP10b** — champ `resultats` personnalisé et isolation `RESULTATS_DIR`.
 
 ### Modifié
 
-- `runner.sh`
-  - Chemin `INTEGRITY` mis à jour : `$SCRIPT_DIR/src/integrity.sh`.
-  - Chemin `CONFIG` par défaut mis à jour : `$SCRIPT_DIR/pipelines/pipeline.json`.
-  - `run_compare()` : lecture du champ optionnel `resultats` dans le bloc JSON. Si présent, exporte `RESULTATS_DIR` avec cette valeur pour le seul appel à `integrity.sh compare`. Isolation par sous-shell : le `RESULTATS_DIR` global du processus parent n'est pas modifié.
-  - `run_compute()` et `run_verify()` : isolation du `cd` dans un sous-shell `( )` - le répertoire courant ne fuite plus vers les blocs suivants du pipeline.
+- `runner.sh` : isolation des `cd` dans des sous-shells `( )`. Champ `resultats` pour les blocs `compare`.
+- `src/integrity.sh` : délègue la génération HTML à `generate_compare_html()`.
 
-- `src/integrity.sh`
-  - Chargement de `src/lib/report.sh` via `source` au démarrage.
-  - `run_compare()` : délègue la génération HTML à `generate_compare_html()` (définie dans `lib/report.sh`).
+---
+
+## [0.10] — Pipeline JSON + tests pipeline
+
+### Modifié
+
+- `pipeline.json` : migration du format custom vers JSON standard. Champ `op` au lieu des noms de blocs.
+- `runner.sh` : réécriture du parser avec `jq`. Validation JSON native, messages d'erreur avec numéro de bloc.
 
 ### Ajouté
 
-- `src/lib/report.sh` : bibliothèque de génération de rapports.
-  - `generate_compare_html()` : produit `report.html` autonome (CSS inline, sans dépendance externe) à partir des fichiers `modifies.b3`, `disparus.txt`, `nouveaux.txt`. Thème sombre, police monospace, compteurs par catégorie, badge statut IDENTIQUES / DIFFÉRENCES DÉTECTÉES.
-
-- `reports/template.html` : barebone HTML statique de référence. Documente les placeholders injectés par `generate_compare_html()` et la structure attendue du dossier de résultats.
-
-- `pipeline.json` (et `pipeline-full.json`) : champ optionnel `"resultats"` sur les blocs `compare`.
-
-  ```json
-  {
-      "op":       "compare",
-      "base_a":   "/chemin/hashes_1.b3",
-      "base_b":   "/chemin/hashes_2.b3",
-      "resultats": "/chemin/vers/dossier_resultats"
-  }
-  ```
-
-  Sans ce champ, comportement inchangé : résultats dans `RESULTATS_DIR` (défaut `~/integrity_resultats`).
-
-- `tests/run_tests_pipeline.sh` : cas TP10b - vérifie que le champ `resultats` redirige bien les résultats dans le dossier personnalisé et n'écrit rien dans `RESULTATS_DIR` par défaut.
-
-### Couverture tests mise à jour
-
-| Suite | Cas | Description |
-|---|---|---|
-| `run_tests.sh` | T00–T14 | Inchangée - `INTEGRITY` mis à jour vers `../src/integrity.sh` |
-| `run_tests_pipeline.sh` | TP01–TP12 | Inchangée dans la logique |
-| `run_tests_pipeline.sh` | **TP10b** | Nouveau - champ `resultats` personnalisé et isolation |
+- `tests/run_tests_pipeline.sh` : 12 cas TP01–TP12.
 
 ---
 
-
-## [0.11] - Restructuration + rapport HTML compare
-
-### Restructuration du projet
-
-```
-hash_tool/
-├== runner.sh                  ← inchangé (point d'entrée)
-├== src/
-│   ├== integrity.sh           ← déplacé depuis la racine
-│   └== lib/
-│       └== report.sh          ← nouveau, extrait de integrity.sh
-├== pipelines/
-│   ├== pipeline.json          ← déplacé depuis la racine
-│   └== pipeline-full.json     ← renommé depuis "pipeline full.json"
-└== reports/
-    └== template.html          ← nouveau, barebone HTML de référence
-```
-
-Motivations :
-- `src/` isole le code des fichiers de configuration et de données.
-- `src/lib/` prépare l'extension à d'autres modules (ex. `notify.sh`, `export.sh`).
-- `pipelines/` centralise les configurations de pipeline, évite la pollution de la racine.
-- `reports/` documente la structure HTML attendue, sert de référence pour la personnalisation.
-
-### Modifié
-
-- `runner.sh`
-  - Chemin `INTEGRITY` mis à jour : `$SCRIPT_DIR/src/integrity.sh`.
-  - Chemin `CONFIG` par défaut mis à jour : `$SCRIPT_DIR/pipelines/pipeline.json`.
-  - `run_compare()` : lecture du champ optionnel `resultats` dans le bloc JSON. Si présent, exporte `RESULTATS_DIR` avec cette valeur pour le seul appel à `integrity.sh compare`. Isolation par sous-shell : le `RESULTATS_DIR` global du processus parent n'est pas modifié.
-  - `run_compute()` et `run_verify()` : isolation du `cd` dans un sous-shell `( )` - le répertoire courant ne fuite plus vers les blocs suivants du pipeline.
-
-- `src/integrity.sh`
-  - Chargement de `src/lib/report.sh` via `source` au démarrage.
-  - `run_compare()` : délègue la génération HTML à `generate_compare_html()` (définie dans `lib/report.sh`).
+## [0.9] — Pipeline batch : runner.sh + config.txt
 
 ### Ajouté
 
-- `src/lib/report.sh` : bibliothèque de génération de rapports.
-  - `generate_compare_html()` : produit `report.html` autonome (CSS inline, sans dépendance externe) à partir des fichiers `modifies.b3`, `disparus.txt`, `nouveaux.txt`. Thème sombre, police monospace, compteurs par catégorie, badge statut IDENTIQUES / DIFFÉRENCES DÉTECTÉES.
-
-- `reports/template.html` : barebone HTML statique de référence. Documente les placeholders injectés par `generate_compare_html()` et la structure attendue du dossier de résultats.
-
-- `pipeline.json` (et `pipeline-full.json`) : champ optionnel `"resultats"` sur les blocs `compare`.
-
-  ```json
-  {
-      "op":       "compare",
-      "base_a":   "/chemin/hashes_1.b3",
-      "base_b":   "/chemin/hashes_2.b3",
-      "resultats": "/chemin/vers/dossier_resultats"
-  }
-  ```
-
-  Sans ce champ, comportement inchangé : résultats dans `RESULTATS_DIR` (défaut `~/integrity_resultats`).
-
-- `tests/run_tests_pipeline.sh` : cas TP10b - vérifie que le champ `resultats` redirige bien les résultats dans le dossier personnalisé et n'écrit rien dans `RESULTATS_DIR` par défaut.
-
-### Couverture tests mise à jour
-
-| Suite | Cas | Description |
-|---|---|---|
-| `run_tests.sh` | T00–T14 | Inchangée - `INTEGRITY` mis à jour vers `../src/integrity.sh` |
-| `run_tests_pipeline.sh` | TP01–TP12 | Inchangée dans la logique |
-| `run_tests_pipeline.sh` | **TP10b** | Nouveau - champ `resultats` personnalisé et isolation |
+- `runner.sh` : exécuteur de pipeline. Lit `config.txt`, gère le `cd` automatique.
+- `config.txt` : déclaration du pipeline au format structuré.
+- `runner.bat` : lanceur Windows (WSL) avec `pause`.
 
 ---
 
-
-
-## [0.10] - Pipeline JSON + tests pipeline
-
-### Modifié
-
-- `pipeline.json` (ex `config.txt`) : format migré de la syntaxe custom vers JSON standard. Champ `op` remplace les noms de blocs. Parsé par `jq` - validation syntaxique native, interopérable avec tout outil JSON.
-- `runner.sh` : réécriture du parser. Suppression du parser bash custom (`IFS`, regex, `local -n`). Remplacement par `jq` pour l'extraction des champs. Validation JSON en entrée (`jq empty`), détection des champs manquants et des opérations inconnues avec messages d'erreur explicites incluant le numéro de bloc.
+## [0.8] — batch_compute.sh
 
 ### Ajouté
 
-- `tests/run_tests_pipeline.sh` : suite de tests dédiée au pipeline. 12 cas TP01–TP12.
-
-### Format pipeline.json
-
-```json
-{
-    "pipeline": [
-        {
-            "op":     "compute",
-            "source": "/mnt/a/dossier",
-            "bases":  "/mnt/c/bases",
-            "nom":    "hashes.b3"
-        },
-        {
-            "op":     "verify",
-            "source": "/mnt/a/dossier",
-            "base":   "/mnt/c/bases/hashes.b3"
-        },
-        {
-            "op":     "compare",
-            "base_a": "/mnt/c/bases/hashes_1.b3",
-            "base_b": "/mnt/c/bases/hashes_2.b3"
-        }
-    ]
-}
-```
-
-### Couverture run_tests_pipeline.sh
-
-| Cas | Description |
-|---|---|
-| TP01 | JSON invalide - erreur propre sans stacktrace jq |
-| TP02 | Clé `.pipeline` absente |
-| TP03 | Champ manquant dans un bloc (`nom`) |
-| TP04 | Opération inconnue |
-| TP05 | Compute - cd correct, chemins relatifs dans la base, comptage fichiers |
-| TP06 | Compute - dossier source absent |
-| TP07 | Verify - bon répertoire de travail, OK détecté |
-| TP08 | Verify - corruption détectée |
-| TP09 | Verify - base .b3 absente |
-| TP10 | Compare - fichiers de résultats produits |
-| TP11 | Compare - base_a absente |
-| TP12 | Pipeline complet compute + verify + compare |
+- `batch_compute.sh` : plusieurs `compute` en un seul script. Remplacé par `runner.sh` en 0.9.
 
 ---
 
-
-## [0.9] - Pipeline batch : runner.sh + config.txt
+## [0.7] — Séparation en modules (lib/)
 
 ### Ajouté
 
-- `runner.sh` : exécuteur de pipeline batch. Lit `config.txt`, parse les blocs `compute`, `verify`, `compare` et appelle `integrity.sh` avec les arguments corrects. Gère le `cd` automatique avant chaque `compute` et `verify` pour garantir des chemins relatifs dans les bases `.b3`.
-- `config.txt` : déclaration du pipeline au format structuré `pipeline = { ... }`. Chaque opération est un bloc nommé avec des champs `clé = "valeur"`. Supporte les commentaires `#` et les lignes vides.
-- `runner.bat` : lanceur Windows pour double-clic depuis le bureau. Appelle `runner.sh` via WSL. Paramètre `pause` final pour garder la fenêtre ouverte.
-
-### Format config.txt
-
-```
-pipeline = {
-
-    compute {
-        source = "/mnt/a/dossier",
-        bases  = "/mnt/c/bases",
-        nom    = "hashes.b3"
-    }
-
-    verify {
-        source = "/mnt/a/dossier",
-        base   = "/mnt/c/bases/hashes.b3"
-    }
-
-    compare {
-        base_a = "/mnt/c/bases/hashes_1.b3",
-        base_b = "/mnt/c/bases/hashes_2.b3"
-    }
-
-}
-```
-
-### Comportement runner.sh
-
-- `compute` : `cd` dans `source`, puis `integrity.sh compute . bases/nom` - chemin relatif garanti.
-- `verify` : `cd` dans `source`, puis `integrity.sh verify base` - répertoire de travail correct.
-- `compare` : appel direct `integrity.sh compare base_a base_b`.
-- Crée `bases/` automatiquement si inexistant (`mkdir -p`).
-- `set -e` : arrêt immédiat sur toute erreur.
+- `src/lib/core.sh` : logique métier pure extraite de `integrity.sh`.
+- `src/lib/ui.sh` : logique d'interface (affichage, ETA, progression).
+- `src/lib/results.sh` : écriture des fichiers de résultats.
 
 ---
 
-## [0.8] - Fonctionnalité batch_compute.sh
+## [0.6] — Mode `--quiet`
 
 ### Ajouté
 
-- `batch_compute.sh` : permet de lancer plusieurs commandes `compute` avec un seul script. Remplacé par `runner.sh` + `config.txt` dans la version 0.9.
-
+- `--quiet` : supprime toute sortie terminal. Exit code propagé sans modification. Résultats écrits dans les fichiers de sortie normaux.
 
 ---
 
-## [0.7] - Robustesse compare : chemins avec espaces
+## [0.5] — Horodatage anti-écrasement
 
-### Corrigé
-- `integrity.sh`
-  - Bug critique dans `run_compare()` : `sort -k2,2`, `join -1 2 -2 2` et `awk '{print $2}'` utilisent le blanc comme séparateur de champ. Un chemin contenant des espaces est fragmenté en plusieurs champs, ce qui corrompt le tri, le join et l'extraction - produisant des faux positifs massifs (ex. 26569 modifiés pour 163 fichiers dont 1 seul a changé).
-  - Correction : conversion préalable de chaque ligne en `chemin\thash` via `awk '{ print substr($0,67) "\t" substr($0,1,64) }'` - le hash b3sum étant toujours exactement 64 caractères, l'offset 67 est garanti par le format. Toutes les opérations suivantes utilisent `-t $'\t'` comme séparateur explicite : `sort -t $'\t' -k1,1`, `join -t $'\t' -1 1 -2 1`, `cut -f1`.
-  - `modifies.b3` : format de sortie préservé (`hash  chemin`) via `awk -F $'\t' '$2 != $3 { print $3 "  " $1 }'`.
+### Modifié
 
-## [0.6] - Robustesse et mode silencieux
+- `core_make_result_dir()` : suffixe `_YYYYMMDD-HHMMSS` si le dossier de résultats existe déjà.
+
+---
+
+## [0.4] — ETA et progression
 
 ### Ajouté
-- `integrity.sh`
-  - Flag `--quiet` : supprime toute sortie terminal, écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`). Exit code propagé pour usage CI/cron.
-  - Fonction `say()` : point d'entrée unique pour toute sortie terminal, désactivée si `--quiet`.
-  - Fonction `file_size()` : abstraction portable `stat -c%s` (GNU/Linux) / `stat -f%z` (BSD/macOS).
-  - Vérification version bash en tête de script : `bash >= 4` requis, exit explicite avec message si non respecté.
-  - `make_result_dir()` : horodatage automatique des dossiers de résultats en cas de collision (`_YYYYMMDD-HHMMSS`), plus d'écrasement silencieux.
-  - `trap EXIT` dans `run_compare()` : nettoyage garanti des fichiers temporaires même en cas d'erreur intermédiaire.
-  - Redirection ETA sur `/dev/tty` dans `compute_with_progress()` : garantit que la progression n'est jamais écrite dans le fichier `.b3`.
-- `tests/run_tests.sh`
-  - `set -euo pipefail` : mode strict complet activé (ajout de `-e`).
-  - Fonction `assert_file_absent()` : helper dédié pour les assertions d'absence de fichier.
-  - T00 : ShellCheck sur `integrity.sh` et `run_tests.sh` (SKIP propre si non installé).
-  - T12 : couverture exhaustive du mode `--quiet` (stdout vide, fichiers produits, exit code propagé).
-  - T13 : vérifie l'horodatage automatique des dossiers de résultats sur collision.
-  - T14 : détection d'un argument `[dossier]` invalide pour `verify`.
-- `README.md`
-  - Section `--quiet` avec exemples CI/cron.
-  - Section Tests avec instructions d'exécution et comptage des cas (14 tests).
-  - Mention horodatage automatique dans l'arborescence des résultats.
 
-### Modifié
-- `integrity.sh`
-  - `assert_target_valid()` : `find -print0 | grep -zc ''` au lieu de `find | wc -l` - robuste aux noms de fichiers contenant des newlines.
-  - `run_verify()` : comptage de lignes via `grep -c '^'` au lieu de `grep -c '.'` - correction du bug de comptage sur flux vide.
-  - `run_compare()` : `sort -k2,2` au lieu de `sort -k2` - clé de tri limitée strictement au champ chemin, sans déborder sur le hash.
-  - `run_verify()` : propagation de l'exit code de `b3sum --check` via `return $exit_code` - utilisable en scripting avec `|| alert`.
-  - `failed.txt` : suppression explicite via `rm -f` si `nb_failed == 0` après une vérification OK suivant un échec précédent.
-- `tests/run_tests.sh`
-  - Résolution dynamique des `outdir` via `ls -d ... | tail -1` : compatible avec l'horodatage des dossiers de résultats.
-  - T02, T03, T05, T06, T07 : assertions adaptées à la résolution dynamique des dossiers.
-- `README.md`
-  - Dépendances : mention explicite de `bash >= 4`.
-  - Usage : exemple `--quiet` ajouté.
-
-### Corrigé
-- `integrity.sh`
-  - Bug comptage lignes dans `run_verify()` : `grep -c '.'` sur flux vide retournait 0 mais ne capturait pas correctement les lignes non vides. Remplacé par `grep -c '^'`.
-  - Bug tri ambigü dans `run_compare()` : `sort -k2` triait du champ 2 à la fin de ligne, incluant potentiellement le hash. `sort -k2,2` limite la clé au seul champ 2.
-  - Bug nettoyage tmpfiles : `run_compare()` laissait des fichiers temporaires en cas d'erreur intermédiaire. Ajout de `trap 'rm -f ...' EXIT`.
-  - Bug portabilité `stat` : `stat -c%s` est GNU-only. Ajout de `file_size()` avec fallback BSD `stat -f%z`.
-  - Bug comptage fichiers avec newlines : `assert_target_valid()` utilisait `find | wc -l`. Corrigé avec `find -print0 | grep -zc ''`.
-- `tests/run_tests.sh`
-  - T10 : pattern `"^/"` remplacé par `"  /"` - `grep` opérait sur une chaîne, l'ancre `^` ne matchait pas la deuxième colonne.
+- Affichage de la progression fichier par fichier avec ETA calculée sur la vélocité réelle.
+- Écriture sur `/dev/tty` pour isolation des pipes.
 
 ---
 
-## [0.5] - Documentation
-
-### Modifié
-- `README.md` - règle répertoire de travail pour `verify` précisée : l'argument `[dossier]` est le répertoire d'origine du compute, pas le dossier haché. Exemples correct/incorrect ajoutés.
-- `docs/manuel.md` - section `verify` mise à jour avec le même avertissement et les exemples.
-
----
-
-## [0.4] - Gardes-fous et signalisation des erreurs
-
-### Modifié
-- `integrity.sh`
-  - Ajout de `die()` : point de sortie unique pour toutes les erreurs, message sur stderr.
-  - Ajout de `assert_b3_valid()` : vérifie existence, type fichier, non-vide, format b3sum valide.
-  - Ajout de `assert_target_valid()` : vérifie existence du dossier cible et présence d'au moins un fichier.
-  - Validation explicite des arguments dans chaque branche du `case` avant tout traitement.
-  - `verify` accepte un argument optionnel `[dossier]` : fait `cd` avant `b3sum --check`.
-  - Résolution du chemin absolu du `.b3` avant `cd` (correction bug : chemin relatif invalide après changement de répertoire).
-  - `RESULTATS_DIR` : `${RESULTATS_DIR:-...}` au lieu d'assignation inconditionnelle - respecte la valeur exportée par l'environnement (fix tests).
-  - Suppression de `local hashfile_abs` hors fonction (illégal en bash hors contexte fonction).
-  - `run_verify()` : refonte de la signalisation.
-    - Trois états distincts : `OK`, `ECHEC`, `ERREUR`.
-    - Terminal : affichage sobre si OK, bloc `████` visible si échec ou erreur.
-    - `recap.txt` : compteur `FAILED` affiché uniquement si > 0 ; section erreurs b3sum séparée.
-    - `failed.txt` : créé uniquement si `nb_failed > 0` ou erreurs b3sum présentes. Supprimé si tout est OK.
-- `tests/run_tests.sh`
-  - T02 : assertion `failed.txt absent si 0 échec` (logique inversée par rapport à l'ancienne version).
-  - T03 : patterns mis à jour (`ECHEC`, `FAILED`) alignés sur le nouveau format de sortie.
-
----
-
-## [0.3] - Dossiers de résultats (verify et compare)
-
-### Modifié
-- `integrity.sh`
-  - Ajout de `RESULTATS_DIR` (configurable, défaut `~/integrity_resultats`).
-  - Ajout de `make_result_dir()` : crée `resultats_<nom_base>/` sous `RESULTATS_DIR`.
-  - `verify` : délègue à `run_verify()` - produit `recap.txt` et `failed.txt`.
-  - `compare` : délègue à `run_compare()` - produit `recap.txt`, `modifies.b3`, `disparus.txt`, `nouveaux.txt`.
-  - Fichiers temporaires de `compare` passent par `mktemp` (plus de `/tmp/_old.b3` en dur).
-  - Signature `verify` simplifiée : `<base.b3>` uniquement (le dossier n'était pas utilisé par `b3sum --check`).
-- `README.md` - usage `verify` et `compare` mis à jour ; section Configuration ajoutée avec arbre des fichiers produits.
-- `docs/manuel.md` - sections `verify` et `compare` mises à jour ; arbre de décision et référence rapide alignés.
-- `tests/run_tests.sh`
-  - `RESULTATS_DIR` exporté vers `WORKDIR` pour isoler les résultats des tests.
-  - Ajout de `assert_file_exists()`.
-  - T02–T07 : assertions sur la présence et le contenu des fichiers de résultats.
-
----
-
-## [0.2] - Intégration ETA et tests automatisés
-
-### Modifié
-- `integrity.sh`
-  - Suppression de `detect_parallelism()` et de la logique SSD/parallélisme (hors périmètre HDD gros volumes).
-  - Mode `compute` : délègue à `compute_with_progress()`.
-  - Ajout de `compute_with_progress()` : boucle fichier par fichier avec affichage progression et ETA.
-    - `mapfile -d ''` remplace `FILES=($(find ...))` - gestion correcte des noms avec espaces.
-    - `printf "\r%*s\r"` efface proprement la ligne de progression avant le message final.
-  - `df` retiré des dépendances.
-- `README.md` - dépendances mises à jour (`df` supprimé, `stat` et `du` ajoutés).
-- `docs/manuel.md`
-  - Section `detect_parallelism` supprimée.
-  - Section `compute` réécrite autour de `compute_with_progress`.
-  - Section performances : stratégie SSD/NVMe retirée, focus HDD séquentiel.
-- `docs/progression-eta.md` - implémentation finale documentée ; note `mapfile -d ''` vs substitution de commande.
-- `tests/run_tests.sh` - T11 ajouté : vérifie que la base produite par `compute_with_progress` est bit-à-bit identique à une base de référence, sans artefact ETA ni `\r`.
-- `docs/explication-run-tests.md` - comptage corrigé (10 → 11 cas) ; section T11 ajoutée.
-
-### Corrigé
-- `tests/run_tests.sh` T10 : pattern `"^/"` remplacé par `"  /"` - `grep` opère sur une chaîne, pas un fichier, l'ancre `^` ne matchait pas la deuxième colonne.
-
----
-
-## [0.1] - Structure initiale du projet
+## [0.3] — Rapport HTML `compare`
 
 ### Ajouté
-- `integrity.sh` - script principal BLAKE3 avec trois modes : `compute`, `verify`, `compare`.
-  - `set -euo pipefail` - mode strict.
-  - `detect_parallelism()` - détection SSD/HDD via `/sys/block/.../queue/rotational`.
-  - Mode `compute` : pipeline `find | sort -z | xargs b3sum`, parallélisme `-P 4` sur SSD.
-  - Mode `verify` : délègue à `b3sum --check`.
-  - Mode `compare` : tri sur colonne 2, `join` pour les modifiés, `comm` pour disparus/nouveaux, rapport `tee`.
-- `README.md` - point d'entrée : dépendances, usage en 3 commandes, arbre de décision, règles critiques.
-- `docs/manuel.md` - référence technique complète : algorithmes, structure `.b3`, workflow, explication du script, performances, limites, référence rapide, annexe FIM.
-- `docs/progression-eta.md` - analyse du problème ETA sur pipeline `xargs`, deux approches (`pv` invalide, boucle bash), mécanique de l'estimation, tableau de comparaison des performances.
-- `docs/explication-run-tests.md` - documentation du code `run_tests.sh` : chemins, compteurs, assertions, setup/teardown, structure d'un cas de test, prérequis, exit code CI.
-- `tests/run_tests.sh` - suite de tests automatisée bash pur, 11 cas T01–T11, isolation via `mktemp`, teardown systématique, exit code CI-compatible.
-- `tests/validation.md` - protocole de test manuel : 10 cas T01–T10 avec commandes exactes et résultats attendus, critères de qualité globaux.
 
+- `report.html` généré après chaque `compare`.
+
+---
+
+## [0.2] — Commande `compare`
+
+### Ajouté
+
+- `integrity.sh compare <ancienne.b3> <nouvelle.b3>` : comparaison de deux snapshots.
+- Produit `modifies.b3`, `disparus.txt`, `nouveaux.txt`.
+
+---
+
+## [0.1] — Initial
+
+### Ajouté
+
+- `integrity.sh compute <dossier> <base.b3>` : calcul des empreintes BLAKE3.
+- `integrity.sh verify <base.b3>` : vérification d'intégrité via `b3sum --check`.
+- Chemins relatifs dans les bases `.b3`.
 
 --- Fichier : docs/development/contributing.md ---
 # Contribuer à hash_tool
@@ -5437,195 +6479,300 @@ docker run --rm -it -v /data:/data hash_tool shell
 
 
 --- Fichier : docs/reference/integrity-sh.md ---
-# Référence - integrity.sh
+# Référence — `hash-tool` & `src/integrity.sh`
 
-Script principal de vérification d'intégrité BLAKE3.
-
-**Emplacement :** `src/integrity.sh`  
-**Architecture :** dispatcher CLI - orchestre `src/lib/core.sh`, `src/lib/ui.sh`, `src/lib/results.sh`, `src/lib/report.sh`
+`hash-tool` est l'interface CLI unique. `src/integrity.sh` est le moteur interne pour `compute`, `verify`, `compare`. Les nouvelles commandes (`list`, `diff`, `stats`, `check-env`, `version`) sont gérées directement par `hash-tool`.
 
 ---
 
 ## Synopsis
 
 ```
-integrity.sh [--quiet] <mode> [arguments...]
+hash-tool <commande> [options]
+```
 
-Modes :
-  compute <dossier> <base.b3>
-  verify  <base.b3> [dossier]
-  compare <ancienne.b3> <nouvelle.b3>
+**Appel direct `integrity.sh` (non recommandé en usage courant) :**
+
+```
+./src/integrity.sh [--quiet] compute <dossier> <base.b3>
+./src/integrity.sh [--quiet] verify  <base.b3> [dossier]
+./src/integrity.sh [--quiet] compare <ancienne.b3> <nouvelle.b3>
 ```
 
 ---
 
-## Options globales
+## Commandes
 
-### `--quiet`
+### `compute`
 
-Supprime toute sortie terminal. Écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`, `report.html`). L'exit code est conservé.
-
-```bash
-./src/integrity.sh --quiet verify base.b3
-echo $?   # 0 = OK, 1 = ECHEC ou ERREUR
-```
-
-**Usage type :** intégration CI, cron, scripts parents qui gèrent eux-mêmes la sortie.
-
-!!! warning
-    En mode `--quiet`, la progression ETA est également supprimée pendant `compute`.
-
----
-
-## Mode `compute`
-
-Calcule les hashes BLAKE3 de tous les fichiers d'un dossier et les enregistre dans un fichier `.b3`.
-
-### Syntaxe
+Calcule les empreintes BLAKE3 de tous les fichiers d'un dossier. Génère un fichier `.b3` et un sidecar `.meta.json`.
 
 ```bash
-./src/integrity.sh compute <dossier> <base.b3>
+hash-tool compute -data <dossier> [-save <dossier>] [-meta <texte>] [-quiet] [-readonly]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<dossier>` | chemin | Dossier à indexer. Relatif ou absolu, mais **préférer relatif** (voir ci-dessous). |
-| `<base.b3>` | chemin fichier | Fichier de sortie. Créé ou écrasé. Ne doit pas être un dossier existant. |
+| `-data <dossier>` | Oui | Dossier à analyser. |
+| `-save <dossier>` | Non | Dossier de sortie pour le `.b3` (défaut : répertoire courant). |
+| `-meta <texte>` | Non | Commentaire stocké dans le sidecar `.meta.json`. |
+| `-quiet` | Non | Supprime toute sortie terminal. |
+| `-readonly` | Non | Documenté dans le sidecar (`parameters.readonly: true`). |
 
-### Comportement
-
-1. Valide que `<dossier>` existe et contient au moins un fichier régulier (`core_assert_target_valid`)
-2. Parcourt récursivement avec `find -type f -print0 | sort -z`
-3. Calcule le hash BLAKE3 de chaque fichier avec `b3sum` (via `core_compute`)
-4. Affiche la progression et l'ETA sur `/dev/tty` via callback `ui_progress_callback`
-5. Enregistre les résultats dans `<base.b3>`
-
-### Format du fichier `.b3`
-
-Voir la [spécification complète](../spec/b3-format.md). Format synthétique :
+**Sortie :**
 
 ```
-<hash_64_chars>  <chemin>
+./bases/hashes_donnees.b3           ← empreintes BLAKE3
+./bases/hashes_donnees.b3.meta.json ← sidecar métadonnées
+Base enregistrée : ./bases/hashes_donnees.b3 (1247 fichiers)
+Sidecar : ./bases/hashes_donnees.b3.meta.json
 ```
 
-!!! danger "Règle absolue : chemins relatifs"
-    Toujours passer un chemin relatif (`.` ou `./sous-dossier`) comme `<dossier>`.
-
-    ```bash
-    # Correct - chemin relatif dans la base
-    cd /mnt/a/mes_donnees
-    ./src/integrity.sh compute . /mnt/c/bases/hashes.b3
-
-    # Incorrect - chemin absolu, base non portable
-    ./src/integrity.sh compute /mnt/a/mes_donnees /mnt/c/bases/hashes.b3
-    ```
-
-    `runner.sh` gère ce `cd` automatiquement.
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
 | `0` | Base calculée avec succès |
-| `1` | Erreur (dossier introuvable, dossier vide, argument manquant) |
+| `1` | Erreur (argument manquant, dossier introuvable, dossier vide) |
 
 ---
 
-## Mode `verify`
+### `verify`
 
-Vérifie que les fichiers correspondent aux hashes stockés dans la base `.b3`.
-
-### Syntaxe
+Vérifie l'intégrité d'un dossier à partir d'une base d'empreintes.
 
 ```bash
-./src/integrity.sh verify <base.b3> [dossier]
+hash-tool verify -base <fichier.b3> [-data <dossier>] [-save <dossier>] [-quiet]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<base.b3>` | chemin fichier | Base de hashes à utiliser pour la vérification. |
-| `[dossier]` | chemin (optionnel) | Répertoire de travail à utiliser. Si absent, utilise le `pwd` courant. |
+| `-base <fichier.b3>` | Oui | Base d'empreintes de référence. |
+| `-data <dossier>` | Non | Dossier à vérifier. Défaut : répertoire courant au moment du `compute`. |
+| `-save <dossier>` | Non | Dossier de sortie des résultats (surcharge `RESULTATS_DIR`). |
+| `-quiet` | Non | Supprime la sortie terminal. Exit code propagé. |
 
-### Comportement
+**Fichiers produits :**
 
-1. Valide le fichier `.b3` (`core_assert_b3_valid`) - toutes les lignes doivent être au format b3sum
-2. Résout le chemin absolu de `<base.b3>` **avant** le `cd`
-3. Si `[dossier]` est fourni, fait `cd` dans ce dossier
-4. Lance `b3sum --check` via `core_verify()`
-5. Écrit les résultats dans `$RESULTATS_DIR/resultats_<nom_base>/`
+```
+~/integrity_resultats/resultats_hashes_donnees/
+├── recap.txt    ← statut, compteurs OK/FAIL
+└── failed.txt   ← chemins FAILED (uniquement si echec)
+```
 
-!!! warning "Répertoire de travail"
-    `b3sum --check` résout les chemins relatifs depuis le `pwd`. Lancer `verify` depuis le même répertoire qu'au `compute` - ou passer ce répertoire en second argument.
-
-    ```bash
-    # Cas 1 : on est dans le bon répertoire
-    cd /mnt/a/mes_donnees
-    ./src/integrity.sh verify /mnt/c/bases/hashes.b3
-
-    # Cas 2 : on est ailleurs
-    ./src/integrity.sh verify /mnt/c/bases/hashes.b3 /mnt/a/mes_donnees
-    ```
-
-### Fichiers produits
-
-Créés dans `$RESULTATS_DIR/resultats_<nom_base>/` (horodaté si le dossier existe déjà) :
-
-| Fichier | Présence | Contenu |
-|---|---|---|
-| `recap.txt` | Toujours | Statut global, compteurs OK/FAILED, erreurs b3sum |
-| `failed.txt` | Si échec seulement | Liste des fichiers FAILED ou en erreur |
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
 | `0` | Tous les fichiers intègres |
-| `1` | Au moins un FAILED ou erreur b3sum |
+| `1` | Au moins un fichier FAILED ou erreur `b3sum` |
+
+!!! warning "Répertoire de travail"
+    `verify` doit être lancé depuis le même répertoire qu'au `compute`, ou `-data` doit pointer vers ce répertoire. Les chemins dans `.b3` sont relatifs — un mauvais `pwd` produit des faux positifs massifs.
 
 ---
 
-## Mode `compare`
+### `compare`
 
-Compare deux bases `.b3` et identifie les fichiers modifiés, disparus et nouveaux.
-
-### Syntaxe
+Compare deux bases d'empreintes et produit un rapport HTML.
 
 ```bash
-./src/integrity.sh compare <ancienne.b3> <nouvelle.b3>
+hash-tool compare -old <ancienne.b3> -new <nouvelle.b3> [-save <dossier>]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<ancienne.b3>` | chemin fichier | Base de référence (snapshot antérieur). |
-| `<nouvelle.b3>` | chemin fichier | Base à comparer (snapshot récent). |
+| `-old <ancienne.b3>` | Oui | Ancienne base (référence). |
+| `-new <nouvelle.b3>` | Oui | Nouvelle base (à comparer). |
+| `-save <dossier>` | Non | Dossier de sortie des résultats. |
 
-### Fichiers produits
+**Fichiers produits :**
 
-Créés dans `$RESULTATS_DIR/resultats_<nom_ancienne_base>/` :
+```
+~/integrity_resultats/resultats_hashes_avant/
+├── recap.txt     ← compteurs : modifiés, disparus, nouveaux
+├── modifies.b3   ← fichiers présents dans les deux bases avec hashes différents
+├── disparus.txt  ← chemins dans ancienne, absents de nouvelle
+├── nouveaux.txt  ← chemins dans nouvelle, absents d'ancienne
+└── report.html   ← rapport HTML autonome (CSS inline, thème sombre)
+```
 
-| Fichier | Contenu |
-|---|---|
-| `recap.txt` | Commande, date, bases, compteurs |
-| `modifies.b3` | Fichiers présents dans les deux bases avec hashes différents. Format : `nouveau_hash  chemin` |
-| `disparus.txt` | Chemins présents dans `<ancienne.b3>` et absents de `<nouvelle.b3>` |
-| `nouveaux.txt` | Chemins absents de `<ancienne.b3>` et présents dans `<nouvelle.b3>` |
-| `report.html` | Rapport visuel autonome (CSS inline) |
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
-| `0` | Comparaison effectuée (qu'il y ait des différences ou non) |
-| `1` | Erreur (fichier introuvable, format invalide) |
+| `0` | Comparaison effectuée (même si des différences existent) |
+| `1` | Erreur technique |
 
 !!! note
     `compare` retourne `0` même si des différences sont détectées. La présence de différences est une information, pas une erreur. Pour détecter des différences en script, vérifier si `modifies.b3`, `disparus.txt` ou `nouveaux.txt` sont non vides.
+
+---
+
+### `runner`
+
+Exécute un pipeline JSON définissant une suite d'opérations.
+
+```bash
+hash-tool runner [-pipeline <fichier.json>] [-save <dossier>]
+```
+
+Voir [reference/runner-sh.md](runner-sh.md) pour la documentation complète du format pipeline.
+
+---
+
+### `list`
+
+Liste toutes les bases `.b3` disponibles dans un dossier.
+
+```bash
+hash-tool list [-data <dossier>]
+```
+
+| Option | Description |
+|---|---|
+| `-data <dossier>` | Dossier à parcourir (défaut : répertoire courant). |
+
+**Sortie (exemple) :**
+
+```
+=== Bases d'empreintes dans : ./bases ===
+
+  hashes_donnees.b3                     1247 fichiers   2.1M [+meta]
+     → Snapshot initial (2026-02-26T14:30:00Z)
+  hashes_donnees_v2.b3                  1253 fichiers   2.2M [+meta]
+     → Snapshot après migration (2026-02-27T09:00:00Z)
+```
+
+`[+meta]` indique la présence d'un sidecar `.meta.json`.
+
+---
+
+### `diff`
+
+Affiche les différences entre une base d'empreintes et l'état actuel d'un dossier en termes de présence/absence de fichiers. Ne recalcule pas les hashes.
+
+```bash
+hash-tool diff -base <fichier.b3> [-data <dossier>]
+```
+
+| Option | Requis | Description |
+|---|---|---|
+| `-base <fichier.b3>` | Oui | Base de référence. |
+| `-data <dossier>` | Non | Dossier courant à comparer (défaut : `.`). |
+
+**Sortie (exemple) :**
+
+```
+=== DIFF : hashes_donnees.b3 vs ./donnees ===
+
+  Fichiers disparus depuis la base : 2
+    - ./donnees/archive/rapport-2023.pdf
+    - ./donnees/temp/export.csv
+
+  Nouveaux fichiers non indexés : 1
+    + ./donnees/2026/rapport-q1.pdf
+```
+
+**Différence avec `compare` :** `diff` est instantané (pas de hachage), `compare` détecte aussi les modifications de contenu.
+
+---
+
+### `stats`
+
+Affiche des statistiques sur une base d'empreintes.
+
+```bash
+hash-tool stats -base <fichier.b3>
+```
+
+**Sortie (exemple) :**
+
+```
+=== Statistiques : hashes_donnees.b3 ===
+
+  Fichier base     : /opt/bases/hashes_donnees.b3
+  Taille fichier   : 2.1M
+  Fichiers indexés : 1247
+
+  Extensions :
+    .jpg           843 fichiers
+    .pdf           201 fichiers
+    .docx           89 fichiers
+    .txt            67 fichiers
+    (autres)        47 fichiers
+
+--- Métadonnées (sidecar) ---
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-26T14:30:00Z",
+  "comment": "Snapshot initial",
+  "parameters": { "directory": "./donnees", "hash_algo": "blake3", "nb_files": 1247 }
+}
+-----------------------------
+```
+
+---
+
+### `check-env`
+
+Analyse l'environnement d'exécution et indique le mode sélectionné.
+
+```bash
+hash-tool check-env
+```
+
+**Sortie (exemple — environnement natif complet) :**
+
+```
+=== check-env : Analyse de l'environnement ===
+
+  [OK] b3sum disponible : b3sum 1.5.4
+  [OK] jq disponible : jq-1.7
+  [OK] bash 5.2.15(1)-release
+  [OK] integrity.sh présent et exécutable
+  [OK] runner.sh présent et exécutable
+  [--] Docker non disponible (optionnel)
+
+  Mode d'exécution sélectionné : native
+  → Exécution native active
+```
+
+---
+
+### `version`
+
+Affiche la version du logiciel.
+
+```bash
+hash-tool version
+```
+
+---
+
+### `help`
+
+```bash
+hash-tool help              # aide globale
+hash-tool help <commande>   # aide détaillée par sous-commande
+```
+
+---
+
+## Options générales
+
+| Option | Description |
+|---|---|
+| `-data <chemin>` | Dossier à analyser. |
+| `-base <chemin>` | Fichier base d'empreintes (`.b3`). |
+| `-old <chemin>` | Ancienne base (pour `compare`). |
+| `-new <chemin>` | Nouvelle base (pour `compare`). |
+| `-pipeline <chemin>` | Fichier pipeline JSON (pour `runner`). |
+| `-save <chemin>` | Dossier de sortie pour les résultats. |
+| `-meta <texte>` | Commentaire pour le sidecar JSON (`compute`). |
+| `-quiet` | Mode silencieux — pas de sortie terminal. |
+| `-verbose` | Mode verbeux. |
+| `-readonly` | Marque le compute comme lecture seule dans le sidecar. |
 
 ---
 
@@ -5639,8 +6786,22 @@ Créés dans `$RESULTATS_DIR/resultats_<nom_ancienne_base>/` :
 | **Scope** | `verify` et `compare` |
 
 ```bash
-export RESULTATS_DIR=/srv/rapports/integrity
-./src/integrity.sh verify hashes.b3
+export RESULTATS_DIR=/srv/rapports
+hash-tool verify -base hashes.b3
+```
+
+Peut aussi être surchargé via `-save` pour une commande unique.
+
+### `HASH_TOOL_DOCKER_IMAGE`
+
+| | |
+|---|---|
+| **Défaut** | `hash_tool` |
+| **Scope** | `hash-tool` en mode Docker |
+
+```bash
+export HASH_TOOL_DOCKER_IMAGE=mon_registry/hash_tool:latest
+hash-tool compute -data ./donnees -save ./bases
 ```
 
 ---
@@ -5649,9 +6810,9 @@ export RESULTATS_DIR=/srv/rapports/integrity
 
 | Scénario | Détecté ? | Remarque |
 |---|---|---|
-| Contenu de fichier modifié | **Oui** | Hash différent |
-| Fichier supprimé | **Oui** | FAILED (verify) ou DISPARUS (compare) |
-| Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
+| Contenu de fichier modifié | **Oui** | Hash différent → `verify` FAILED, `compare` MODIFIÉS |
+| Fichier supprimé | **Oui** | FAILED (`verify`) ou DISPARUS (`compare`) |
+| Fichier ajouté | **Oui** (`compare`, `diff`) | Section NOUVEAUX |
 | Dossier vide | **Non** | `find -type f` ignore les dossiers vides |
 | Permissions / timestamps | **Non** | Seul le contenu binaire est haché |
 | Fichier renommé | **Non** | Vu comme suppression + ajout |
@@ -5672,6 +6833,7 @@ b3sum --check hashes.b3.check
 | Outil | Usage |
 |---|---|
 | `b3sum` | Calcul et vérification des hashes BLAKE3 |
+| `jq` | Sidecar JSON, pipelines |
 | `find` | Parcours récursif du dossier |
 | `sort` | Tri déterministe des chemins |
 | `awk` | Conversion format `hash chemin` ↔ `chemin\thash` |
@@ -5681,30 +6843,33 @@ b3sum --check hashes.b3.check
 | `du` | Taille totale du dossier pour le calcul ETA |
 | `mktemp` | Fichiers temporaires isolés dans `compare` |
 
-
 --- Fichier : docs/reference/runner-sh.md ---
-# Référence - runner.sh & pipeline.json
+# Référence — `hash-tool runner` & pipeline JSON
 
-Orchestrateur de pipeline pour exécuter plusieurs opérations `integrity.sh` en séquence.
+Orchestrateur de pipeline pour exécuter plusieurs opérations en séquence.
 
-**Emplacement :** `runner.sh`  
-**Dépendance supplémentaire :** `jq`
+**Scripts :** `hash-tool runner` (CLI unique) → `runner.sh` (implémentation)  
+**Dépendance :** `jq`
 
 ---
 
 ## Synopsis
 
-```
-runner.sh [pipeline.json]
+```bash
+hash-tool runner [-pipeline <fichier.json>] [-save <dossier>]
+
+# Ou directement :
+./runner.sh [pipeline.json]
 ```
 
 | Argument | Défaut | Description |
 |---|---|---|
-| `pipeline.json` | `pipelines/pipeline.json` | Chemin vers le fichier de configuration du pipeline. |
+| `-pipeline` | `pipelines/pipeline.json` | Chemin vers le fichier de configuration du pipeline. |
+| `-save` | `RESULTATS_DIR` | Dossier de résultats global (surcharge `RESULTATS_DIR`). |
 
 ---
 
-## Pourquoi runner.sh
+## Pourquoi un runner
 
 Lancer `integrity.sh` manuellement sur plusieurs dossiers est error-prone :
 
@@ -5716,25 +6881,49 @@ Lancer `integrity.sh` manuellement sur plusieurs dossiers est error-prone :
 
 ---
 
-## Format pipeline.json
+## Deux formats de pipeline
 
-### Structure générale
+`runner.sh` supporte deux formats, **rétrocompatibles** et détectés automatiquement :
+
+### Format legacy
+
+Format d'origine, basé sur le champ `"op"`. Toujours fonctionnel.
 
 ```json
 {
     "pipeline": [
-        { "op": "compute", ... },
-        { "op": "verify",  ... },
-        { "op": "compare", ... }
+        { "op": "compute", "source": "...", "bases": "...", "nom": "..." },
+        { "op": "verify",  "source": "...", "base":  "..." },
+        { "op": "compare", "base_a": "...", "base_b": "...", "resultats": "..." }
     ]
 }
 ```
 
-Le tableau `pipeline` est exécuté séquentiellement. En cas d'erreur sur un bloc, l'exécution s'arrête immédiatement.
+### Format étendu (recommandé)
 
-### Opération `compute`
+Structure uniforme `type / params / options / meta / description`. Supporte toutes les commandes et le sidecar.
 
-Calcule les hashes d'un dossier et produit un fichier `.b3`.
+```json
+{
+    "pipeline": [
+        {
+            "type":        "compute",
+            "params":      { "input": "...", "output_dir": "...", "filename": "..." },
+            "options":     { "quiet": false, "verbose": false, "readonly": true },
+            "meta":        { "comment": "Snapshot initial" },
+            "description": "Texte explicatif de l'étape"
+        }
+    ]
+}
+```
+
+Le format est détecté automatiquement par la présence de `"op"` (legacy) ou `"type"` (étendu).
+
+---
+
+## Opérations — Format legacy
+
+### `compute`
 
 ```json
 {
@@ -5748,15 +6937,11 @@ Calcule les hashes d'un dossier et produit un fichier `.b3`.
 | Champ | Requis | Description |
 |---|---|---|
 | `op` | Oui | `"compute"` |
-| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier avant le compute - les chemins dans la base seront relatifs. |
-| `bases` | Oui | Dossier où enregistrer le fichier `.b3`. Créé automatiquement si inexistant. |
+| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier — chemins relatifs garantis dans la base. |
+| `bases` | Oui | Dossier de destination pour le fichier `.b3`. Créé automatiquement si inexistant. |
 | `nom` | Oui | Nom du fichier `.b3` à créer dans `bases`. |
 
-**Comportement interne :** `cd "$source"` puis `integrity.sh compute . "$bases/$nom"`. Le `.` garantit des chemins relatifs dans la base.
-
-### Opération `verify`
-
-Vérifie l'intégrité d'un dossier contre une base `.b3`.
+### `verify`
 
 ```json
 {
@@ -5772,11 +6957,7 @@ Vérifie l'intégrité d'un dossier contre une base `.b3`.
 | `source` | Oui | Répertoire de travail d'origine (celui depuis lequel le `compute` a été fait). |
 | `base` | Oui | Chemin complet du fichier `.b3`. |
 
-**Comportement interne :** résolution du chemin absolu de `base`, puis `cd "$source"`, puis `integrity.sh verify "$base_abs"`.
-
-### Opération `compare`
-
-Compare deux bases `.b3`.
+### `compare`
 
 ```json
 {
@@ -5792,48 +6973,172 @@ Compare deux bases `.b3`.
 | `op` | Oui | `"compare"` |
 | `base_a` | Oui | Ancienne base (référence). |
 | `base_b` | Oui | Nouvelle base (à comparer). |
-| `resultats` | Non | Dossier de destination des résultats. Surcharge `RESULTATS_DIR` pour ce seul bloc. Créé automatiquement si inexistant. |
-
-**Champ `resultats` :** l'isolation est garantie par un sous-shell - `RESULTATS_DIR` du processus parent n'est pas modifié. Les autres blocs du pipeline continuent d'utiliser la valeur globale de `RESULTATS_DIR`.
+| `resultats` | Non | Dossier de destination des résultats. Surcharge `RESULTATS_DIR` pour ce seul bloc. |
 
 ---
 
-## Exemple complet - VeraCrypt multi-disques
+## Opérations — Format étendu
+
+### `compute`
+
+```json
+{
+    "type": "compute",
+    "params": {
+        "input":      "/chemin/vers/dossier",
+        "output_dir": "/chemin/vers/bases",
+        "filename":   "hashes.b3"
+    },
+    "options": { "quiet": false, "readonly": true },
+    "meta":    { "comment": "Snapshot avant migration" },
+    "description": "Indexation du dossier source"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.input` | Oui | Dossier à indexer. |
+| `params.output_dir` | Oui | Dossier de destination pour le `.b3`. Créé automatiquement. |
+| `params.filename` | Oui | Nom du fichier `.b3`. |
+| `options.quiet` | Non | Supprime la sortie terminal. Défaut : `false`. |
+| `options.readonly` | Non | Documenté dans le sidecar. Défaut : `false`. |
+| `meta.comment` | Non | Commentaire stocké dans le sidecar `.meta.json`. |
+| `description` | Non | Documentation lisible dans le JSON. |
+
+**Sidecar :** si `meta.comment` est fourni, un fichier `<filename>.meta.json` est généré à côté du `.b3`.
+
+### `verify`
+
+```json
+{
+    "type": "verify",
+    "params": {
+        "input": "/chemin/vers/dossier",
+        "base":  "/chemin/vers/hashes.b3"
+    },
+    "options": { "quiet": false },
+    "description": "Vérification d'intégrité"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.input` | Oui | Répertoire de travail d'origine. |
+| `params.base` | Oui | Chemin du fichier `.b3`. |
+
+### `compare`
+
+```json
+{
+    "type": "compare",
+    "params": {
+        "reference":  "/chemin/vers/ancienne.b3",
+        "input":      "/chemin/vers/nouvelle.b3",
+        "output_dir": "/chemin/vers/dossier_resultats"
+    },
+    "options": { "quiet": false },
+    "description": "Comparaison avant/après migration"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.reference` | Oui | Ancienne base (référence). |
+| `params.input` | Oui | Nouvelle base (à comparer). |
+| `params.output_dir` | Non | Dossier de résultats. Surcharge `RESULTATS_DIR` pour ce bloc. |
+
+### `list`
+
+```json
+{
+    "type": "list",
+    "params": { "input_dir": "/chemin/vers/bases" },
+    "description": "Lister les bases disponibles"
+}
+```
+
+### `diff`
+
+```json
+{
+    "type": "diff",
+    "params": {
+        "input":         "/chemin/vers/hashes.b3",
+        "reference_dir": "/chemin/vers/dossier"
+    },
+    "description": "Différences entre base et dossier courant"
+}
+```
+
+### `stats`
+
+```json
+{
+    "type": "stats",
+    "params": { "input": "/chemin/vers/hashes.b3" },
+    "description": "Statistiques de la base"
+}
+```
+
+### `check-env`
+
+```json
+{
+    "type": "check-env",
+    "params": {},
+    "description": "Vérifier l'environnement d'exécution"
+}
+```
+
+### `version`
+
+```json
+{
+    "type": "version",
+    "params": {},
+    "description": "Afficher la version"
+}
+```
+
+---
+
+## Exemples complets
+
+### Pipeline VeraCrypt multi-disques (format legacy)
 
 ```json
 {
     "pipeline": [
-
         {
             "op":     "compute",
             "source": "/mnt/a/dossier_disque_1",
             "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
             "nom":    "hashes_disque_1.b3"
         },
-
         {
             "op":     "compute",
             "source": "/mnt/i/dossier_disque_2",
             "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
             "nom":    "hashes_disque_2.b3"
         },
-
         {
             "op":     "verify",
             "source": "/mnt/a/dossier_disque_1",
             "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_1.b3"
         },
-
         {
             "op":        "compare",
             "base_a":    "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_1.b3",
             "base_b":    "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_2.b3",
             "resultats": "/mnt/c/Users/TonNom/Desktop/rapports/compare_1_vs_2"
         }
-
     ]
 }
 ```
+
+### Pipeline complet avec sidecar (format étendu)
+
+Voir `pipelines/pipeline-amelioree.json` pour un exemple complet couvrant toutes les commandes.
 
 ---
 
@@ -5845,12 +7150,11 @@ Compare deux bases `.b3`.
 |---|---|
 | JSON invalide | `ERREUR : JSON invalide : /chemin/pipeline.json` |
 | Clé `.pipeline` absente | `ERREUR : tableau .pipeline vide ou absent` |
-| Champ requis manquant | `ERREUR : Bloc #2 : champ 'nom' manquant ou vide.` |
-| Opération inconnue | `ERREUR : Bloc #3 : opération inconnue : 'migrate'` |
+| Champ requis manquant | `ERREUR : Bloc #2 : params.filename manquant ou vide.` |
+| Type inconnu | `ERREUR : Bloc #3 : type inconnu : 'migrate'` |
 | Dossier source introuvable | `ERREUR : Bloc #1 compute : dossier source introuvable : /mnt/a/...` |
 | Base `.b3` introuvable | `ERREUR : Bloc #2 verify : base .b3 introuvable : /mnt/c/...` |
-
-Tous les messages d'erreur incluent le numéro de bloc pour faciliter le débogage.
+| `runner` imbriqué | `ERREUR : Bloc #1 : 'runner' imbriqué non supporté.` |
 
 ---
 
@@ -5858,14 +7162,14 @@ Tous les messages d'erreur incluent le numéro de bloc pour faciliter le déboga
 
 ### `RESULTATS_DIR`
 
-Dossier de résultats global pour tous les blocs `verify` et `compare` sans champ `resultats` explicite.
+Dossier de résultats global pour tous les blocs `verify` et `compare` sans champ `output_dir` (format étendu) ou `resultats` (format legacy) explicite.
 
 ```bash
 export RESULTATS_DIR=/srv/rapports
-./runner.sh
+hash-tool runner -pipeline ./pipeline.json
 ```
 
-Défaut : `~/integrity_resultats` (hérité de `integrity.sh`).
+Défaut : `~/integrity_resultats`.
 
 ---
 
@@ -5874,30 +7178,7 @@ Défaut : `~/integrity_resultats` (hérité de `integrity.sh`).
 | Code | Signification |
 |---|---|
 | `0` | Pipeline exécuté entièrement sans erreur |
-| `1` | Erreur sur un bloc (bloc suivant non exécuté) |
-
----
-
-## Lancement depuis Windows
-
-Créer un fichier `.bat` sur le bureau :
-
-```bat
-@echo off
-wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
-pause
-```
-
-Double-clic pour exécuter. La fenêtre reste ouverte après exécution grâce à `pause`.
-
-Pour un pipeline explicite :
-
-```bat
-@echo off
-wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh ^
-    /mnt/c/Users/TonNom/Desktop/mon-pipeline.json
-pause
-```
+| `1` | Erreur sur un bloc (blocs suivants non exécutés) |
 
 ---
 
@@ -5910,6 +7191,24 @@ pause
 ( cd "$source" && integrity.sh compute . "$bases/$nom" )
 ```
 
-Chaque bloc `compute` et `verify` démarre dans le répertoire courant du processus principal, quels que soient les `cd` des blocs précédents. La variable `RESULTATS_DIR` est de même isolée pour les blocs `compare` avec un champ `resultats` explicite.
+Chaque bloc `compute` et `verify` démarre dans le répertoire courant du processus principal, quels que soient les `cd` des blocs précédents. `RESULTATS_DIR` est de même isolé pour les blocs avec un champ `output_dir`/`resultats` explicite.
 
+---
+
+## Lancement depuis Windows (WSL)
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
+pause
+```
+
+Avec pipeline explicite :
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh ^
+    /mnt/c/Users/TonNom/Desktop/mon-pipeline.json
+pause
+```
 

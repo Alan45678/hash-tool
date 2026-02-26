@@ -37,6 +37,10 @@ J'aime pas ça, je veux comprendre pourquoi ça fait ça
 pourquoi il y a pas ça ? 
 il y a le docker mais pas la version simple classiques 
 
+## anglais
+
+migrer la doc en anglais 
+
 
 
 

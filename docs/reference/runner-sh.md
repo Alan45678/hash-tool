@@ -1,25 +1,29 @@
-# Référence - runner.sh & pipeline.json
+# Référence — `hash-tool runner` & pipeline JSON
 
-Orchestrateur de pipeline pour exécuter plusieurs opérations `integrity.sh` en séquence.
+Orchestrateur de pipeline pour exécuter plusieurs opérations en séquence.
 
-**Emplacement :** `runner.sh`  
-**Dépendance supplémentaire :** `jq`
+**Scripts :** `hash-tool runner` (CLI unique) → `runner.sh` (implémentation)  
+**Dépendance :** `jq`
 
 ---
 
 ## Synopsis
 
-```
-runner.sh [pipeline.json]
+```bash
+hash-tool runner [-pipeline <fichier.json>] [-save <dossier>]
+
+# Ou directement :
+./runner.sh [pipeline.json]
 ```
 
 | Argument | Défaut | Description |
 |---|---|---|
-| `pipeline.json` | `pipelines/pipeline.json` | Chemin vers le fichier de configuration du pipeline. |
+| `-pipeline` | `pipelines/pipeline.json` | Chemin vers le fichier de configuration du pipeline. |
+| `-save` | `RESULTATS_DIR` | Dossier de résultats global (surcharge `RESULTATS_DIR`). |
 
 ---
 
-## Pourquoi runner.sh
+## Pourquoi un runner
 
 Lancer `integrity.sh` manuellement sur plusieurs dossiers est error-prone :
 
@@ -31,25 +35,49 @@ Lancer `integrity.sh` manuellement sur plusieurs dossiers est error-prone :
 
 ---
 
-## Format pipeline.json
+## Deux formats de pipeline
 
-### Structure générale
+`runner.sh` supporte deux formats, **rétrocompatibles** et détectés automatiquement :
+
+### Format legacy
+
+Format d'origine, basé sur le champ `"op"`. Toujours fonctionnel.
 
 ```json
 {
     "pipeline": [
-        { "op": "compute", ... },
-        { "op": "verify",  ... },
-        { "op": "compare", ... }
+        { "op": "compute", "source": "...", "bases": "...", "nom": "..." },
+        { "op": "verify",  "source": "...", "base":  "..." },
+        { "op": "compare", "base_a": "...", "base_b": "...", "resultats": "..." }
     ]
 }
 ```
 
-Le tableau `pipeline` est exécuté séquentiellement. En cas d'erreur sur un bloc, l'exécution s'arrête immédiatement.
+### Format étendu (recommandé)
 
-### Opération `compute`
+Structure uniforme `type / params / options / meta / description`. Supporte toutes les commandes et le sidecar.
 
-Calcule les hashes d'un dossier et produit un fichier `.b3`.
+```json
+{
+    "pipeline": [
+        {
+            "type":        "compute",
+            "params":      { "input": "...", "output_dir": "...", "filename": "..." },
+            "options":     { "quiet": false, "verbose": false, "readonly": true },
+            "meta":        { "comment": "Snapshot initial" },
+            "description": "Texte explicatif de l'étape"
+        }
+    ]
+}
+```
+
+Le format est détecté automatiquement par la présence de `"op"` (legacy) ou `"type"` (étendu).
+
+---
+
+## Opérations — Format legacy
+
+### `compute`
 
 ```json
 {
@@ -63,15 +91,11 @@ Calcule les hashes d'un dossier et produit un fichier `.b3`.
 | Champ | Requis | Description |
 |---|---|---|
 | `op` | Oui | `"compute"` |
-| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier avant le compute - les chemins dans la base seront relatifs. |
-| `bases` | Oui | Dossier où enregistrer le fichier `.b3`. Créé automatiquement si inexistant. |
+| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier — chemins relatifs garantis dans la base. |
+| `bases` | Oui | Dossier de destination pour le fichier `.b3`. Créé automatiquement si inexistant. |
 | `nom` | Oui | Nom du fichier `.b3` à créer dans `bases`. |
 
-**Comportement interne :** `cd "$source"` puis `integrity.sh compute . "$bases/$nom"`. Le `.` garantit des chemins relatifs dans la base.
-
-### Opération `verify`
-
-Vérifie l'intégrité d'un dossier contre une base `.b3`.
+### `verify`
 
 ```json
 {
@@ -87,11 +111,7 @@ Vérifie l'intégrité d'un dossier contre une base `.b3`.
 | `source` | Oui | Répertoire de travail d'origine (celui depuis lequel le `compute` a été fait). |
 | `base` | Oui | Chemin complet du fichier `.b3`. |
 
-**Comportement interne :** résolution du chemin absolu de `base`, puis `cd "$source"`, puis `integrity.sh verify "$base_abs"`.
-
-### Opération `compare`
-
-Compare deux bases `.b3`.
+### `compare`
 
 ```json
 {
@@ -107,48 +127,172 @@ Compare deux bases `.b3`.
 | `op` | Oui | `"compare"` |
 | `base_a` | Oui | Ancienne base (référence). |
 | `base_b` | Oui | Nouvelle base (à comparer). |
-| `resultats` | Non | Dossier de destination des résultats. Surcharge `RESULTATS_DIR` pour ce seul bloc. Créé automatiquement si inexistant. |
-
-**Champ `resultats` :** l'isolation est garantie par un sous-shell - `RESULTATS_DIR` du processus parent n'est pas modifié. Les autres blocs du pipeline continuent d'utiliser la valeur globale de `RESULTATS_DIR`.
+| `resultats` | Non | Dossier de destination des résultats. Surcharge `RESULTATS_DIR` pour ce seul bloc. |
 
 ---
 
-## Exemple complet - VeraCrypt multi-disques
+## Opérations — Format étendu
+
+### `compute`
+
+```json
+{
+    "type": "compute",
+    "params": {
+        "input":      "/chemin/vers/dossier",
+        "output_dir": "/chemin/vers/bases",
+        "filename":   "hashes.b3"
+    },
+    "options": { "quiet": false, "readonly": true },
+    "meta":    { "comment": "Snapshot avant migration" },
+    "description": "Indexation du dossier source"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.input` | Oui | Dossier à indexer. |
+| `params.output_dir` | Oui | Dossier de destination pour le `.b3`. Créé automatiquement. |
+| `params.filename` | Oui | Nom du fichier `.b3`. |
+| `options.quiet` | Non | Supprime la sortie terminal. Défaut : `false`. |
+| `options.readonly` | Non | Documenté dans le sidecar. Défaut : `false`. |
+| `meta.comment` | Non | Commentaire stocké dans le sidecar `.meta.json`. |
+| `description` | Non | Documentation lisible dans le JSON. |
+
+**Sidecar :** si `meta.comment` est fourni, un fichier `<filename>.meta.json` est généré à côté du `.b3`.
+
+### `verify`
+
+```json
+{
+    "type": "verify",
+    "params": {
+        "input": "/chemin/vers/dossier",
+        "base":  "/chemin/vers/hashes.b3"
+    },
+    "options": { "quiet": false },
+    "description": "Vérification d'intégrité"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.input` | Oui | Répertoire de travail d'origine. |
+| `params.base` | Oui | Chemin du fichier `.b3`. |
+
+### `compare`
+
+```json
+{
+    "type": "compare",
+    "params": {
+        "reference":  "/chemin/vers/ancienne.b3",
+        "input":      "/chemin/vers/nouvelle.b3",
+        "output_dir": "/chemin/vers/dossier_resultats"
+    },
+    "options": { "quiet": false },
+    "description": "Comparaison avant/après migration"
+}
+```
+
+| Champ | Requis | Description |
+|---|---|---|
+| `params.reference` | Oui | Ancienne base (référence). |
+| `params.input` | Oui | Nouvelle base (à comparer). |
+| `params.output_dir` | Non | Dossier de résultats. Surcharge `RESULTATS_DIR` pour ce bloc. |
+
+### `list`
+
+```json
+{
+    "type": "list",
+    "params": { "input_dir": "/chemin/vers/bases" },
+    "description": "Lister les bases disponibles"
+}
+```
+
+### `diff`
+
+```json
+{
+    "type": "diff",
+    "params": {
+        "input":         "/chemin/vers/hashes.b3",
+        "reference_dir": "/chemin/vers/dossier"
+    },
+    "description": "Différences entre base et dossier courant"
+}
+```
+
+### `stats`
+
+```json
+{
+    "type": "stats",
+    "params": { "input": "/chemin/vers/hashes.b3" },
+    "description": "Statistiques de la base"
+}
+```
+
+### `check-env`
+
+```json
+{
+    "type": "check-env",
+    "params": {},
+    "description": "Vérifier l'environnement d'exécution"
+}
+```
+
+### `version`
+
+```json
+{
+    "type": "version",
+    "params": {},
+    "description": "Afficher la version"
+}
+```
+
+---
+
+## Exemples complets
+
+### Pipeline VeraCrypt multi-disques (format legacy)
 
 ```json
 {
     "pipeline": [
-
         {
             "op":     "compute",
             "source": "/mnt/a/dossier_disque_1",
             "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
             "nom":    "hashes_disque_1.b3"
         },
-
         {
             "op":     "compute",
             "source": "/mnt/i/dossier_disque_2",
             "bases":  "/mnt/c/Users/TonNom/Desktop/bases",
             "nom":    "hashes_disque_2.b3"
         },
-
         {
             "op":     "verify",
             "source": "/mnt/a/dossier_disque_1",
             "base":   "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_1.b3"
         },
-
         {
             "op":        "compare",
             "base_a":    "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_1.b3",
             "base_b":    "/mnt/c/Users/TonNom/Desktop/bases/hashes_disque_2.b3",
             "resultats": "/mnt/c/Users/TonNom/Desktop/rapports/compare_1_vs_2"
         }
-
     ]
 }
 ```
+
+### Pipeline complet avec sidecar (format étendu)
+
+Voir `pipelines/pipeline-amelioree.json` pour un exemple complet couvrant toutes les commandes.
 
 ---
 
@@ -160,12 +304,11 @@ Compare deux bases `.b3`.
 |---|---|
 | JSON invalide | `ERREUR : JSON invalide : /chemin/pipeline.json` |
 | Clé `.pipeline` absente | `ERREUR : tableau .pipeline vide ou absent` |
-| Champ requis manquant | `ERREUR : Bloc #2 : champ 'nom' manquant ou vide.` |
-| Opération inconnue | `ERREUR : Bloc #3 : opération inconnue : 'migrate'` |
+| Champ requis manquant | `ERREUR : Bloc #2 : params.filename manquant ou vide.` |
+| Type inconnu | `ERREUR : Bloc #3 : type inconnu : 'migrate'` |
 | Dossier source introuvable | `ERREUR : Bloc #1 compute : dossier source introuvable : /mnt/a/...` |
 | Base `.b3` introuvable | `ERREUR : Bloc #2 verify : base .b3 introuvable : /mnt/c/...` |
-
-Tous les messages d'erreur incluent le numéro de bloc pour faciliter le débogage.
+| `runner` imbriqué | `ERREUR : Bloc #1 : 'runner' imbriqué non supporté.` |
 
 ---
 
@@ -173,14 +316,14 @@ Tous les messages d'erreur incluent le numéro de bloc pour faciliter le déboga
 
 ### `RESULTATS_DIR`
 
-Dossier de résultats global pour tous les blocs `verify` et `compare` sans champ `resultats` explicite.
+Dossier de résultats global pour tous les blocs `verify` et `compare` sans champ `output_dir` (format étendu) ou `resultats` (format legacy) explicite.
 
 ```bash
 export RESULTATS_DIR=/srv/rapports
-./runner.sh
+hash-tool runner -pipeline ./pipeline.json
 ```
 
-Défaut : `~/integrity_resultats` (hérité de `integrity.sh`).
+Défaut : `~/integrity_resultats`.
 
 ---
 
@@ -189,30 +332,7 @@ Défaut : `~/integrity_resultats` (hérité de `integrity.sh`).
 | Code | Signification |
 |---|---|
 | `0` | Pipeline exécuté entièrement sans erreur |
-| `1` | Erreur sur un bloc (bloc suivant non exécuté) |
-
----
-
-## Lancement depuis Windows
-
-Créer un fichier `.bat` sur le bureau :
-
-```bat
-@echo off
-wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
-pause
-```
-
-Double-clic pour exécuter. La fenêtre reste ouverte après exécution grâce à `pause`.
-
-Pour un pipeline explicite :
-
-```bat
-@echo off
-wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh ^
-    /mnt/c/Users/TonNom/Desktop/mon-pipeline.json
-pause
-```
+| `1` | Erreur sur un bloc (blocs suivants non exécutés) |
 
 ---
 
@@ -225,4 +345,23 @@ pause
 ( cd "$source" && integrity.sh compute . "$bases/$nom" )
 ```
 
-Chaque bloc `compute` et `verify` démarre dans le répertoire courant du processus principal, quels que soient les `cd` des blocs précédents. La variable `RESULTATS_DIR` est de même isolée pour les blocs `compare` avec un champ `resultats` explicite.
+Chaque bloc `compute` et `verify` démarre dans le répertoire courant du processus principal, quels que soient les `cd` des blocs précédents. `RESULTATS_DIR` est de même isolé pour les blocs avec un champ `output_dir`/`resultats` explicite.
+
+---
+
+## Lancement depuis Windows (WSL)
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh
+pause
+```
+
+Avec pipeline explicite :
+
+```bat
+@echo off
+wsl bash /mnt/c/Users/TonNom/Desktop/hash_tool/runner.sh ^
+    /mnt/c/Users/TonNom/Desktop/mon-pipeline.json
+pause
+```

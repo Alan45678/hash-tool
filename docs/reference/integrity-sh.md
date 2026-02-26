@@ -1,192 +1,297 @@
-# Référence - integrity.sh
+# Référence — `hash-tool` & `src/integrity.sh`
 
-Script principal de vérification d'intégrité BLAKE3.
-
-**Emplacement :** `src/integrity.sh`  
-**Architecture :** dispatcher CLI - orchestre `src/lib/core.sh`, `src/lib/ui.sh`, `src/lib/results.sh`, `src/lib/report.sh`
+`hash-tool` est l'interface CLI unique. `src/integrity.sh` est le moteur interne pour `compute`, `verify`, `compare`. Les nouvelles commandes (`list`, `diff`, `stats`, `check-env`, `version`) sont gérées directement par `hash-tool`.
 
 ---
 
 ## Synopsis
 
 ```
-integrity.sh [--quiet] <mode> [arguments...]
+hash-tool <commande> [options]
+```
 
-Modes :
-  compute <dossier> <base.b3>
-  verify  <base.b3> [dossier]
-  compare <ancienne.b3> <nouvelle.b3>
+**Appel direct `integrity.sh` (non recommandé en usage courant) :**
+
+```
+./src/integrity.sh [--quiet] compute <dossier> <base.b3>
+./src/integrity.sh [--quiet] verify  <base.b3> [dossier]
+./src/integrity.sh [--quiet] compare <ancienne.b3> <nouvelle.b3>
 ```
 
 ---
 
-## Options globales
+## Commandes
 
-### `--quiet`
+### `compute`
 
-Supprime toute sortie terminal. Écrit uniquement dans les fichiers de résultats (`recap.txt`, `failed.txt`, `report.html`). L'exit code est conservé.
-
-```bash
-./src/integrity.sh --quiet verify base.b3
-echo $?   # 0 = OK, 1 = ECHEC ou ERREUR
-```
-
-**Usage type :** intégration CI, cron, scripts parents qui gèrent eux-mêmes la sortie.
-
-!!! warning
-    En mode `--quiet`, la progression ETA est également supprimée pendant `compute`.
-
----
-
-## Mode `compute`
-
-Calcule les hashes BLAKE3 de tous les fichiers d'un dossier et les enregistre dans un fichier `.b3`.
-
-### Syntaxe
+Calcule les empreintes BLAKE3 de tous les fichiers d'un dossier. Génère un fichier `.b3` et un sidecar `.meta.json`.
 
 ```bash
-./src/integrity.sh compute <dossier> <base.b3>
+hash-tool compute -data <dossier> [-save <dossier>] [-meta <texte>] [-quiet] [-readonly]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<dossier>` | chemin | Dossier à indexer. Relatif ou absolu, mais **préférer relatif** (voir ci-dessous). |
-| `<base.b3>` | chemin fichier | Fichier de sortie. Créé ou écrasé. Ne doit pas être un dossier existant. |
+| `-data <dossier>` | Oui | Dossier à analyser. |
+| `-save <dossier>` | Non | Dossier de sortie pour le `.b3` (défaut : répertoire courant). |
+| `-meta <texte>` | Non | Commentaire stocké dans le sidecar `.meta.json`. |
+| `-quiet` | Non | Supprime toute sortie terminal. |
+| `-readonly` | Non | Documenté dans le sidecar (`parameters.readonly: true`). |
 
-### Comportement
-
-1. Valide que `<dossier>` existe et contient au moins un fichier régulier (`core_assert_target_valid`)
-2. Parcourt récursivement avec `find -type f -print0 | sort -z`
-3. Calcule le hash BLAKE3 de chaque fichier avec `b3sum` (via `core_compute`)
-4. Affiche la progression et l'ETA sur `/dev/tty` via callback `ui_progress_callback`
-5. Enregistre les résultats dans `<base.b3>`
-
-### Format du fichier `.b3`
-
-Voir la [spécification complète](../spec/b3-format.md). Format synthétique :
+**Sortie :**
 
 ```
-<hash_64_chars>  <chemin>
+./bases/hashes_donnees.b3           ← empreintes BLAKE3
+./bases/hashes_donnees.b3.meta.json ← sidecar métadonnées
+Base enregistrée : ./bases/hashes_donnees.b3 (1247 fichiers)
+Sidecar : ./bases/hashes_donnees.b3.meta.json
 ```
 
-!!! danger "Règle absolue : chemins relatifs"
-    Toujours passer un chemin relatif (`.` ou `./sous-dossier`) comme `<dossier>`.
-
-    ```bash
-    # Correct - chemin relatif dans la base
-    cd /mnt/a/mes_donnees
-    ./src/integrity.sh compute . /mnt/c/bases/hashes.b3
-
-    # Incorrect - chemin absolu, base non portable
-    ./src/integrity.sh compute /mnt/a/mes_donnees /mnt/c/bases/hashes.b3
-    ```
-
-    `runner.sh` gère ce `cd` automatiquement.
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
 | `0` | Base calculée avec succès |
-| `1` | Erreur (dossier introuvable, dossier vide, argument manquant) |
+| `1` | Erreur (argument manquant, dossier introuvable, dossier vide) |
 
 ---
 
-## Mode `verify`
+### `verify`
 
-Vérifie que les fichiers correspondent aux hashes stockés dans la base `.b3`.
-
-### Syntaxe
+Vérifie l'intégrité d'un dossier à partir d'une base d'empreintes.
 
 ```bash
-./src/integrity.sh verify <base.b3> [dossier]
+hash-tool verify -base <fichier.b3> [-data <dossier>] [-save <dossier>] [-quiet]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<base.b3>` | chemin fichier | Base de hashes à utiliser pour la vérification. |
-| `[dossier]` | chemin (optionnel) | Répertoire de travail à utiliser. Si absent, utilise le `pwd` courant. |
+| `-base <fichier.b3>` | Oui | Base d'empreintes de référence. |
+| `-data <dossier>` | Non | Dossier à vérifier. Défaut : répertoire courant au moment du `compute`. |
+| `-save <dossier>` | Non | Dossier de sortie des résultats (surcharge `RESULTATS_DIR`). |
+| `-quiet` | Non | Supprime la sortie terminal. Exit code propagé. |
 
-### Comportement
+**Fichiers produits :**
 
-1. Valide le fichier `.b3` (`core_assert_b3_valid`) - toutes les lignes doivent être au format b3sum
-2. Résout le chemin absolu de `<base.b3>` **avant** le `cd`
-3. Si `[dossier]` est fourni, fait `cd` dans ce dossier
-4. Lance `b3sum --check` via `core_verify()`
-5. Écrit les résultats dans `$RESULTATS_DIR/resultats_<nom_base>/`
+```
+~/integrity_resultats/resultats_hashes_donnees/
+├── recap.txt    ← statut, compteurs OK/FAIL
+└── failed.txt   ← chemins FAILED (uniquement si echec)
+```
 
-!!! warning "Répertoire de travail"
-    `b3sum --check` résout les chemins relatifs depuis le `pwd`. Lancer `verify` depuis le même répertoire qu'au `compute` - ou passer ce répertoire en second argument.
-
-    ```bash
-    # Cas 1 : on est dans le bon répertoire
-    cd /mnt/a/mes_donnees
-    ./src/integrity.sh verify /mnt/c/bases/hashes.b3
-
-    # Cas 2 : on est ailleurs
-    ./src/integrity.sh verify /mnt/c/bases/hashes.b3 /mnt/a/mes_donnees
-    ```
-
-### Fichiers produits
-
-Créés dans `$RESULTATS_DIR/resultats_<nom_base>/` (horodaté si le dossier existe déjà) :
-
-| Fichier | Présence | Contenu |
-|---|---|---|
-| `recap.txt` | Toujours | Statut global, compteurs OK/FAILED, erreurs b3sum |
-| `failed.txt` | Si échec seulement | Liste des fichiers FAILED ou en erreur |
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
 | `0` | Tous les fichiers intègres |
-| `1` | Au moins un FAILED ou erreur b3sum |
+| `1` | Au moins un fichier FAILED ou erreur `b3sum` |
+
+!!! warning "Répertoire de travail"
+    `verify` doit être lancé depuis le même répertoire qu'au `compute`, ou `-data` doit pointer vers ce répertoire. Les chemins dans `.b3` sont relatifs — un mauvais `pwd` produit des faux positifs massifs.
 
 ---
 
-## Mode `compare`
+### `compare`
 
-Compare deux bases `.b3` et identifie les fichiers modifiés, disparus et nouveaux.
-
-### Syntaxe
+Compare deux bases d'empreintes et produit un rapport HTML.
 
 ```bash
-./src/integrity.sh compare <ancienne.b3> <nouvelle.b3>
+hash-tool compare -old <ancienne.b3> -new <nouvelle.b3> [-save <dossier>]
 ```
 
-### Arguments
-
-| Argument | Type | Description |
+| Option | Requis | Description |
 |---|---|---|
-| `<ancienne.b3>` | chemin fichier | Base de référence (snapshot antérieur). |
-| `<nouvelle.b3>` | chemin fichier | Base à comparer (snapshot récent). |
+| `-old <ancienne.b3>` | Oui | Ancienne base (référence). |
+| `-new <nouvelle.b3>` | Oui | Nouvelle base (à comparer). |
+| `-save <dossier>` | Non | Dossier de sortie des résultats. |
 
-### Fichiers produits
+**Fichiers produits :**
 
-Créés dans `$RESULTATS_DIR/resultats_<nom_ancienne_base>/` :
+```
+~/integrity_resultats/resultats_hashes_avant/
+├── recap.txt     ← compteurs : modifiés, disparus, nouveaux
+├── modifies.b3   ← fichiers présents dans les deux bases avec hashes différents
+├── disparus.txt  ← chemins dans ancienne, absents de nouvelle
+├── nouveaux.txt  ← chemins dans nouvelle, absents d'ancienne
+└── report.html   ← rapport HTML autonome (CSS inline, thème sombre)
+```
 
-| Fichier | Contenu |
-|---|---|
-| `recap.txt` | Commande, date, bases, compteurs |
-| `modifies.b3` | Fichiers présents dans les deux bases avec hashes différents. Format : `nouveau_hash  chemin` |
-| `disparus.txt` | Chemins présents dans `<ancienne.b3>` et absents de `<nouvelle.b3>` |
-| `nouveaux.txt` | Chemins absents de `<ancienne.b3>` et présents dans `<nouvelle.b3>` |
-| `report.html` | Rapport visuel autonome (CSS inline) |
-
-### Exit codes
+**Exit codes :**
 
 | Code | Signification |
 |---|---|
-| `0` | Comparaison effectuée (qu'il y ait des différences ou non) |
-| `1` | Erreur (fichier introuvable, format invalide) |
+| `0` | Comparaison effectuée (même si des différences existent) |
+| `1` | Erreur technique |
 
 !!! note
     `compare` retourne `0` même si des différences sont détectées. La présence de différences est une information, pas une erreur. Pour détecter des différences en script, vérifier si `modifies.b3`, `disparus.txt` ou `nouveaux.txt` sont non vides.
+
+---
+
+### `runner`
+
+Exécute un pipeline JSON définissant une suite d'opérations.
+
+```bash
+hash-tool runner [-pipeline <fichier.json>] [-save <dossier>]
+```
+
+Voir [reference/runner-sh.md](runner-sh.md) pour la documentation complète du format pipeline.
+
+---
+
+### `list`
+
+Liste toutes les bases `.b3` disponibles dans un dossier.
+
+```bash
+hash-tool list [-data <dossier>]
+```
+
+| Option | Description |
+|---|---|
+| `-data <dossier>` | Dossier à parcourir (défaut : répertoire courant). |
+
+**Sortie (exemple) :**
+
+```
+=== Bases d'empreintes dans : ./bases ===
+
+  hashes_donnees.b3                     1247 fichiers   2.1M [+meta]
+     → Snapshot initial (2026-02-26T14:30:00Z)
+  hashes_donnees_v2.b3                  1253 fichiers   2.2M [+meta]
+     → Snapshot après migration (2026-02-27T09:00:00Z)
+```
+
+`[+meta]` indique la présence d'un sidecar `.meta.json`.
+
+---
+
+### `diff`
+
+Affiche les différences entre une base d'empreintes et l'état actuel d'un dossier en termes de présence/absence de fichiers. Ne recalcule pas les hashes.
+
+```bash
+hash-tool diff -base <fichier.b3> [-data <dossier>]
+```
+
+| Option | Requis | Description |
+|---|---|---|
+| `-base <fichier.b3>` | Oui | Base de référence. |
+| `-data <dossier>` | Non | Dossier courant à comparer (défaut : `.`). |
+
+**Sortie (exemple) :**
+
+```
+=== DIFF : hashes_donnees.b3 vs ./donnees ===
+
+  Fichiers disparus depuis la base : 2
+    - ./donnees/archive/rapport-2023.pdf
+    - ./donnees/temp/export.csv
+
+  Nouveaux fichiers non indexés : 1
+    + ./donnees/2026/rapport-q1.pdf
+```
+
+**Différence avec `compare` :** `diff` est instantané (pas de hachage), `compare` détecte aussi les modifications de contenu.
+
+---
+
+### `stats`
+
+Affiche des statistiques sur une base d'empreintes.
+
+```bash
+hash-tool stats -base <fichier.b3>
+```
+
+**Sortie (exemple) :**
+
+```
+=== Statistiques : hashes_donnees.b3 ===
+
+  Fichier base     : /opt/bases/hashes_donnees.b3
+  Taille fichier   : 2.1M
+  Fichiers indexés : 1247
+
+  Extensions :
+    .jpg           843 fichiers
+    .pdf           201 fichiers
+    .docx           89 fichiers
+    .txt            67 fichiers
+    (autres)        47 fichiers
+
+--- Métadonnées (sidecar) ---
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-26T14:30:00Z",
+  "comment": "Snapshot initial",
+  "parameters": { "directory": "./donnees", "hash_algo": "blake3", "nb_files": 1247 }
+}
+-----------------------------
+```
+
+---
+
+### `check-env`
+
+Analyse l'environnement d'exécution et indique le mode sélectionné.
+
+```bash
+hash-tool check-env
+```
+
+**Sortie (exemple — environnement natif complet) :**
+
+```
+=== check-env : Analyse de l'environnement ===
+
+  [OK] b3sum disponible : b3sum 1.5.4
+  [OK] jq disponible : jq-1.7
+  [OK] bash 5.2.15(1)-release
+  [OK] integrity.sh présent et exécutable
+  [OK] runner.sh présent et exécutable
+  [--] Docker non disponible (optionnel)
+
+  Mode d'exécution sélectionné : native
+  → Exécution native active
+```
+
+---
+
+### `version`
+
+Affiche la version du logiciel.
+
+```bash
+hash-tool version
+```
+
+---
+
+### `help`
+
+```bash
+hash-tool help              # aide globale
+hash-tool help <commande>   # aide détaillée par sous-commande
+```
+
+---
+
+## Options générales
+
+| Option | Description |
+|---|---|
+| `-data <chemin>` | Dossier à analyser. |
+| `-base <chemin>` | Fichier base d'empreintes (`.b3`). |
+| `-old <chemin>` | Ancienne base (pour `compare`). |
+| `-new <chemin>` | Nouvelle base (pour `compare`). |
+| `-pipeline <chemin>` | Fichier pipeline JSON (pour `runner`). |
+| `-save <chemin>` | Dossier de sortie pour les résultats. |
+| `-meta <texte>` | Commentaire pour le sidecar JSON (`compute`). |
+| `-quiet` | Mode silencieux — pas de sortie terminal. |
+| `-verbose` | Mode verbeux. |
+| `-readonly` | Marque le compute comme lecture seule dans le sidecar. |
 
 ---
 
@@ -200,8 +305,22 @@ Créés dans `$RESULTATS_DIR/resultats_<nom_ancienne_base>/` :
 | **Scope** | `verify` et `compare` |
 
 ```bash
-export RESULTATS_DIR=/srv/rapports/integrity
-./src/integrity.sh verify hashes.b3
+export RESULTATS_DIR=/srv/rapports
+hash-tool verify -base hashes.b3
+```
+
+Peut aussi être surchargé via `-save` pour une commande unique.
+
+### `HASH_TOOL_DOCKER_IMAGE`
+
+| | |
+|---|---|
+| **Défaut** | `hash_tool` |
+| **Scope** | `hash-tool` en mode Docker |
+
+```bash
+export HASH_TOOL_DOCKER_IMAGE=mon_registry/hash_tool:latest
+hash-tool compute -data ./donnees -save ./bases
 ```
 
 ---
@@ -210,9 +329,9 @@ export RESULTATS_DIR=/srv/rapports/integrity
 
 | Scénario | Détecté ? | Remarque |
 |---|---|---|
-| Contenu de fichier modifié | **Oui** | Hash différent |
-| Fichier supprimé | **Oui** | FAILED (verify) ou DISPARUS (compare) |
-| Fichier ajouté | **Oui** (compare) | Section NOUVEAUX |
+| Contenu de fichier modifié | **Oui** | Hash différent → `verify` FAILED, `compare` MODIFIÉS |
+| Fichier supprimé | **Oui** | FAILED (`verify`) ou DISPARUS (`compare`) |
+| Fichier ajouté | **Oui** (`compare`, `diff`) | Section NOUVEAUX |
 | Dossier vide | **Non** | `find -type f` ignore les dossiers vides |
 | Permissions / timestamps | **Non** | Seul le contenu binaire est haché |
 | Fichier renommé | **Non** | Vu comme suppression + ajout |
@@ -233,6 +352,7 @@ b3sum --check hashes.b3.check
 | Outil | Usage |
 |---|---|
 | `b3sum` | Calcul et vérification des hashes BLAKE3 |
+| `jq` | Sidecar JSON, pipelines |
 | `find` | Parcours récursif du dossier |
 | `sort` | Tri déterministe des chemins |
 | `awk` | Conversion format `hash chemin` ↔ `chemin\thash` |

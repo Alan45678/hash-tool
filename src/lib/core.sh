@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# src/lib/core.sh - Logique métier BLAKE3 : hachage, vérification, comparaison
+# src/lib/core.sh - Logique métier BLAKE3 : hachage, vérification, comparaison, sidecar
 #
 # Ce module contient uniquement la logique métier. Il ne produit aucune
 # sortie terminal directement - toute communication avec l'utilisateur
@@ -10,6 +10,7 @@
 #
 # == Dépendances ================================================================
 #   b3sum, find, sort, awk, join, comm, mktemp, stat, du
+#   jq (optionnel - requis pour core_sidecar_write et core_sidecar_read)
 #
 # == Invariants globaux =========================================================
 #   - Toutes les fonctions supposent bash >= 4 (vérifié par integrity.sh)
@@ -318,4 +319,87 @@ core_make_result_dir() {
 
   mkdir -p "$outdir" || die "Impossible de créer le dossier de résultats : $outdir"
   echo "$outdir"
+}
+
+# == Sidecar file ===============================================================
+
+# core_sidecar_write <b3_path> <data_dir> <comment> <version>
+#
+# Génère un fichier <b3_path>.meta.json contenant les métadonnées du compute.
+#
+# Contrat d'entrée :
+#   $1 - chemin du fichier .b3 produit (utilisé pour nommer le sidecar)
+#   $2 - dossier source ayant été haché
+#   $3 - commentaire libre (peut être vide)
+#   $4 - version de l'outil (ex. "integrity.sh v2.0.0" ou "hash-tool v2.0.0")
+#
+# Contrat de sortie :
+#   exit 0  - sidecar créé : <b3_path>.meta.json
+#   exit 1  - jq introuvable (silencieux : pas d'erreur fatale, compute reste valide)
+#   stdout  - aucun
+#
+# Invariants :
+#   - Le fichier .b3 doit exister avant l'appel (nb_files lu via wc -l)
+#   - Si jq est absent, la fonction retourne silencieusement sans créer le sidecar
+#   - Le sidecar n'écrase pas un éventuel sidecar existant : c'est un nouveau compute
+#
+# Effets de bord :
+#   - Écrit <b3_path>.meta.json sur le disque
+core_sidecar_write() {
+  local b3_path="$1"
+  local data_dir="$2"
+  local comment="${3:-}"
+  local version="${4:-integrity.sh}"
+  local sidecar_path="${b3_path}.meta.json"
+
+  # jq requis - absence non fatale
+  command -v jq &>/dev/null || return 0
+
+  local nb_files
+  nb_files=$(wc -l < "$b3_path" 2>/dev/null || echo 0)
+
+  jq -n \
+    --arg version  "$version" \
+    --arg date     "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg comment  "$comment" \
+    --arg dir      "$data_dir" \
+    --argjson nb   "$nb_files" \
+    '{
+      created_by: $version,
+      date:       $date,
+      comment:    $comment,
+      parameters: {
+        directory:  $dir,
+        hash_algo:  "blake3",
+        nb_files:   $nb
+      }
+    }' > "$sidecar_path"
+}
+
+# core_sidecar_read <b3_path>
+#
+# Affiche le contenu du sidecar associé à un fichier .b3 si celui-ci existe.
+# Aucun effet si le sidecar est absent ou si jq est indisponible.
+#
+# Contrat d'entrée :
+#   $1 - chemin du fichier .b3 (le sidecar est <b3_path>.meta.json)
+#
+# Contrat de sortie :
+#   exit 0  - toujours
+#   stdout  - contenu JSON formaté si sidecar présent ; rien sinon
+#
+# Effets de bord : aucun
+core_sidecar_read() {
+  local b3_path="$1"
+  local sidecar_path="${b3_path}.meta.json"
+
+  [ -f "$sidecar_path" ] || return 0
+
+  echo "--- Métadonnées (sidecar) ---"
+  if command -v jq &>/dev/null; then
+    jq '.' "$sidecar_path" 2>/dev/null || cat "$sidecar_path"
+  else
+    cat "$sidecar_path"
+  fi
+  echo "-----------------------------"
 }
