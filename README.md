@@ -1,4 +1,4 @@
-# hash_tool - Vérification d'intégrité BLAKE3
+# hash-tool - Vérification d'intégrité de dossiers
 
 voir ReadTheDocs 
 

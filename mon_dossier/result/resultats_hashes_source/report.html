@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{TITLE}}</title>
+  <title>Rapport de comparaison : hashes_source.b3 vs hashes_destination.b3</title>
   <style>
     :root {
       --bg: #ffffff;
@@ -47,19 +47,19 @@
 <body>
   <div class="container">
     <header>
-      <h1>{{TITLE}}</h1>
-      <div class="comparison-path">{{PATHS}}</div>
+      <h1>Rapport de comparaison : hashes_source.b3 vs hashes_destination.b3</h1>
+      <div class="comparison-path">Base de référence : <code>hashes_source.b3</code> {{PATHS}}nbsp;{{PATHS}}middot;{{PATHS}}nbsp; Base comparée : <code>hashes_destination.b3</code></div>
     </header>
 
     <div class="summary-box">
       <div class="summary-grid">
         <div class="stat-item">
           <span class="stat-label">Statut</span>
-          <span class="stat-value" style="color: {{STATUS_COLOR}}">{{STATUS_TEXT}}</span>
+          <span class="stat-value" style="color: var(--accent-err)">DIFFÉRENCES</span>
         </div>
         <div class="stat-item">
           <span class="stat-label">Date d'analyse</span>
-          <span class="stat-value" style="font-size: 1rem">{{DATE}}</span>
+          <span class="stat-value" style="font-size: 1rem">2026-02-26 16:15:45</span>
         </div>
       </div>
     </div>
@@ -67,27 +67,29 @@
     <section>
       <h2>Métadonnées</h2>
       <div class="info-list">
-        {{METADATA_ROWS}}
+        <div class="info-label">Métadonnées</div><div class="info-value">Non implémenté</div>
       </div>
     </section>
 
     <section>
       <h2>Fichiers modifiés</h2>
-      {{LIST_MODIFIED}}
+      <ul class="file-list">
+  <li>./fichier (1).txt</li>
+</ul>
     </section>
 
     <section>
       <h2>Fichiers disparus</h2>
-      {{LIST_DELETED}}
+      <p class="empty-msg">Aucun fichier disparu.</p>
     </section>
 
     <section>
       <h2>Nouveaux fichiers</h2>
-      {{LIST_NEW}}
+      <p class="empty-msg">Aucun nouveau fichier.</p>
     </section>
 
     <footer>
-      Généré par hash-tool · {{DATE}}
+      Généré par hash-tool · 2026-02-26 16:15:45
     </footer>
   </div>
 </body>

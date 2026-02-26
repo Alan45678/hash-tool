@@ -1,0 +1,8 @@
+Commande      : integrity.sh compare hashes_source.b3 hashes_destination.b3
+Date          : jeu. 26 févr. 2026 16:15:45 CET
+Ancienne base : ./mon_dossier/bases/hashes_source.b3
+Nouvelle base : ./mon_dossier/bases/hashes_destination.b3
+
+Modifiés      : 1
+Disparus      : 0
+Nouveaux      : 0

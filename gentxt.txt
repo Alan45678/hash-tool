@@ -27,6 +27,8 @@ hash_tool
 │   └── index.md
 ├── mon_dossier
 │   ├── bases
+│   │   ├── hashes_destination.b3
+│   │   ├── hashes_destination.b3.meta.json
 │   │   ├── hashes_source.b3
 │   │   └── hashes_source.b3.meta.json
 │   ├── destination
@@ -35,6 +37,12 @@ hash_tool
 │   │   ├── fichier (3).txt
 │   │   └── fichier (4).txt
 │   ├── result
+│   │   └── resultats_hashes_source
+│   │       ├── disparus.txt
+│   │       ├── modifies.b3
+│   │       ├── nouveaux.txt
+│   │       ├── recap.txt
+│   │       └── report.html
 │   └── source
 │       ├── fichier (1).txt
 │       ├── fichier (2).txt
@@ -66,7 +74,7 @@ hash_tool
 ├── hash-tool
 ├── mkdocs.yml
 ├── runner.sh
-└── temp commande.txt
+└── temp commande.md
 
 
 # === Contenu des fichiers ===
@@ -119,7 +127,9 @@ integrity_resultats/
 .docker/
 
 # == Fichiers temporaires ======================================================
-temp.txt
+# Exclure les fichiers contenant le mot "temp" n'importe où dans le nom
+*temp*
+
 *.tmp
 *.log
 *.bak
@@ -135,6 +145,14 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# == doc perso =================================================================
+hors_git/
+
+# == fichiers utils de dev =================================================================
+.concat_config.json
+gentxt.txt
+
 
 --- Fichier : Dockerfile ---
 # =============================================================================
@@ -205,7 +223,7 @@ ENTRYPOINT ["/entrypoint.sh"]
 CMD ["help"]
 
 --- Fichier : README.md ---
-# hash_tool - Vérification d'intégrité BLAKE3
+# hash-tool - Vérification d'intégrité de dossiers
 
 voir ReadTheDocs 
 
@@ -519,20 +537,37 @@ _check_help() {
 cmd_compute() {
   _check_help compute "$@"
   _parse_args "$@"
-  [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
 
-  # Détermine le nom du fichier .b3
+  # Vérification des paramètres obligatoires
+  [ -n "$OPT_DATA" ] || die "compute : -data <dossier> requis."
+  [ -d "$OPT_DATA" ] || die "compute : dossier introuvable : $OPT_DATA"
+
+  # 1. Préparation du dossier de sauvegarde
   local save_dir="${OPT_SAVE:-.}"
   mkdir -p "$save_dir"
+  
+  # 2. Calcul du chemin ABSOLU du dossier de sauvegarde pour le sous-shell
+  local save_dir_abs
+  save_dir_abs="$(cd "$save_dir" && pwd)"
+  
+  # 3. Détermination du nom du fichier .b3
   local data_basename
   data_basename="$(basename "$(realpath "$OPT_DATA")")"
-  local b3_file="${save_dir}/hashes_${data_basename}.b3"
+  local b3_file="${save_dir_abs}/hashes_${data_basename}.b3"
 
-  _run_integrity compute "$OPT_DATA" "$b3_file"
+  # 4. Exécution dans un sous-shell
+  # On utilise des guillemets autour de "$OPT_DATA" et "$b3_file" pour gérer les espaces
+  (
+    cd "$OPT_DATA" || exit 1
+    _run_integrity compute "." "$b3_file"
+  )
 
-  # Sidecar
+  # 5. Écriture du Sidecar (Métadonnées)
+  # On vérifie si le fichier .b3 a bien été créé avant d'écrire le sidecar
   if [ -f "$b3_file" ]; then
-    _sidecar_write "$b3_file" "$OPT_DATA" "$OPT_META"
+    local data_path_abs
+    data_path_abs="$(realpath "$OPT_DATA")"
+    _sidecar_write "$b3_file" "$data_path_abs" "$OPT_META"
   fi
 }
 
@@ -1492,14 +1527,41 @@ done
 echo "=== PIPELINE TERMINÉ : $(date) ==="
 
 
---- Fichier : temp commande.txt ---
+--- Fichier : temp commande.md ---
+
+
+## tester "mon_dossier" 
+
 bash \
 hash-tool \
 compute \
--data "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/source" \
--save "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/destination" \
+-data "./mon_dossier/source" \
+-save "./mon_dossier/bases" \
 -meta "source, base initiale"
 
+bash \
+hash-tool \
+compute \
+-data "./mon_dossier/destination" \
+-save "./mon_dossier/bases" \
+-meta "destination, base initiale"
+
+bash \
+hash-tool \
+compare \
+-old "./mon_dossier/bases/hashes_source.b3" \
+-new "./mon_dossier/bases/hashes_destination.b3" \
+-save "./mon_dossier/result" 
+
+
+## Tester avec un dossier sur le bureau et un dans "mon_dossier" 
+
+bash \
+hash-tool \
+compute \
+-data "./mon_dossier/source" \
+-save "./mon_dossier/bases" \
+-meta "source, base initiale"
 
 bash \
 hash-tool \
@@ -1508,7 +1570,12 @@ compute \
 -save "/home/me-dell/Bureau/dossier bureau/bases" \
 -meta "destination, base initiale" 
 
-
+bash \
+hash-tool \
+compare \
+-old "/home/me-dell/Bureau/dossier bureau/bases/hashes_destination.b3" \
+-new "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/bases/hashes_source.b3" \
+-save "/home/me-dell/Bureau/dossier bureau/rapport" 
 
 --- Fichier : mon_dossier/destination/fichier (1).txt ---
 Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source. Lorem Ipsum comes from sections 1.10.32 and 1.10.33 of "de Finibus Bonorum et Malorum" (The Extremes of Good and Evil) by Cicero, written in 45 BC. This book is a treatise on the theory of ethics, very popular during the Renaissance. The first line of Lorem Ipsum, "Lorem ipsum dolor sit amet..", comes from a line in section 1.10.32.
@@ -1552,11 +1619,25 @@ It is a long established fact that a reader will be distracted by the readable c
 
 
 
+--- Fichier : mon_dossier/bases/hashes_destination.b3.meta.json ---
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-26T14:26:56Z",
+  "comment": "destination, base initiale",
+  "parameters": {
+    "directory": "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/destination",
+    "hash_algo": "blake3",
+    "readonly": false,
+    "nb_files": 4
+  }
+}
+
+
 --- Fichier : mon_dossier/bases/hashes_source.b3.meta.json ---
 {
   "created_by": "hash-tool v2.0.0",
-  "date": "2026-02-26T11:49:48Z",
-  "comment": "source initial",
+  "date": "2026-02-26T14:27:09Z",
+  "comment": "source, base initiale",
   "parameters": {
     "directory": "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/mon_dossier/source",
     "hash_algo": "blake3",
@@ -2146,109 +2227,92 @@ echo ""
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rapport - [BASE_A] vs [BASE_B]</title>
-  <!--
-    ══════════════════════════════════════════════════════════════════
-    reports/template.html - Barebone rapport de comparaison hash_tool
-    ══════════════════════════════════════════════════════════════════
-
-    Ce fichier est un template statique de référence.
-    Le rapport réel est généré automatiquement par src/lib/report.sh
-    dans le dossier "resultats" défini dans pipeline.json.
-
-    Structure du rapport généré :
-      <resultats>/
-        ├== report.html      ← rapport visuel (ce template rempli)
-        ├== recap.txt        ← résumé texte
-        ├== modifies.b3      ← fichiers avec hash différent
-        ├== disparus.txt     ← fichiers présents dans A, absents de B
-        └== nouveaux.txt     ← fichiers absents de A, présents dans B
-
-    Pour personnaliser le rendu HTML : modifier src/lib/report.sh
-    (fonction generate_compare_html).
-
-    Placeholders utilisés dans report.sh :
-      [BASE_A]       nom du fichier .b3 ancienne base
-      [BASE_B]       nom du fichier .b3 nouvelle base
-      [DATE]         date de génération
-      [STATUT]       IDENTIQUES | DIFFÉRENCES DÉTECTÉES
-      [NB_MODIFIES]  nombre de fichiers modifiés
-      [NB_DISPARUS]  nombre de fichiers disparus
-      [NB_NOUVEAUX]  nombre de nouveaux fichiers
-      [LIST_*]       listes HTML injectées par _render_file_list()
-    ══════════════════════════════════════════════════════════════════
-  -->
+  <title>{{TITLE}}</title>
   <style>
-    /* → Voir src/lib/report.sh pour le CSS complet injecté dans les rapports générés */
-
     :root {
-      --bg:       #0f1117;
-      --bg-card:  #161b27;
-      --border:   #252d3f;
-      --text:     #c8d4e8;
-      --text-dim: #5a6a85;
-      --mono:     monospace;
-      --sans:     system-ui, sans-serif;
+      --bg: #ffffff;
+      --text: #1a1a1a;
+      --text-dim: #666666;
+      --border: #e0e0e0;
+      --accent-ok: #2e7d32;
+      --accent-err: #d32f2f;
+      --section-gap: 40px;
+      --mono: 'JetBrains Mono', monospace;
     }
-
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background: var(--bg);
+      background-color: var(--bg);
       color: var(--text);
-      font-family: var(--sans);
-      font-size: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 40px;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      padding: 40px 20px;
     }
-
-    .placeholder {
-      max-width: 560px;
-      text-align: center;
-    }
-
-    .placeholder h1 {
-      font-family: var(--mono);
-      font-size: 12px;
-      letter-spacing: .1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 24px;
-    }
-
-    .placeholder p {
-      color: var(--text-dim);
-      line-height: 1.7;
-      font-size: 13px;
-      margin-bottom: 12px;
-    }
-
-    code {
-      font-family: var(--mono);
-      font-size: 12px;
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 2px 6px;
-      color: var(--text);
-    }
+    .container { max-width: 850px; margin: 0 auto; }
+    header { border-bottom: 2px solid var(--text); margin-bottom: var(--section-gap); padding-bottom: 20px; }
+    h1 { font-size: 1.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .comparison-path { font-family: var(--mono); font-size: 0.85rem; color: var(--text-dim); margin-top: 10px; }
+    .summary-box { background: #f9f9f9; border: 1px solid var(--border); padding: 20px; margin-bottom: var(--section-gap); }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; }
+    .stat-item { display: flex; flex-direction: column; }
+    .stat-label { font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600; }
+    .stat-value { font-family: var(--mono); font-size: 1.3rem; font-weight: 500; }
+    section { margin-bottom: var(--section-gap); }
+    section h2 { font-size: 1.1rem; text-transform: uppercase; border-left: 4px solid var(--text); padding-left: 15px; margin-bottom: 20px; }
+    .info-list { display: grid; grid-template-columns: 200px 1fr; gap: 10px 20px; }
+    .info-label { color: var(--text-dim); font-size: 0.85rem; }
+    .info-value { font-family: var(--mono); font-size: 0.9rem; word-break: break-all; }
+    .file-list { list-style: none; border-top: 1px solid #f0f0f0; }
+    .file-list li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-family: var(--mono); font-size: 0.85rem; }
+    .empty-msg { font-style: italic; color: var(--text-dim); }
+    footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--text-dim); text-align: center; font-family: var(--mono); }
   </style>
 </head>
 <body>
-  <div class="placeholder">
-    <h1>hash_tool · template.html</h1>
-    <p>Ce fichier est le template de référence du rapport de comparaison.</p>
-    <p>
-      Les rapports réels sont générés automatiquement dans le dossier
-      <code>resultats</code> défini par le champ
-      <code>"resultats"</code> dans <code>pipeline.json</code>.
-    </p>
-    <p>
-      Pour personnaliser le rendu : modifier
-      <code>src/lib/report.sh</code> → fonction
-      <code>generate_compare_html()</code>.
-    </p>
+  <div class="container">
+    <header>
+      <h1>{{TITLE}}</h1>
+      <div class="comparison-path">{{PATHS}}</div>
+    </header>
+
+    <div class="summary-box">
+      <div class="summary-grid">
+        <div class="stat-item">
+          <span class="stat-label">Statut</span>
+          <span class="stat-value" style="color: {{STATUS_COLOR}}">{{STATUS_TEXT}}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Date d'analyse</span>
+          <span class="stat-value" style="font-size: 1rem">{{DATE}}</span>
+        </div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Métadonnées</h2>
+      <div class="info-list">
+        {{METADATA_ROWS}}
+      </div>
+    </section>
+
+    <section>
+      <h2>Fichiers modifiés</h2>
+      {{LIST_MODIFIED}}
+    </section>
+
+    <section>
+      <h2>Fichiers disparus</h2>
+      {{LIST_DELETED}}
+    </section>
+
+    <section>
+      <h2>Nouveaux fichiers</h2>
+      {{LIST_NEW}}
+    </section>
+
+    <footer>
+      Généré par hash-tool · {{DATE}}
+    </footer>
   </div>
 </body>
 </html>
@@ -5073,7 +5137,29 @@ esac
 --- Fichier : docs/development/changelog.md ---
 # Changelog — hash_tool
 
----
+
+
+
+### [1.1.0] — 2026-02-26
+
+#### Corrigé
+
+-Isolation des chemins relatifs** : Correction d'un bug où l'entrée dans un sous-shell via `cd "$OPT_DATA"` empêchait l'écriture de la base dans le dossier `-save` si celui-ci était renseigné en chemin relatif.
+
+-Résolution absolue des cibles** : Le script transforme désormais systématiquement le chemin `-save` en chemin absolu avant de changer de répertoire de travail. Cela garantit que la base `.b3` est enregistrée exactement là où l'utilisateur l'a demandé, même après un `cd` dans le dossier source.
+
+-Robustesse aux espaces** : Ajout de guillemets doubles manquants dans les fonctions `_run_integrity` et `_sidecar_write` pour supporter les chemins Windows/WSL complexes comportant des espaces et des caractères spéciaux.
+
+#### Ajouté
+
+-Contrôle de conformité** : La commande `verify` émet désormais un avertissement si elle détecte des chemins absolus dans un fichier `.b3`, car cela brise l'invariant de portabilité du logiciel.
+
+-Mode Read-only explicite** : Support de l'option `-readonly` lors du `compute` pour marquer l'état de la source dans le fichier de métadonnées sidecar.
+
+#### Modifié
+
+-Priorité des résultats** : L'option `-save` surcharge désormais systématiquement la variable d'environnement `RESULTATS_DIR` pour toutes les commandes (`compute`, `verify`, `compare`, `runner`).
+
 
 ## [1.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
 

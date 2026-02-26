@@ -3,6 +3,30 @@
 
 
 
+
+## [1.1.0] - 2026-02-26
+
+### Ajouté
+- **Système de templating HTML** : Séparation complète de la logique métier et de la présentation. Le fichier `reports/template.html` sert désormais de base unique pour la génération des rapports.
+- **Support des métadonnées Sidecar** : Intégration automatique des informations contenues dans les fichiers `.meta.json` (commentaire, outil, algorithme) dans les rapports de comparaison.
+- **Gestion dynamique des absences** : Affichage automatique de la mention "pas de métadonnées" lorsqu'un champ ou le fichier sidecar est manquant.
+
+### Changé
+- **Refonte visuelle des rapports** : Passage d'un thème sombre (type dashboard) à un design neutre et professionnel :
+    - Fond blanc pur (`#ffffff`).
+    - Structure en sections verticales claires.
+    - Titres de sections soulignés par une bordure latérale noire.
+    - Typographie système lisible avec fallback monospace pour les chemins de fichiers.
+- **Mise à jour de `integrity.sh`** : Chargement systématique de la bibliothèque de fonctions `src/lib/report.sh` via la commande `source` pour garantir la modularité.
+- **Optimisation de la commande `compare`** : Utilisation de `perl` pour l'injection sécurisée de blocs HTML multi-lignes dans le template, évitant les limitations de `sed` avec les caractères spéciaux.
+
+
+
+
+
+
+
+
 ### [1.1.0] — 2026-02-26
 
 #### Corrigé
