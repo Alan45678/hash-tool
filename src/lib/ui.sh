@@ -78,10 +78,10 @@ ui_progress_callback() {
 
   if (( bytes_done > 0 && eta_seconds > 0 )); then
     printf "\r[%d/%d] ETA : %dm %02ds   " \
-      "$i" "$total_files" $(( eta_seconds / 60 )) $(( eta_seconds % 60 )) > /dev/tty
+      "$i" "$total_files" $(( eta_seconds / 60 )) $(( eta_seconds % 60 )) > "$_TTY_OUT"
   elif (( bytes_done > 0 )); then
     printf "\r[%d/%d] calcul en cours...   " \
-      "$i" "$total_files" > /dev/tty
+      "$i" "$total_files" > "$_TTY_OUT"
   fi
 }
 
@@ -95,7 +95,7 @@ ui_progress_callback() {
 #   (rien)   - si QUIET == 1
 ui_progress_clear() {
   (( QUIET )) && return 0
-  printf "\r%*s\r" 40 "" > /dev/tty
+  printf "\r%*s\r" 40 "" > "$_TTY_OUT"
 }
 
 # == Affichage des résultats de vérification ====================================
