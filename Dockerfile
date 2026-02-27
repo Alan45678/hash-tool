@@ -39,11 +39,7 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
-COPY runner.sh           ./runner.sh
-COPY src/integrity.sh    ./src/integrity.sh
-COPY src/lib/report.sh   ./src/lib/report.sh
-
-RUN chmod +x runner.sh src/integrity.sh src/lib/report.sh
+COPY src/ ./src/
 
 # == Entrypoint ===============================================================
 
