@@ -1,6 +1,13 @@
 # Changelog - hash_tool
 
 
+### [1.3] - 2026-02-27 
+
+#### Corrigé
+
+- je me suis emmelé les pinceaux entre la branche dev et master. J'ai fait des modifications sur dev concernant le html et le report, j'ai checkout vers master et j'ai fait des modif sur master concernant les test. J'ai ensuite merge dev et master et forcément les tests qui marchaient sur master ne fonctionnait pas sur dev (un test concernant report.sh). J'ai donc corrigé ça. 
+
+
 ### [1.2] (master) - 2026-02-27 
 
 ### Ajouté
