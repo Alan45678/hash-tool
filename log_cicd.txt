@@ -1,104 +1,104 @@
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:14:49.9266288Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9266634Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9266920Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9288082Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9288323Z ##[endgroup]
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9394411Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9394706Z ========================================
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9395056Z   runner.sh - suite de tests
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9395323Z   Workdir : /tmp/integrity-pipeline-test.V3M22h
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9395613Z ========================================
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9395788Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9395875Z TP00 - Permissions integrity.sh
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9396299Z [0;32m  PASS[0m - integrity.sh est exécutable
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9396482Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9610584Z TP01 - JSON invalide : erreur propre sans stacktrace jq
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9611191Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9623795Z [0;32m  PASS[0m - pas de stacktrace jq
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9624235Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:49.9624323Z TP02 - .pipeline absent
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.0016153Z [0;32m  PASS[0m - ERREUR si .pipeline absent
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.0016621Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.0016792Z TP03 - Champ 'nom' manquant dans compute
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.1472319Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.1486146Z [0;32m  PASS[0m - champ 'nom' mentionné
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.1486513Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.1486712Z TP04 - Opération inconnue
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.2410988Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.2424587Z [0;32m  PASS[0m - nom de l'op dans l'erreur
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.2425028Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.2425262Z TP05 - Compute : cd correct, chemins relatifs dans la base
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4307307Z [0;32m  PASS[0m - base hashes_a.b3 créée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4340259Z [0;32m  PASS[0m - chemin relatif (./) dans base
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4353483Z [0;32m  PASS[0m - pas de chemin absolu dans base
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4367496Z [0;32m  PASS[0m - 3 fichiers indexés
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4367932Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.4368090Z TP06 - Compute : source absente -> erreur
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.5821113Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.5821689Z [0;32m  PASS[0m - pas de base créée si source KO
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.5822038Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.5822403Z TP07 - Verify : répertoire de travail correct, vérification OK
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7533162Z [0;32m  PASS[0m - verify OK
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7545971Z [0;32m  PASS[0m - aucun FAILED
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7569359Z [0;32m  PASS[0m - recap.txt produit
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7569992Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7570158Z TP08 - Verify : corruption détectée
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9293181Z [0;32m  PASS[0m - ECHEC détecté
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9293560Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9293712Z TP09 - Verify : base .b3 absente -> erreur
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.0593168Z [0;32m  PASS[0m - ERREUR si base absente
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.0593556Z 
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.0593943Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
-Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.4693872Z ##[error]Process completed with exit code 1.
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:14:50.6276796Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6277463Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6277993Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6346106Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6346477Z ##[endgroup]
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6517198Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6517485Z ========================================
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6517974Z   runner.sh - suite de tests
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6518424Z   Workdir : /tmp/integrity-pipeline-test.WN70A1
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6518893Z ========================================
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6519096Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6519192Z TP00 - Permissions integrity.sh
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6519701Z [0;32m  PASS[0m - integrity.sh est exécutable
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6519919Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6520063Z TP01 - JSON invalide : erreur propre sans stacktrace jq
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6603560Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6619929Z [0;32m  PASS[0m - pas de stacktrace jq
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6620393Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6620539Z TP02 - .pipeline absent
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6748610Z [0;32m  PASS[0m - ERREUR si .pipeline absent
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6749065Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.6749247Z TP03 - Champ 'nom' manquant dans compute
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7094920Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7111949Z [0;32m  PASS[0m - champ 'nom' mentionné
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7112346Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7112567Z TP04 - Opération inconnue
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7359125Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7376751Z [0;32m  PASS[0m - nom de l'op dans l'erreur
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7377130Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.7377361Z TP05 - Compute : cd correct, chemins relatifs dans la base
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8119272Z [0;32m  PASS[0m - base hashes_a.b3 créée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8162873Z [0;32m  PASS[0m - chemin relatif (./) dans base
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8180557Z [0;32m  PASS[0m - pas de chemin absolu dans base
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8198290Z [0;32m  PASS[0m - 3 fichiers indexés
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8198649Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8198824Z TP06 - Compute : source absente -> erreur
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8551262Z [0;32m  PASS[0m - ERREUR signalée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8551936Z [0;32m  PASS[0m - pas de base créée si source KO
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8552295Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.8552666Z TP07 - Verify : répertoire de travail correct, vérification OK
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9241979Z [0;32m  PASS[0m - verify OK
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9258910Z [0;32m  PASS[0m - aucun FAILED
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9286678Z [0;32m  PASS[0m - recap.txt produit
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9287160Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9287327Z TP08 - Verify : corruption détectée
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9983492Z [0;32m  PASS[0m - ECHEC détecté
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9983873Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:50.9983987Z TP09 - Verify : base .b3 absente -> erreur
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.0309211Z [0;32m  PASS[0m - ERREUR si base absente
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.0309470Z 
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.1833639Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
-Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:14:51.1845349Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:16:51.4976726Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.4977119Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.4977419Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5014655Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5014896Z ##[endgroup]
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5160724Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5160918Z ========================================
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5161345Z   runner.sh - suite de tests
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5161670Z   Workdir : /tmp/integrity-pipeline-test.cV9U35
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5162004Z ========================================
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5162209Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5162315Z TP00 - Permissions integrity.sh
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5162733Z [0;32m  PASS[0m - integrity.sh est exécutable
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5163154Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5163393Z TP01 - JSON invalide : erreur propre sans stacktrace jq
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5405699Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5422266Z [0;32m  PASS[0m - pas de stacktrace jq
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5422737Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5422893Z TP02 - .pipeline absent
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5869038Z [0;32m  PASS[0m - ERREUR si .pipeline absent
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5869405Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.5869554Z TP03 - Champ 'nom' manquant dans compute
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.7488195Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.7505263Z [0;32m  PASS[0m - champ 'nom' mentionné
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.7505916Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.7506178Z TP04 - Opération inconnue
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.8549124Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.8566331Z [0;32m  PASS[0m - nom de l'op dans l'erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.8566727Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:51.8566962Z TP05 - Compute : cd correct, chemins relatifs dans la base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0734590Z [0;32m  PASS[0m - base hashes_a.b3 créée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0780335Z [0;32m  PASS[0m - chemin relatif (./) dans base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0799326Z [0;32m  PASS[0m - pas de chemin absolu dans base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0815935Z [0;32m  PASS[0m - 3 fichiers indexés
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0816328Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.0816518Z TP06 - Compute : source absente -> erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.2451333Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.2452119Z [0;32m  PASS[0m - pas de base créée si source KO
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.2452602Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.2452992Z TP07 - Verify : répertoire de travail correct, vérification OK
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.4408734Z [0;32m  PASS[0m - verify OK
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.4425016Z [0;32m  PASS[0m - aucun FAILED
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.4451023Z [0;32m  PASS[0m - recap.txt produit
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.4451594Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.4451871Z TP08 - Verify : corruption détectée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.6437118Z [0;32m  PASS[0m - ECHEC détecté
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.6437533Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.6437725Z TP09 - Verify : base .b3 absente -> erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.7865883Z [0;32m  PASS[0m - ERREUR si base absente
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.7866342Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:52.7866751Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:53.2517029Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:16:46.8754668Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8755042Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8755331Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8803941Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8804181Z ##[endgroup]
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8965979Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8966164Z ========================================
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8966617Z   runner.sh - suite de tests
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8967054Z   Workdir : /tmp/integrity-pipeline-test.HpeCr5
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8967517Z ========================================
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8967808Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8967938Z TP00 - Permissions integrity.sh
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8968329Z [0;32m  PASS[0m - integrity.sh est exécutable
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8968542Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.8968687Z TP01 - JSON invalide : erreur propre sans stacktrace jq
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9049438Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9066864Z [0;32m  PASS[0m - pas de stacktrace jq
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9067259Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9067395Z TP02 - .pipeline absent
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9194356Z [0;32m  PASS[0m - ERREUR si .pipeline absent
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9194610Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9194713Z TP03 - Champ 'nom' manquant dans compute
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9528944Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9546262Z [0;32m  PASS[0m - champ 'nom' mentionné
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9546497Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9546621Z TP04 - Opération inconnue
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9782938Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9800455Z [0;32m  PASS[0m - nom de l'op dans l'erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9800705Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:46.9800852Z TP05 - Compute : cd correct, chemins relatifs dans la base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0524848Z [0;32m  PASS[0m - base hashes_a.b3 créée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0567077Z [0;32m  PASS[0m - chemin relatif (./) dans base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0584542Z [0;32m  PASS[0m - pas de chemin absolu dans base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0601878Z [0;32m  PASS[0m - 3 fichiers indexés
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0602332Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0602515Z TP06 - Compute : source absente -> erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0944755Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0945408Z [0;32m  PASS[0m - pas de base créée si source KO
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0945778Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.0946175Z TP07 - Verify : répertoire de travail correct, vérification OK
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.1635228Z [0;32m  PASS[0m - verify OK
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.1653014Z [0;32m  PASS[0m - aucun FAILED
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.1679810Z [0;32m  PASS[0m - recap.txt produit
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.1680396Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.1680680Z TP08 - Verify : corruption détectée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2364658Z [0;32m  PASS[0m - ECHEC détecté
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2365326Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2365578Z TP09 - Verify : base .b3 absente -> erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2668849Z [0;32m  PASS[0m - ERREUR si base absente
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2669215Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.2669875Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:16:47.4193195Z ##[error]Process completed with exit code 1.
