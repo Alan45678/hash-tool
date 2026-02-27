@@ -2,12 +2,12 @@
 
 ## Prérequis
 
-- bash >= 4, b3sum, jq
+- bash >= 4, b3sum, jq, shellcheck
 - Docker (pour les tests en mode conteneur)
+- make
 - git
 
 ## Démarrage
-
 ```bash
 git clone https://github.com/hash_tool/hash_tool
 cd hash_tool
@@ -16,19 +16,31 @@ chmod +x hash-tool runner.sh src/integrity.sh tests/*.sh
 ```
 
 ## Lancer les tests
-
 ```bash
-# Tous les tests
-bash tests/run_tests.sh
+# Tous les tests (recommandé)
+make test
 
-# Tests unitaires core uniquement
-bash tests/run_tests_core.sh
-
-# Tests pipeline uniquement
-bash tests/run_tests_pipeline.sh
+# Suites individuelles
+cd tests && bash run_tests.sh
+cd tests && bash run_tests_core.sh
+cd tests && bash run_tests_pipeline.sh
 ```
 
 Tous les tests doivent passer avant de soumettre une PR.
+
+## Lint
+```bash
+make lint
+```
+
+Lance ShellCheck sur tous les scripts du projet. Aucun avertissement toléré.
+
+## Autres commandes Makefile
+```bash
+make build-docker   # construit l'image Docker locale
+make run-docs       # lance le serveur MkDocs sur http://127.0.0.1:8000
+make clean          # supprime les artefacts générés (site/, fichiers /tmp)
+```
 
 ## Standards de code
 
@@ -48,7 +60,7 @@ Tous les tests doivent passer avant de soumettre une PR.
 
 1. Créer une branche depuis `main`
 2. Écrire ou mettre à jour les tests correspondants
-3. S'assurer que `bash tests/run_tests.sh` passe intégralement
+3. S'assurer que `make test` et `make lint` passent intégralement
 4. Mettre à jour `CHANGELOG.md` dans la section `[Unreleased]`
 5. Ouvrir la PR avec une description du problème résolu et de l'approche choisie
 
