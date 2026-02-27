@@ -1,65 +1,65 @@
-Tests (ubuntu-24.04)	Debug T01	﻿2026-02-27T20:07:02.0419040Z ##[group]Run cd /tmp
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0419281Z [36;1mcd /tmp[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0419496Z [36;1mmkdir -p integrity-debug/data[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0419788Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0420075Z [36;1mcd integrity-debug[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0420482Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0467282Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0467517Z ##[endgroup]
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0734973Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:07:02.0749712Z ##[error]Process completed with exit code 1.
-Docker build & smoke tests	Smoke test - compute via volume	﻿2026-02-27T20:06:56.5312729Z ##[group]Run mkdir -p /tmp/testdata /tmp/testbases
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5313140Z [36;1mmkdir -p /tmp/testdata /tmp/testbases[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5313482Z [36;1mecho "contenu alpha" > /tmp/testdata/alpha.txt[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5313814Z [36;1mecho "contenu beta"  > /tmp/testdata/beta.txt[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5314085Z [36;1mdocker run --rm \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5314313Z [36;1m  -v /tmp/testdata:/data:ro \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5314555Z [36;1m  -v /tmp/testbases:/bases \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5314838Z [36;1m  hash_tool compute /data /bases/test.b3[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5315203Z [36;1m# Vérifie que le fichier .b3 est produit et non vide[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5315671Z [36;1m[ -s /tmp/testbases/test.b3 ] || (echo "ERREUR : test.b3 vide ou absent" && exit 1)[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5316175Z [36;1mecho "test.b3 produit : $(wc -l < /tmp/testbases/test.b3) ligne(s)"[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5366562Z shell: /usr/bin/bash -e {0}
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.5366801Z ##[endgroup]
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6837221Z grep: unrecognized option: z
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6872796Z BusyBox v1.36.1 (2025-08-05 16:46:20 UTC) multi-call binary.
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6873242Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6873683Z Usage: grep [-HhnlLoqvsrRiwFE] [-m N] [-A|B|C N] { PATTERN | -e PATTERN... | -f FILE... } [FILE]...
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6874184Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6874290Z Search for PATTERN in FILEs (or stdin)
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6874566Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6874655Z 	-H	Add 'filename:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6874909Z 	-h	Do not add 'filename:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6875281Z 	-n	Add 'line_no:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6875716Z 	-l	Show only names of files that match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6876177Z 	-L	Show only names of files that don't match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6876523Z 	-c	Show only count of matching lines
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6876769Z 	-o	Show only the matching part of line
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6877089Z 	-q	Quiet. Return 0 if PATTERN is found, 1 otherwise
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6877380Z 	-v	Select non-matching lines
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6877620Z 	-s	Suppress open and read errors
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6878710Z 	-r	Recurse
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6951888Z 	-R	Recurse and dereference symlinks
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6952345Z 	-i	Ignore case
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6952694Z 	-w	Match whole words only
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6953059Z 	-x	Match whole lines only
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6953432Z 	-F	PATTERN is a literal (not regexp)
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6953921Z 	-E	PATTERN is an extended regexp
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6954942Z 	-m N	Match up to N times per file
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6955396Z 	-A N	Print N lines of trailing context
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6955799Z 	-B N	Print N lines of leading context
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6956171Z 	-C N	Same as '-A N -B N'
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6956500Z 	-e PTRN	Pattern to match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6956848Z 	-f FILE	Read pattern from file
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.6957774Z ERREUR : Le dossier /data ne contient aucun fichier régulier - rien à hacher.
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:06:56.7544187Z ##[error]Process completed with exit code 1.
-Tests (ubuntu-22.04)	Debug T01	﻿2026-02-27T20:07:02.7455847Z ##[group]Run cd /tmp
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7456095Z [36;1mcd /tmp[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7456301Z [36;1mmkdir -p integrity-debug/data[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7456583Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7456865Z [36;1mcd integrity-debug[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7457259Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7493326Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7493572Z ##[endgroup]
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7736663Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:07:02.7750690Z ##[error]Process completed with exit code 1.
+Docker build & smoke tests	Smoke test - compute via volume	﻿2026-02-27T20:07:56.5003955Z ##[group]Run mkdir -p /tmp/testdata /tmp/testbases
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5004381Z [36;1mmkdir -p /tmp/testdata /tmp/testbases[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5004717Z [36;1mecho "contenu alpha" > /tmp/testdata/alpha.txt[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005322Z [36;1mecho "contenu beta"  > /tmp/testdata/beta.txt[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005599Z [36;1mdocker run --rm \[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005823Z [36;1m  -v /tmp/testdata:/data:ro \[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006076Z [36;1m  -v /tmp/testbases:/bases \[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006358Z [36;1m  hash_tool compute /data /bases/test.b3[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006734Z [36;1m# Vérifie que le fichier .b3 est produit et non vide[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5007202Z [36;1m[ -s /tmp/testbases/test.b3 ] || (echo "ERREUR : test.b3 vide ou absent" && exit 1)[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5007714Z [36;1mecho "test.b3 produit : $(wc -l < /tmp/testbases/test.b3) ligne(s)"[0m
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5059395Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5059630Z ##[endgroup]
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6480919Z grep: unrecognized option: z
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6516545Z BusyBox v1.36.1 (2025-08-05 16:46:20 UTC) multi-call binary.
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6516996Z 
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6517453Z Usage: grep [-HhnlLoqvsrRiwFE] [-m N] [-A|B|C N] { PATTERN | -e PATTERN... | -f FILE... } [FILE]...
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518108Z 
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518265Z Search for PATTERN in FILEs (or stdin)
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518697Z 
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518889Z 	-H	Add 'filename:' prefix
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6520017Z 	-h	Do not add 'filename:' prefix
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6520478Z 	-n	Add 'line_no:' prefix
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6521038Z 	-l	Show only names of files that match
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6521559Z 	-L	Show only names of files that don't match
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522028Z 	-c	Show only count of matching lines
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522457Z 	-o	Show only the matching part of line
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522952Z 	-q	Quiet. Return 0 if PATTERN is found, 1 otherwise
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6523982Z 	-v	Select non-matching lines
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6524414Z 	-s	Suppress open and read errors
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6525070Z 	-r	Recurse
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6525490Z 	-R	Recurse and dereference symlinks
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6603967Z 	-i	Ignore case
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6604334Z 	-w	Match whole words only
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6605223Z 	-x	Match whole lines only
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6605985Z 	-F	PATTERN is a literal (not regexp)
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6606801Z 	-E	PATTERN is an extended regexp
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6609327Z 	-m N	Match up to N times per file
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6609757Z 	-A N	Print N lines of trailing context
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6610265Z 	-B N	Print N lines of leading context
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6610699Z 	-C N	Same as '-A N -B N'
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6611053Z 	-e PTRN	Pattern to match
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6611406Z 	-f FILE	Read pattern from file
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6612407Z ERREUR : Le dossier /data ne contient aucun fichier régulier - rien à hacher.
+Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.7181894Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-22.04)	Debug T01	﻿2026-02-27T20:08:15.4824131Z ##[group]Run cd /tmp
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4824586Z [36;1mcd /tmp[0m
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4824815Z [36;1mmkdir -p integrity-debug/data[0m
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825089Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825367Z [36;1mcd integrity-debug[0m
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825746Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4850233Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4850510Z ##[endgroup]
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.5052962Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
+Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.5069672Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-24.04)	Debug T01	﻿2026-02-27T20:08:01.9610636Z ##[group]Run cd /tmp
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9610934Z [36;1mcd /tmp[0m
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611146Z [36;1mmkdir -p integrity-debug/data[0m
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611427Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611703Z [36;1mcd integrity-debug[0m
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9612100Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9664235Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9664544Z ##[endgroup]
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9951572Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
+Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9968043Z ##[error]Process completed with exit code 1.
