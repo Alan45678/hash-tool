@@ -40,7 +40,7 @@ hash-tool runner   -pipeline ./pipelines/pipeline.json
 
 ## Documentation complète
 
--> [ReadTheDocs](https://hash-tool.readthedocs.io)
+-> [Docs](https://alan45678.github.io/hash-tool/) 
 
 ## Licence
 
