@@ -4,8 +4,8 @@ site_author: hash_tool
 docs_dir: docs
 site_dir: site
 
-repo_url: https://github.com/hash_tool/hash_tool
-repo_name: hash_tool/hash_tool
+repo_url: https://github.com/Alan45678/hash-tool
+repo_name: Alan45678/hash-tool
 edit_uri: edit/main/docs/
 
 theme:
@@ -67,7 +67,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/hash_tool/hash_tool
+      link: https://github.com/Alan45678/hash-tool
 
 nav:
   - Accueil: index.md
