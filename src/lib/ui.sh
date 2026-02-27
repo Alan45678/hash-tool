@@ -26,6 +26,14 @@
 #   stderr - "ERREUR : <message>"
 #
 # Effets de bord : termine le processus courant
+
+# Sortie terminal : /dev/tty si disponible, /dev/null sinon (CI sans terminal)
+if [ -w /dev/tty ] 2>/dev/null; then
+  _TTY_OUT=/dev/tty
+else
+  _TTY_OUT=/dev/null
+fi
+
 die() {
   echo "ERREUR : $*" >&2
   exit 1
