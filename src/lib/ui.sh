@@ -28,7 +28,7 @@
 # Effets de bord : termine le processus courant
 
 # Sortie terminal : /dev/tty si disponible, /dev/null sinon (CI sans terminal)
-if [ -w /dev/tty ] 2>/dev/null; then
+if ( exec >/dev/tty ) 2>/dev/null; then
   _TTY_OUT=/dev/tty
 else
   _TTY_OUT=/dev/null
