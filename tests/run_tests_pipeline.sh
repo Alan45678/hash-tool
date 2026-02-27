@@ -8,9 +8,6 @@
 #             integrity.sh à ../src/
 # Usage     : cd tests && ./run_tests_pipeline.sh
 
-echo "TP00 - Permissions integrity.sh"
-if [ -x "$INTEGRITY" ]; then pass "integrity.sh est exécutable"; else fail "integrity.sh non exécutable (chmod +x requis)"; fi
-
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,8 +22,8 @@ NC='\033[0m'
 
 PASS=0; FAIL=0; TOTAL=0
 
-pass() { echo -e "${GREEN}  PASS${NC} - $1"; (( PASS++ )); (( TOTAL++ )); }
-fail() { echo -e "${RED}  FAIL${NC} - $1"; (( FAIL++ )); (( TOTAL++ )); }
+pass() { echo -e "${GREEN}  PASS${NC} - $1"; PASS=$((PASS+1)); TOTAL=$((TOTAL+1)); }
+fail() { echo -e "${RED}  FAIL${NC} - $1"; FAIL=$((FAIL+1)); TOTAL=$((TOTAL+1)); }
 
 assert_contains() {
     local label="$1" pattern="$2" output="$3"
@@ -82,6 +79,10 @@ run_tests() {
     echo "  runner.sh - suite de tests"
     echo "  Workdir : $WORKDIR"
     echo "========================================"
+    echo ""
+
+    echo "TP00 - Permissions integrity.sh"
+    if [ -x "$INTEGRITY" ]; then pass "integrity.sh est exécutable"; else fail "integrity.sh non exécutable (chmod +x requis)"; fi
     echo ""
 
     # == TP01 : JSON invalide ==================================================
@@ -181,7 +182,7 @@ EOF
     local out_tp07; out_tp07=$(bash "$RUNNER" "$cfg_verify" 2>&1 || true)
     assert_contains     "verify OK"     "OK"     "$out_tp07"
     assert_not_contains "aucun FAILED"  "FAILED" "$out_tp07"
-    local outdir_tp07; outdir_tp07=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    local outdir_tp07; outdir_tp07=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists  "recap.txt produit" "${outdir_tp07}/recap.txt"
     echo ""
 
@@ -231,7 +232,7 @@ EOF
 EOF
 )
     bash "$RUNNER" "$cfg_compare" >/dev/null 2>&1
-    local outdir_tp10; outdir_tp10=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    local outdir_tp10; outdir_tp10=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists "recap.txt"    "${outdir_tp10}/recap.txt"
     assert_file_exists "modifies.b3"  "${outdir_tp10}/modifies.b3"
     assert_file_exists "disparus.txt" "${outdir_tp10}/disparus.txt"
@@ -257,13 +258,13 @@ EOF
 EOF
 )
     bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
-    local outdir_custom; outdir_custom=$(ls -d "${custom_dir}/resultats_hashes_a"* 2>/dev/null | tail -1)
+    local outdir_custom; outdir_custom=$(find "${custom_dir}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists "rapport dans dossier custom"            "${outdir_custom}/recap.txt"
     assert_file_exists "report.html dans dossier custom"        "${outdir_custom}/report.html"
     # Vérifier que le dossier par défaut n'a PAS reçu ce résultat
-    local nb_before; nb_before=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | wc -l)
+    local nb_before; nb_before=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | wc -l)
     bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
-    local nb_after; nb_after=$(ls -d "${RESULTATS_DIR}/resultats_hashes_a"* 2>/dev/null | wc -l)
+    local nb_after; nb_after=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | wc -l)
     if [ "$nb_before" -eq "$nb_after" ]; then
         pass "champ resultats isolé : RESULTATS_DIR par défaut non pollué"
     else
@@ -309,7 +310,7 @@ EOF
     assert_file_exists  "hashes_a.b3 créée"     "$WORKDIR/bases/hashes_a.b3"
     assert_file_exists  "hashes_b.b3 créée"     "$WORKDIR/bases/hashes_b.b3"
     assert_not_contains "pas d'ERREUR"          "ERREUR"  "$out_tp12"
-    local outdir_tp12; outdir_tp12=$(ls -d "${WORKDIR}/resultats_pipeline/resultats_hashes_a"* 2>/dev/null | tail -1)
+    local outdir_tp12; outdir_tp12=$(find "${WORKDIR}/resultats_pipeline" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists  "report.html pipeline complet" "${outdir_tp12}/report.html"
     echo ""
 }
