@@ -16,5 +16,5 @@ d'erreur la plus fréquente - lien vers `troubleshooting/execution.md`.
 Ce qui est exclu et pourquoi :
 `.gitignore` exclut `*.b3`, `resultats/`, `integrity_resultats/`, `site/`
 (doc générée), fichiers temporaires, OS, éditeurs.
-`.dockerignore` exclut `mon_dossier/`, `tests/`, `docs/`, `*.md` (sauf README).
+`.dockerignore` exclut `examples/`, `tests/`, `docs/`, `*.md` (sauf README).
 Rationalité : les données utilisateur et résultats ne vont jamais dans l'image.

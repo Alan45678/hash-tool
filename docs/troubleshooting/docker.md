@@ -4,7 +4,7 @@
 **Symptôme** : `compute` ou `verify` retourne "dossier introuvable".
 **Cause** : chemin hôte relatif passé à `-v` - Docker exige des chemins absolus.
 **Diagnostic** : `docker run --rm -v <chemin>:/data hash_tool shell` puis `ls /data`.
-**Solution** : `docker run -v $(pwd)/mon_dossier:/data ...` ou chemin absolu explicite.
+**Solution** : `docker run -v $(pwd)/examples:/data ...` ou chemin absolu explicite.
 
 ## Permission denied sur `/bases` ou `/resultats`
 **Symptôme** : erreur d'écriture lors du `compute` ou `compare`.

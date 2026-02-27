@@ -1,0 +1,97 @@
+{
+  "pipeline": [
+    {
+      "type": "compute",
+      "params": {
+        "input":      "/mnt/data/dossier_exemple",
+        "output_dir": "/mnt/bases",
+        "filename":   "hashes_exemple.b3"
+      },
+      "options": {
+        "quiet":    false,
+        "verbose":  false,
+        "readonly": true
+      },
+      "meta": {
+        "comment": "Snapshot initial avant migration"
+      },
+      "description": "Calculer les empreintes du dossier source (lecture seule)"
+    },
+    {
+      "type": "verify",
+      "params": {
+        "input": "/mnt/data/dossier_exemple",
+        "base":  "/mnt/bases/hashes_exemple.b3"
+      },
+      "options": {
+        "quiet": false
+      },
+      "description": "Vérifier l'intégrité immédiatement après compute"
+    },
+    {
+      "type": "compute",
+      "params": {
+        "input":      "/mnt/data/dossier_exemple_v2",
+        "output_dir": "/mnt/bases",
+        "filename":   "hashes_exemple_v2.b3"
+      },
+      "options": {
+        "quiet":    false,
+        "readonly": true
+      },
+      "meta": {
+        "comment": "Snapshot après migration"
+      },
+      "description": "Calculer les empreintes du dossier destination (post-migration)"
+    },
+    {
+      "type": "compare",
+      "params": {
+        "reference":  "/mnt/bases/hashes_exemple.b3",
+        "input":      "/mnt/bases/hashes_exemple_v2.b3",
+        "output_dir": "/mnt/resultats/compare_migration"
+      },
+      "options": {
+        "quiet": false
+      },
+      "description": "Comparer avant/après migration et produire le rapport HTML"
+    },
+    {
+      "type": "list",
+      "params": {
+        "input_dir": "/mnt/bases"
+      },
+      "options": {},
+      "description": "Lister les bases d'empreintes disponibles"
+    },
+    {
+      "type": "diff",
+      "params": {
+        "input":         "/mnt/bases/hashes_exemple.b3",
+        "reference_dir": "/mnt/data/dossier_exemple"
+      },
+      "options": {},
+      "description": "Afficher les différences entre la base et le dossier"
+    },
+    {
+      "type": "stats",
+      "params": {
+        "input": "/mnt/bases/hashes_exemple.b3"
+      },
+      "options": {},
+      "description": "Afficher les statistiques de la base d'empreintes"
+    },
+    {
+      "type": "check-env",
+      "params": {},
+      "options": {},
+      "description": "Vérifier si l'exécution native ou Docker est possible"
+    },
+    {
+      "type": "version",
+      "params": {},
+      "options": {},
+      "description": "Afficher la version du logiciel"
+    }
+  ]
+}

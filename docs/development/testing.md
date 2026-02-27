@@ -20,19 +20,19 @@ bash tests/run_tests_core.sh
 bash tests/run_tests_pipeline.sh
 ```
 Prérequis : `hash-tool check-env` doit retourner OK.
-Les données de test dans `mon_dossier/` doivent être dans leur état d'origine.
+Les données de test dans `examples/` doivent être dans leur état d'origine.
 
 ## Données de test
-`mon_dossier/_data-source/` et `mon_dossier/_data-destination/` : 4 fichiers
+`examples/workspace/_data-source/` et `examples/workspace/_data-destination/` : 4 fichiers
 lorem-ipsum dont un différent entre les deux dossiers (`lorem-ipsum-01-modif.txt`).
-`mon_dossier/bases/` : bases pré-calculées de référence.
-`mon_dossier/result/` : résultats de compare de référence.
+`examples/workspace/bases/` : bases pré-calculées de référence.
+`examples/workspace/result/` : résultats de compare de référence.
 
 ## Ajouter un test
 Convention : chaque cas est une fonction `test_<nom>()` retournant `0` (succès)
 ou `1` (échec). Ajouter la fonction dans le fichier de test correspondant,
 puis l'enregistrer dans l'orchestrateur `run_tests.sh`. Les données de test
-supplémentaires se placent dans `mon_dossier/` en suivant la structure existante.
+supplémentaires se placent dans `examples/` en suivant la structure existante.
 
 ## CI
 Les tests sont exécutés automatiquement dans le workflow GitHub Actions.

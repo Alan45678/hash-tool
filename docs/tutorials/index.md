@@ -2,7 +2,7 @@
 
 ## Avant de commencer
 Prérequis communs aux 3 tutoriels : `hash-tool check-env` doit retourner OK,
-jeu de données de test disponible dans `mon_dossier/` (inclus dans le dépôt).
+jeu de données de test disponible dans `examples/` (inclus dans le dépôt).
 Aucune donnée personnelle requise.
 
 ## Quel tutoriel choisir ?

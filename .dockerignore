@@ -4,7 +4,7 @@
 # Réduit la taille du contexte envoyé au daemon.
 
 # Données utilisateur - jamais dans l'image
-mon_dossier/
+examples/
 *.b3
 
 # Résultats

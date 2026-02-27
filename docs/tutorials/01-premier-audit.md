@@ -2,7 +2,7 @@
 
 ## Situation de départ
 Description du contexte : dossier de données à protéger, objectif de détecter
-toute altération future. Présentation de `mon_dossier/_data-source/` utilisé
+toute altération future. Présentation de `examples/workspace/_data-source/` utilisé
 comme support : 4 fichiers lorem-ipsum, état initial connu.
 
 ## Étape 1 - Calculer les empreintes

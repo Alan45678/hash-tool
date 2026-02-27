@@ -12,7 +12,7 @@ les trois opérations : `compute`, `verify`, `compare` et leurs champs spécifiq
 
 ## Étape 2 - Écrire votre premier pipeline
 Construction pas à pas d'un pipeline à 3 opérations sur les données de
-`mon_dossier/`. Fichier JSON complet montré en fin de section.
+`examples/`. Fichier JSON complet montré en fin de section.
 Validation préalable : `jq . pipeline.json` pour détecter les erreurs de syntaxe.
 
 ## Étape 3 - Lancer le pipeline

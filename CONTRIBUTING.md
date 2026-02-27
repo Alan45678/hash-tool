@@ -56,7 +56,7 @@ Tous les tests doivent passer avant de soumettre une PR.
 
 Les tests suivent la convention de `run_tests.sh` : chaque cas est une fonction
 `test_<nom>()` qui retourne 0 (succès) ou 1 (échec). Les données de test
-se placent dans `mon_dossier/` en suivant la structure existante.
+se placent dans `examples/` en suivant la structure existante.
 
 ## Signaler un bug
 
