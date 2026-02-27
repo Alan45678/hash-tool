@@ -1,4 +1,4 @@
-# Référence — `hash-tool` & `src/integrity.sh`
+# Référence - `hash-tool` & `src/integrity.sh`
 
 `hash-tool` est l'interface CLI unique. `src/integrity.sh` est le moteur interne pour `compute`, `verify`, `compare`. Les nouvelles commandes (`list`, `diff`, `stats`, `check-env`, `version`) sont gérées directement par `hash-tool`.
 
@@ -87,7 +87,7 @@ hash-tool verify -base <fichier.b3> [-data <dossier>] [-save <dossier>] [-quiet]
 | `1` | Au moins un fichier FAILED ou erreur `b3sum` |
 
 !!! warning "Répertoire de travail"
-    `verify` doit être lancé depuis le même répertoire qu'au `compute`, ou `-data` doit pointer vers ce répertoire. Les chemins dans `.b3` sont relatifs — un mauvais `pwd` produit des faux positifs massifs.
+    `verify` doit être lancé depuis le même répertoire qu'au `compute`, ou `-data` doit pointer vers ce répertoire. Les chemins dans `.b3` sont relatifs - un mauvais `pwd` produit des faux positifs massifs.
 
 ---
 
@@ -241,7 +241,7 @@ Analyse l'environnement d'exécution et indique le mode sélectionné.
 hash-tool check-env
 ```
 
-**Sortie (exemple — environnement natif complet) :**
+**Sortie (exemple - environnement natif complet) :**
 
 ```
 === check-env : Analyse de l'environnement ===
@@ -289,7 +289,7 @@ hash-tool help <commande>   # aide détaillée par sous-commande
 | `-pipeline <chemin>` | Fichier pipeline JSON (pour `runner`). |
 | `-save <chemin>` | Dossier de sortie pour les résultats. |
 | `-meta <texte>` | Commentaire pour le sidecar JSON (`compute`). |
-| `-quiet` | Mode silencieux — pas de sortie terminal. |
+| `-quiet` | Mode silencieux - pas de sortie terminal. |
 | `-verbose` | Mode verbeux. |
 | `-readonly` | Marque le compute comme lecture seule dans le sidecar. |
 

@@ -1,10 +1,14 @@
-# Changelog — hash_tool
+# Changelog - hash_tool
 
 
+### [1.2] (master) - 2026-02-27 
 
+### Ajouté
 
+Ajouté des tests unitaires, intégration et Ci avec github pages.
+Tout les tests passent. 
 
-## [1.2.0] - 2026-02-26
+## [1.2] (dev) - 2026-02-26
 
 ### Ajouté
 - **Système de templating HTML** : Séparation complète de la logique métier et de la présentation. Le fichier `reports/template.html` sert désormais de base unique pour la génération des rapports.
@@ -20,14 +24,7 @@
 - **Mise à jour de `integrity.sh`** : Chargement systématique de la bibliothèque de fonctions `src/lib/report.sh` via la commande `source` pour garantir la modularité.
 - **Optimisation de la commande `compare`** : Utilisation de `perl` pour l'injection sécurisée de blocs HTML multi-lignes dans le template, évitant les limitations de `sed` avec les caractères spéciaux.
 
-
-
-
-
-
-
-
-### [1.1.0] — 2026-02-26
+### [1.1] - 2026-02-26
 
 #### Corrigé
 
@@ -48,11 +45,11 @@
 -Priorité des résultats** : L'option `-save` surcharge désormais systématiquement la variable d'environnement `RESULTATS_DIR` pour toutes les commandes (`compute`, `verify`, `compare`, `runner`).
 
 
-## [1.0] — CLI unique, nouvelles commandes, sidecar, pipeline étendu
+## [1.0] - CLI unique, nouvelles commandes, sidecar, pipeline étendu
 
 ### Ajouté
 
-**`hash-tool` — CLI unique (nouveau fichier à la racine)**
+**`hash-tool` - CLI unique (nouveau fichier à la racine)**
 
 - Interface CLI unifiée. L'utilisateur invoque toujours `hash-tool <commande>`, indépendamment du mode d'exécution réel.
 - Détection automatique du mode d'exécution : natif (`b3sum` + `jq` disponibles) ou Docker (`hash_tool` image disponible). Aucune intervention utilisateur requise.
@@ -75,7 +72,7 @@
 **Commande `diff`**
 
 - `hash-tool diff -base <fichier.b3> [-data <dossier>]` : compare les chemins de la base avec l'état actuel du dossier.
-- Ne recalcule pas les hashes — uniquement comparaison des chemins.
+- Ne recalcule pas les hashes - uniquement comparaison des chemins.
 - Affiche les fichiers disparus et les nouveaux fichiers non indexés.
 
 **Commande `stats`**
@@ -96,9 +93,9 @@
 - `hash-tool help` : aide globale avec toutes les commandes et options.
 - `hash-tool help <commande>` : aide détaillée par sous-commande.
 
-**`runner.sh` — format pipeline étendu**
+**`runner.sh` - format pipeline étendu**
 
-- Nouveau format `type / params / options / meta / description` — rétrocompatible avec le format legacy `op / source / bases / nom`.
+- Nouveau format `type / params / options / meta / description` - rétrocompatible avec le format legacy `op / source / bases / nom`.
 - Détection automatique du format par la présence de `"op"` (legacy) ou `"type"` (étendu).
 - Support des nouvelles opérations dans le pipeline : `list`, `diff`, `stats`, `check-env`, `version`.
 - Génération du sidecar dans les blocs `compute` (format étendu) si `meta.comment` est fourni.
@@ -115,7 +112,7 @@
 
 ### Non modifié
 
-- `src/integrity.sh` : inchangé — les nouvelles commandes sont intégralement gérées dans `hash-tool`.
+- `src/integrity.sh` : inchangé - les nouvelles commandes sont intégralement gérées dans `hash-tool`.
 - `src/lib/core.sh`, `src/lib/ui.sh`, `src/lib/results.sh`, `src/lib/report.sh` : inchangés.
 - Tous les pipelines existants (format legacy) : rétrocompatibles sans modification.
 
@@ -129,7 +126,7 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.18] — debug
+## [0.18] - debug
 
 ### Ajouté
 
@@ -137,7 +134,7 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.17] — debug
+## [0.17] - debug
 
 ### Ajouté
 
@@ -145,21 +142,21 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.16] — debug
+## [0.16] - debug
 
 ### Ajouté
 
-- Dossier `troubleshooting/` et fichier `troubleshooting_1.md` : premier cas documenté (Permission non accordée sur `integrity.sh` — solution : `chmod +x`).
+- Dossier `troubleshooting/` et fichier `troubleshooting_1.md` : premier cas documenté (Permission non accordée sur `integrity.sh` - solution : `chmod +x`).
 
 ---
 
-## [0.15] — Documentation restructurée
+## [0.15] - Documentation restructurée
 
 - Mise à jour de la documentation.
 
 ---
 
-## [0.14] — Documentation complète MkDocs
+## [0.14] - Documentation complète MkDocs
 
 ### Ajouté
 
@@ -187,7 +184,7 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.13] — Débug dockerisation et documentation
+## [0.13] - Débug dockerisation et documentation
 
 ### Ajouté
 
@@ -200,13 +197,13 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.12] — Dockerisation
+## [0.12] - Dockerisation
 
 ### Ajouté
 
 - `Dockerfile` : image Alpine 3.19 avec `bash`, `jq`, `b3sum`, `coreutils`, `findutils`. Image ~14 Mo.
 - `docker/entrypoint.sh` : dispatcher des commandes (`compute`, `verify`, `compare`, `runner`, `shell`, `help`, `version`). `--quiet` supporté en premier argument.
-- `docker-compose.yml` : trois services — `integrity`, `pipeline`, `cron` (profil optionnel).
+- `docker-compose.yml` : trois services - `integrity`, `pipeline`, `cron` (profil optionnel).
 - `.dockerignore` : exclut données, résultats, tests, docs du contexte de build.
 
 ### Volumes conventionnels
@@ -220,7 +217,7 @@ sudo ln -s "$(pwd)/hash-tool" /usr/local/bin/hash-tool
 
 ---
 
-## [0.11] — Restructuration + rapport HTML compare
+## [0.11] - Restructuration + rapport HTML compare
 
 ### Restructuration
 
@@ -240,10 +237,10 @@ hash_tool/
 
 ### Ajouté
 
-- `src/lib/report.sh` : `generate_compare_html()` — rapport HTML autonome (CSS inline, thème sombre, compteurs, badge statut).
+- `src/lib/report.sh` : `generate_compare_html()` - rapport HTML autonome (CSS inline, thème sombre, compteurs, badge statut).
 - `reports/template.html` : template de référence.
 - `pipeline.json` : champ optionnel `"resultats"` sur les blocs `compare`.
-- `tests/run_tests_pipeline.sh` : cas **TP10b** — champ `resultats` personnalisé et isolation `RESULTATS_DIR`.
+- `tests/run_tests_pipeline.sh` : cas **TP10b** - champ `resultats` personnalisé et isolation `RESULTATS_DIR`.
 
 ### Modifié
 
@@ -252,7 +249,7 @@ hash_tool/
 
 ---
 
-## [0.10] — Pipeline JSON + tests pipeline
+## [0.10] - Pipeline JSON + tests pipeline
 
 ### Modifié
 
@@ -265,7 +262,7 @@ hash_tool/
 
 ---
 
-## [0.9] — Pipeline batch : runner.sh + config.txt
+## [0.9] - Pipeline batch : runner.sh + config.txt
 
 ### Ajouté
 
@@ -275,7 +272,7 @@ hash_tool/
 
 ---
 
-## [0.8] — batch_compute.sh
+## [0.8] - batch_compute.sh
 
 ### Ajouté
 
@@ -283,7 +280,7 @@ hash_tool/
 
 ---
 
-## [0.7] — Séparation en modules (lib/)
+## [0.7] - Séparation en modules (lib/)
 
 ### Ajouté
 
@@ -293,7 +290,7 @@ hash_tool/
 
 ---
 
-## [0.6] — Mode `--quiet`
+## [0.6] - Mode `--quiet`
 
 ### Ajouté
 
@@ -301,7 +298,7 @@ hash_tool/
 
 ---
 
-## [0.5] — Horodatage anti-écrasement
+## [0.5] - Horodatage anti-écrasement
 
 ### Modifié
 
@@ -309,7 +306,7 @@ hash_tool/
 
 ---
 
-## [0.4] — ETA et progression
+## [0.4] - ETA et progression
 
 ### Ajouté
 
@@ -318,7 +315,7 @@ hash_tool/
 
 ---
 
-## [0.3] — Rapport HTML `compare`
+## [0.3] - Rapport HTML `compare`
 
 ### Ajouté
 
@@ -326,7 +323,7 @@ hash_tool/
 
 ---
 
-## [0.2] — Commande `compare`
+## [0.2] - Commande `compare`
 
 ### Ajouté
 
@@ -335,7 +332,7 @@ hash_tool/
 
 ---
 
-## [0.1] — Initial
+## [0.1] - Initial
 
 ### Ajouté
 

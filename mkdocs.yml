@@ -92,3 +92,6 @@ nav:
     - Contribuer & Tests: development/contributing.md
     - Roadmap & Positionnement: development/roadmap.md
     - Changelog: development/changelog.md
+
+  - Aide:
+    - Troubleshooting: troubleshooting /troubleshooting_1.md

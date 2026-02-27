@@ -72,6 +72,7 @@ ui_progress_callback() {
   local i="$1"
   local total_files="$2"
   local bytes_done="$3"
+  # shellcheck disable=SC2034  # total_bytes : reçu du callback mais non utilisé ici (réservé pour affichage %)
   local total_bytes="$4"
   local eta_seconds="$5"
 

@@ -6,7 +6,7 @@ hash_tool détecte la corruption silencieuse de fichiers en comparant des emprei
 
 ## Principe
 
-`hash-tool` est l'interface CLI unique. Il détecte automatiquement si l'exécution native est possible (`b3sum` disponible), sinon délègue à Docker — sans que l'utilisateur ait à s'en préoccuper. En interne, `src/integrity.sh` calcule les empreintes et `runner.sh` orchestre les pipelines.
+`hash-tool` est l'interface CLI unique. Il détecte automatiquement si l'exécution native est possible (`b3sum` disponible), sinon délègue à Docker - sans que l'utilisateur ait à s'en préoccuper. En interne, `src/integrity.sh` calcule les empreintes et `runner.sh` orchestre les pipelines.
 
 ```
 ┌=============┐    compute     ┌==============┐    ┌==================┐
@@ -27,11 +27,11 @@ hash_tool détecte la corruption silencieuse de fichiers en comparant des emprei
 
 ## Cas d'usage
 
-- **Archivage long terme** — vérifier qu'un disque n'a pas développé de secteurs défectueux
-- **Transfert de données** — confirmer qu'une copie est bit-à-bit identique à la source
-- **VeraCrypt** — indexer des partitions chiffrées avant démontage, vérifier après remontage
-- **Monitoring périodique** — cron hebdomadaire sur un NAS ou serveur
-- **Automatisation CI/CD** — mode `--quiet`, exit code propagé, image Docker légère
+- **Archivage long terme** - vérifier qu'un disque n'a pas développé de secteurs défectueux
+- **Transfert de données** - confirmer qu'une copie est bit-à-bit identique à la source
+- **VeraCrypt** - indexer des partitions chiffrées avant démontage, vérifier après remontage
+- **Monitoring périodique** - cron hebdomadaire sur un NAS ou serveur
+- **Automatisation CI/CD** - mode `--quiet`, exit code propagé, image Docker légère
 
 ---
 

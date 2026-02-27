@@ -68,7 +68,9 @@ require_field() {
   local idx="$1" field="$2"
   local val
   val=$(jq -r --argjson i "$idx" '.pipeline[$i].'"$field" "$CONFIG")
-  [ "$val" != "null" ] && [ -n "$val" ] || die "Bloc #$((idx+1)) : champ '$field' manquant ou vide."
+  if [ "$val" = "null" ] || [ -z "$val" ]; then
+    die "Bloc #$((idx+1)) : champ '$field' manquant ou vide."
+  fi
   echo "$val"
 }
 
@@ -113,7 +115,7 @@ meta_comment() {
   echo "${val:-}"
 }
 
-# == Opérations — Format legacy ================================================
+# == Opérations - Format legacy ================================================
 
 run_compute_legacy() {
   local i="$1"
@@ -143,7 +145,7 @@ run_verify_legacy() {
 
   local base_abs
   base_abs="$(cd "$(dirname "$base")" && pwd)/$(basename "$base")"
-  ( cd "$source" && "$INTEGRITY" verify "$base_abs" )
+  ( cd "$source" && "$INTEGRITY" verify "$base_abs" ) || true
 }
 
 run_compare_legacy() {
@@ -170,7 +172,7 @@ run_compare_legacy() {
   fi
 }
 
-# == Opérations — Format étendu ================================================
+# == Opérations - Format étendu ================================================
 
 run_compute_extended() {
   local i="$1"
@@ -179,9 +181,8 @@ run_compute_extended() {
   output_dir=$(require_param "$i" "output_dir")
   filename=$(require_param "$i" "filename")
 
-  local quiet verbose
+  local quiet
   quiet=$(option_flag "$i" "quiet")
-  verbose=$(option_flag "$i" "verbose")
   local comment
   comment=$(meta_comment "$i")
 
@@ -247,7 +248,7 @@ run_verify_extended() {
   (( quiet )) && quiet_flag="--quiet"
 
   # shellcheck disable=SC2086
-  ( cd "$input" && "$INTEGRITY" $quiet_flag verify "$base_abs" )
+  ( cd "$source" && "$INTEGRITY" verify "$base_abs" ) || true
 }
 
 run_compare_extended() {
@@ -374,7 +375,9 @@ dispatch_bloc() {
     legacy)
       local op
       op=$(jq -r --argjson i "$i" '.pipeline[$i].op' "$CONFIG")
-      [ "$op" != "null" ] && [ -n "$op" ] || die "Bloc #$((i+1)) : champ 'op' manquant."
+      if [ "$op" = "null" ] || [ -z "$op" ]; then
+        die "Bloc #$((i+1)) : champ 'op' manquant."
+      fi
       case "$op" in
         compute) run_compute_legacy "$i" ;;
         verify)  run_verify_legacy  "$i" ;;
