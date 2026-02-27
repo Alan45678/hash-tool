@@ -1,26 +1,24 @@
 {
-    "pipeline": [
-
-        {
-            "op":     "compute",
-            "source": "./examples/source",
-            "bases":  "./examples/workspace/bases",
-            "nom":    "hashes_dossier_1.b3"
-        },
-
-        {
-            "op":     "compute",
-            "source": "./examples/destination",
-            "bases":  "./examples/workspace/bases",
-            "nom":    "hashes_dossier_2.b3"
-        },
-
-        {
-            "op":       "compare",
-            "base_a":   "./examples/workspace/bases/hashes_dossier_1.b3",
-            "base_b":   "./examples/workspace/bases/hashes_dossier_2.b3",
-            "resultats": "./examples/workspace/result"
-        }
-
-    ]
+  "pipeline": [
+    {
+      "type":        "compute",
+      "params":      {
+        "input":      "/chemin/vers/dossier_source",
+        "output_dir": "/chemin/vers/bases",
+        "filename":   "hashes_source.b3"
+      },
+      "options":     { "quiet": false, "readonly": true },
+      "meta":        { "comment": "Snapshot initial" },
+      "description": "Calculer les empreintes du dossier source"
+    },
+    {
+      "type":        "verify",
+      "params":      {
+        "input": "/chemin/vers/dossier_source",
+        "base":  "/chemin/vers/bases/hashes_source.b3"
+      },
+      "options":     { "quiet": false },
+      "description": "Contrôle immédiat après compute"
+    }
+  ]
 }
