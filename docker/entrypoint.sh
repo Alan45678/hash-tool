@@ -147,6 +147,13 @@ case "$CMD" in
     echo "  bash  : $BASH_VERSION"
     ;;
 
+  check-env)
+    echo "hash_tool"
+    command -v b3sum &>/dev/null && echo "  b3sum : $(b3sum --version)" || echo "  b3sum : KO"
+    command -v jq    &>/dev/null && echo "  jq    : $(jq --version)"    || echo "  jq    : KO"
+    echo "  bash  : $BASH_VERSION"
+    ;;
+
   *)
     echo "ERREUR : commande inconnue : '$CMD'" >&2
     echo "Lancer 'docker run hash_tool help' pour la liste des commandes." >&2

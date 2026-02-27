@@ -1,0 +1,758 @@
+Tests (ubuntu-22.04)	UNKNOWN STEP	﻿2026-02-27T14:56:41.1508242Z Current runner version: '2.331.0'
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1540487Z ##[group]Runner Image Provisioner
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1541565Z Hosted Compute Agent
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1542473Z Version: 20260213.493
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1543185Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1543931Z Build Date: 2026-02-13T00:28:41Z
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1544681Z Worker ID: {ff908788-7b8f-4465-906d-192949f636bb}
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1545340Z Azure Region: northcentralus
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1545933Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1547288Z ##[group]Operating System
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1547930Z Ubuntu
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1548381Z 22.04.5
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1548886Z LTS
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1549623Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1550149Z ##[group]Runner Image
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1550747Z Image: ubuntu-22.04
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1551241Z Version: 20260224.45.1
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1552419Z Included Software: https://github.com/actions/runner-images/blob/ubuntu22/20260224.45/images/ubuntu/Ubuntu2204-Readme.md
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1553905Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu22%2F20260224.45
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1554829Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1556001Z ##[group]GITHUB_TOKEN Permissions
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1558112Z Contents: read
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1558654Z Metadata: read
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1559221Z Packages: read
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1559997Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1561939Z Secret source: Actions
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1563300Z Prepare workflow directory
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1884201Z Prepare all required actions
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.1927837Z Getting action download info
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.4803921Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.5938626Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8125401Z Complete job name: Tests (ubuntu-22.04)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8795537Z ##[group]Run actions/checkout@v4
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8796328Z with:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8796721Z   repository: Alan45678/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8797372Z   token: ***
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8797758Z   ssh-strict: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8798148Z   ssh-user: git
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8798541Z   persist-credentials: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8798986Z   clean: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8799614Z   sparse-checkout-cone-mode: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8800096Z   fetch-depth: 1
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8800478Z   fetch-tags: false
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8800871Z   show-progress: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8801260Z   lfs: false
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8801623Z   submodules: false
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8802016Z   set-safe-directory: true
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.8802636Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9870497Z Syncing repository: Alan45678/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9872163Z ##[group]Getting Git version info
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9872816Z Working directory is '/home/runner/work/hash-tool/hash-tool'
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9873774Z [command]/usr/bin/git version
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9921287Z git version 2.53.0
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9945395Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9965802Z Temporarily overriding HOME='/home/runner/work/_temp/6454559f-3ced-4c4e-adce-1aed451880f4' before making global git config changes
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9967123Z Adding repository directory to the temporary git global config as a safe directory
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:41.9971147Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0005144Z Deleting the contents of '/home/runner/work/hash-tool/hash-tool'
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0008593Z ##[group]Initializing the repository
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0012883Z [command]/usr/bin/git init /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0085830Z hint: Using 'master' as the name for the initial branch. This default branch name
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0087108Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0088453Z hint: to use in all of your new repositories, which will suppress this warning,
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0089978Z hint: call:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0090498Z hint:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0091373Z hint: 	git config --global init.defaultBranch <name>
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0092114Z hint:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0092649Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0093524Z hint: 'development'. The just-created branch can be renamed via this command:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0094187Z hint:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0094558Z hint: 	git branch -m <name>
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0094969Z hint:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0095748Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0096985Z Initialized empty Git repository in /home/runner/work/hash-tool/hash-tool/.git/
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0101376Z [command]/usr/bin/git remote add origin https://github.com/Alan45678/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0134971Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0135691Z ##[group]Disabling automatic garbage collection
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0139023Z [command]/usr/bin/git config --local gc.auto 0
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0167704Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0168338Z ##[group]Setting up auth
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0174455Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0204231Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0511944Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0542915Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0776153Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.0808169Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.1043605Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.1078137Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.1079182Z ##[group]Fetching the repository
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.1087775Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d5a6769891a3f86952c0d1c315921912e64d1251:refs/remotes/origin/master
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4030933Z From https://github.com/Alan45678/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4032075Z  * [new ref]         d5a6769891a3f86952c0d1c315921912e64d1251 -> origin/master
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4064204Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4065154Z ##[group]Determining the checkout info
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4066464Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4071709Z [command]/usr/bin/git sparse-checkout disable
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4111320Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4137428Z ##[group]Checking out the ref
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4141391Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4241787Z Reset branch 'master'
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4243552Z branch 'master' set up to track 'origin/master'.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4253215Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4310206Z [command]/usr/bin/git log -1 --format=%H
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4337159Z d5a6769891a3f86952c0d1c315921912e64d1251
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4532213Z ##[group]Run sudo apt-get update -qq
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4532839Z [36;1msudo apt-get update -qq[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4533413Z [36;1msudo apt-get install -y b3sum jq shellcheck[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4595463Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:42.4595939Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:49.7241346Z Reading package lists...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:49.9221196Z Building dependency tree...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:49.9232126Z Reading state information...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.0962698Z shellcheck is already the newest version (0.8.0-2).
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.0963932Z jq is already the newest version (1.6-2.1ubuntu3.1).
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.0964469Z The following NEW packages will be installed:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.0965966Z   b3sum
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.1122965Z 0 upgraded, 1 newly installed, 0 to remove and 42 not upgraded.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.1124542Z Need to get 388 kB of archives.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.1128001Z After this operation, 1117 kB of additional disk space will be used.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.1128849Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.1672971Z Get:2 http://azure.archive.ubuntu.com/ubuntu jammy/universe amd64 b3sum amd64 1.2.0-1 [388 kB]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.4777146Z Fetched 388 kB in 0s (5604 kB/s)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5005037Z Selecting previously unselected package b3sum.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5262885Z (Reading database ... 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5263339Z (Reading database ... 5%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5263617Z (Reading database ... 10%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5263975Z (Reading database ... 15%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5264281Z (Reading database ... 20%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5264525Z (Reading database ... 25%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5264774Z (Reading database ... 30%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5265019Z (Reading database ... 35%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5265251Z (Reading database ... 40%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5265728Z (Reading database ... 45%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.5266156Z (Reading database ... 50%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.6848884Z (Reading database ... 55%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:50.8918237Z (Reading database ... 60%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:51.1265594Z (Reading database ... 65%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:51.3325378Z (Reading database ... 70%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:51.5492598Z (Reading database ... 75%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:51.7476673Z (Reading database ... 80%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.0077781Z (Reading database ... 85%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.2420120Z (Reading database ... 90%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4242550Z (Reading database ... 95%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4242965Z (Reading database ... 100%
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4243432Z (Reading database ... 267829 files and directories currently installed.)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4308666Z Preparing to unpack .../b3sum_1.2.0-1_amd64.deb ...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4334284Z Unpacking b3sum (1.2.0-1) ...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4910072Z Setting up b3sum (1.2.0-1) ...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4934994Z Processing triggers for man-db (2.10.2-1) ...
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:52.4954861Z Not building database; man-db/auto-update is not 'true'.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0000238Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0000844Z Running kernel seems to be up-to-date.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0001305Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0001435Z No services need to be restarted.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0001681Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0001840Z No containers need to be restarted.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0002078Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0002235Z No user sessions are running outdated binaries.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0002527Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:53.0002807Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2691364Z ##[group]Run b3sum --version
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2691663Z [36;1mb3sum --version[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2691894Z [36;1mjq --version[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2692090Z [36;1mshellcheck --version[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2692309Z [36;1mbash --version[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2732874Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2733107Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2802257Z b3sum 1.2.0
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.2814115Z jq-1.6
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.5831451Z ShellCheck - shell script analysis tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.5831996Z version: 0.8.0
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.5832322Z license: GNU General Public License, version 3
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.5832769Z website: https://www.shellcheck.net
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6028300Z GNU bash, version 5.1.16(1)-release (x86_64-pc-linux-gnu)
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6028938Z Copyright (C) 2020 Free Software Foundation, Inc.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6029788Z License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6030263Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6030589Z This is free software; you are free to change and redistribute it.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6031660Z There is NO WARRANTY, to the extent permitted by law.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6059924Z ##[group]Run chmod +x tests/run_tests.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6060248Z [36;1mchmod +x tests/run_tests.sh[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6060501Z [36;1mcd tests && ./run_tests.sh[0m
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6100624Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6100854Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6248554Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6248783Z ========================================
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6249256Z   integrity.sh - suite de tests
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6249819Z   Workdir : /tmp/integrity-test.pFVupH
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6250168Z ========================================
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6250337Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:54.6250415Z T00 - ShellCheck
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.0474778Z [0;32m  PASS[0m - ShellCheck integrity.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.1353801Z [0;32m  PASS[0m - ShellCheck src/lib/core.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.1654620Z [0;32m  PASS[0m - ShellCheck src/lib/ui.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.2008143Z [0;32m  PASS[0m - ShellCheck src/lib/report.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.2293183Z [0;32m  PASS[0m - ShellCheck src/lib/results.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4173102Z [0;32m  PASS[0m - ShellCheck runner.sh
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4173463Z 
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4173586Z T01 - Compute de base
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4384368Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4556442Z ##[group]Run actions/upload-artifact@v4
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4556703Z with:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4556882Z   name: test-results-ubuntu-22.04
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4557132Z   path: /tmp/integrity-test*/
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4557365Z   retention-days: 7
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4557568Z   if-no-files-found: warn
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4557785Z   compression-level: 6
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4557975Z   overwrite: false
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4558172Z   include-hidden-files: false
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.4558379Z ##[endgroup]
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.6713171Z With the provided path, there will be 5 files uploaded
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.6717404Z Artifact name is valid!
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.6718391Z Root directory input is valid!
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.8038923Z Beginning upload of artifact content to blob storage
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.9454432Z Uploaded bytes 979
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.9878549Z Finished uploading artifact content to blob storage!
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.9881717Z SHA256 digest of uploaded artifact zip is 2c983ed8ef44c370e941665165b218c0f8f6a93ab274adfbd5a56ae73f533632
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:55.9883456Z Finalizing artifact upload
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.1057472Z Artifact test-results-ubuntu-22.04.zip successfully finalized. Artifact ID 5692007578
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.1058638Z Artifact test-results-ubuntu-22.04 has been successfully uploaded! Final size is 979 bytes. Artifact ID is 5692007578
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.1067595Z Artifact download URL: https://github.com/Alan45678/hash-tool/actions/runs/22491196323/artifacts/5692007578
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.1246005Z Post job cleanup.
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2174851Z [command]/usr/bin/git version
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2220181Z git version 2.53.0
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2250149Z Temporarily overriding HOME='/home/runner/work/_temp/bfaecd6a-282f-42a3-a274-31e47c43d280' before making global git config changes
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2251017Z Adding repository directory to the temporary git global config as a safe directory
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2255361Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2291401Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2323850Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2564295Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2586594Z http.https://github.com/.extraheader
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2598972Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2629998Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2860853Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.2892873Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Tests (ubuntu-22.04)	UNKNOWN STEP	2026-02-27T14:56:56.3227804Z Cleaning up orphan processes
+Tests (ubuntu-24.04)	UNKNOWN STEP	﻿2026-02-27T14:56:41.6322080Z Current runner version: '2.331.0'
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6347806Z ##[group]Runner Image Provisioner
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6348689Z Hosted Compute Agent
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6349225Z Version: 20260213.493
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6349929Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6350636Z Build Date: 2026-02-13T00:28:41Z
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6351489Z Worker ID: {67d3376e-6623-49a8-af36-4e475e3b68d4}
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6352283Z Azure Region: westus
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6352795Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6354261Z ##[group]Operating System
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6354911Z Ubuntu
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6355420Z 24.04.3
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6355880Z LTS
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6356380Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6356853Z ##[group]Runner Image
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6357399Z Image: ubuntu-24.04
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6357940Z Version: 20260224.36.1
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6359124Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260224.36/images/ubuntu/Ubuntu2404-Readme.md
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6360578Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260224.36
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6362077Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6363160Z ##[group]GITHUB_TOKEN Permissions
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6365157Z Contents: read
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6365726Z Metadata: read
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6366228Z Packages: read
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6366844Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6368901Z Secret source: Actions
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6369602Z Prepare workflow directory
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6702521Z Prepare all required actions
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:41.6744705Z Getting action download info
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.1325061Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.2510225Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.4617737Z Complete job name: Tests (ubuntu-24.04)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5333872Z ##[group]Run actions/checkout@v4
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5334718Z with:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5335107Z   repository: Alan45678/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5335956Z   token: ***
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5336506Z   ssh-strict: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5336894Z   ssh-user: git
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5337284Z   persist-credentials: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5337714Z   clean: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5338098Z   sparse-checkout-cone-mode: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5338553Z   fetch-depth: 1
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5338928Z   fetch-tags: false
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5339307Z   show-progress: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5339716Z   lfs: false
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5340065Z   submodules: false
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5340459Z   set-safe-directory: true
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.5341138Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6493432Z Syncing repository: Alan45678/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6495086Z ##[group]Getting Git version info
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6495767Z Working directory is '/home/runner/work/hash-tool/hash-tool'
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6496739Z [command]/usr/bin/git version
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6573830Z git version 2.53.0
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6600123Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6624093Z Temporarily overriding HOME='/home/runner/work/_temp/4eb1b313-b93b-46d5-8935-55cd6b8cc000' before making global git config changes
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6626471Z Adding repository directory to the temporary git global config as a safe directory
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6630676Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6670705Z Deleting the contents of '/home/runner/work/hash-tool/hash-tool'
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6674900Z ##[group]Initializing the repository
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6679779Z [command]/usr/bin/git init /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6784300Z hint: Using 'master' as the name for the initial branch. This default branch name
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6785772Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6786699Z hint: to use in all of your new repositories, which will suppress this warning,
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6788300Z hint: call:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6788916Z hint:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6789943Z hint: 	git config --global init.defaultBranch <name>
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6790980Z hint:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6792262Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6793882Z hint: 'development'. The just-created branch can be renamed via this command:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6795197Z hint:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6795897Z hint: 	git branch -m <name>
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6796615Z hint:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6797609Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6799322Z Initialized empty Git repository in /home/runner/work/hash-tool/hash-tool/.git/
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6802309Z [command]/usr/bin/git remote add origin https://github.com/Alan45678/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6836941Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6838144Z ##[group]Disabling automatic garbage collection
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6842192Z [command]/usr/bin/git config --local gc.auto 0
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6871609Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6872854Z ##[group]Setting up auth
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6879263Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.6911775Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7283560Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7320641Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7574764Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7616067Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7857863Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7894268Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7895133Z ##[group]Fetching the repository
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:42.7902762Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d5a6769891a3f86952c0d1c315921912e64d1251:refs/remotes/origin/master
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3263776Z From https://github.com/Alan45678/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3265335Z  * [new ref]         d5a6769891a3f86952c0d1c315921912e64d1251 -> origin/master
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3299691Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3300889Z ##[group]Determining the checkout info
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3303743Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3308922Z [command]/usr/bin/git sparse-checkout disable
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3355445Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3384784Z ##[group]Checking out the ref
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3388936Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3495916Z Reset branch 'master'
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3498326Z branch 'master' set up to track 'origin/master'.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3505881Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3540587Z [command]/usr/bin/git log -1 --format=%H
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3564615Z d5a6769891a3f86952c0d1c315921912e64d1251
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3774267Z ##[group]Run sudo apt-get update -qq
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3775538Z [36;1msudo apt-get update -qq[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3776776Z [36;1msudo apt-get install -y b3sum jq shellcheck[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3832054Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:43.3833069Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.0464504Z Reading package lists...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.2078596Z Building dependency tree...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.2088964Z Reading state information...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3729885Z jq is already the newest version (1.7.1-3ubuntu0.24.04.1).
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3731435Z shellcheck is already the newest version (0.9.0-1).
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3731903Z The following NEW packages will be installed:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3735623Z   b3sum
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3906724Z 0 upgraded, 1 newly installed, 0 to remove and 32 not upgraded.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3907438Z Need to get 388 kB of archives.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3907960Z After this operation, 1117 kB of additional disk space will be used.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.3908537Z Get:1 file:/etc/apt/apt-mirrors.txt Mirrorlist [144 B]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:50.4741690Z Get:2 http://azure.archive.ubuntu.com/ubuntu noble/universe amd64 b3sum amd64 1.2.0-1 [388 kB]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0038060Z Fetched 388 kB in 0s (1033 kB/s)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0253744Z Selecting previously unselected package b3sum.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0538589Z (Reading database ... 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0539137Z (Reading database ... 5%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0539525Z (Reading database ... 10%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0539881Z (Reading database ... 15%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0540314Z (Reading database ... 20%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0540673Z (Reading database ... 25%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0541051Z (Reading database ... 30%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0541631Z (Reading database ... 35%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0542002Z (Reading database ... 40%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0542326Z (Reading database ... 45%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0542606Z (Reading database ... 50%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.0678304Z (Reading database ... 55%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.1216896Z (Reading database ... 60%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.1587202Z (Reading database ... 65%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.2013960Z (Reading database ... 70%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.2522004Z (Reading database ... 75%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.3929434Z (Reading database ... 80%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.5990132Z (Reading database ... 85%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.7925438Z (Reading database ... 90%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.9185823Z (Reading database ... 95%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.9186258Z (Reading database ... 100%
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.9186787Z (Reading database ... 218749 files and directories currently installed.)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.9230816Z Preparing to unpack .../b3sum_1.2.0-1_amd64.deb ...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:51.9259212Z Unpacking b3sum (1.2.0-1) ...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.0218732Z Setting up b3sum (1.2.0-1) ...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.0259130Z Processing triggers for man-db (2.12.0-4build2) ...
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.0288303Z Not building database; man-db/auto-update is not 'true'.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6919373Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6919895Z Running kernel seems to be up-to-date.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6920359Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6920512Z No services need to be restarted.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6920801Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6920952Z No containers need to be restarted.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6921444Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6921640Z No user sessions are running outdated binaries.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6922119Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:52.6922453Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7034956Z ##[group]Run b3sum --version
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7035254Z [36;1mb3sum --version[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7035479Z [36;1mjq --version[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7035675Z [36;1mshellcheck --version[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7035891Z [36;1mbash --version[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7087239Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7087468Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7164518Z b3sum 1.2.0
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.7178556Z jq-1.7
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9257771Z ShellCheck - shell script analysis tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9258415Z version: 0.9.0
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9258853Z license: GNU General Public License, version 3
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9259390Z website: https://www.shellcheck.net
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9468092Z GNU bash, version 5.2.21(1)-release (x86_64-pc-linux-gnu)
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9468625Z Copyright (C) 2022 Free Software Foundation, Inc.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9469130Z License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9469526Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9469786Z This is free software; you are free to change and redistribute it.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9470527Z There is NO WARRANTY, to the extent permitted by law.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9505562Z ##[group]Run chmod +x tests/run_tests.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9505912Z [36;1mchmod +x tests/run_tests.sh[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9506177Z [36;1mcd tests && ./run_tests.sh[0m
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9556384Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9556629Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9715659Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9715928Z ========================================
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9716426Z   integrity.sh - suite de tests
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9716847Z   Workdir : /tmp/integrity-test.62KXBN
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9717119Z ========================================
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9717292Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:53.9717366Z T00 - ShellCheck
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:54.3549441Z [0;32m  PASS[0m - ShellCheck integrity.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:54.4889112Z [0;32m  PASS[0m - ShellCheck src/lib/core.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:54.5319487Z [0;32m  PASS[0m - ShellCheck src/lib/ui.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:54.5857730Z [0;32m  PASS[0m - ShellCheck src/lib/report.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:54.6258885Z [0;32m  PASS[0m - ShellCheck src/lib/results.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0143620Z [0;32m  PASS[0m - ShellCheck runner.sh
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0144096Z 
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0144229Z T01 - Compute de base
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0384903Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0559677Z ##[group]Run actions/upload-artifact@v4
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0559957Z with:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0560134Z   name: test-results-ubuntu-24.04
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0560385Z   path: /tmp/integrity-test*/
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0560602Z   retention-days: 7
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0560793Z   if-no-files-found: warn
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0560996Z   compression-level: 6
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0561175Z   overwrite: false
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0561867Z   include-hidden-files: false
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.0562077Z ##[endgroup]
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.2772734Z With the provided path, there will be 5 files uploaded
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.2778191Z Artifact name is valid!
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.2779325Z Root directory input is valid!
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.5505867Z Beginning upload of artifact content to blob storage
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.8691757Z Uploaded bytes 979
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.9513784Z Finished uploading artifact content to blob storage!
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.9517532Z SHA256 digest of uploaded artifact zip is 6a8a329df3419ff22bb1382dc7aa677bb3fb58313967e4711df116abb31f04a2
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:55.9519193Z Finalizing artifact upload
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.1188038Z Artifact test-results-ubuntu-24.04.zip successfully finalized. Artifact ID 5692007580
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.1189909Z Artifact test-results-ubuntu-24.04 has been successfully uploaded! Final size is 979 bytes. Artifact ID is 5692007580
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.1196669Z Artifact download URL: https://github.com/Alan45678/hash-tool/actions/runs/22491196323/artifacts/5692007580
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.1350709Z Post job cleanup.
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2294926Z [command]/usr/bin/git version
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2331511Z git version 2.53.0
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2374987Z Temporarily overriding HOME='/home/runner/work/_temp/204e2aa1-5b5a-4657-8e6e-c537406b674f' before making global git config changes
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2376278Z Adding repository directory to the temporary git global config as a safe directory
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2387364Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2422743Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2456678Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2695494Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2717000Z http.https://github.com/.extraheader
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2730033Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2762471Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.2993558Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.3025686Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Tests (ubuntu-24.04)	UNKNOWN STEP	2026-02-27T14:56:56.3364927Z Cleaning up orphan processes
+Docker build & smoke tests	UNKNOWN STEP	﻿2026-02-27T14:56:41.4403057Z Current runner version: '2.331.0'
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4429223Z ##[group]Runner Image Provisioner
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4430046Z Hosted Compute Agent
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4430565Z Version: 20260213.493
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4431266Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4432372Z Build Date: 2026-02-13T00:28:41Z
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4433052Z Worker ID: {303677a7-8c50-4c4d-ac0b-c053d410cd8c}
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4433755Z Azure Region: westus
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4434357Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4435799Z ##[group]Operating System
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4436477Z Ubuntu
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4437021Z 24.04.3
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4437440Z LTS
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4437984Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4438468Z ##[group]Runner Image
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4439018Z Image: ubuntu-24.04
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4439477Z Version: 20260224.36.1
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4440764Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260224.36/images/ubuntu/Ubuntu2404-Readme.md
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4442878Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260224.36
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4443825Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4444896Z ##[group]GITHUB_TOKEN Permissions
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4446932Z Contents: read
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4447491Z Metadata: read
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4447963Z Packages: read
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4448600Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4450824Z Secret source: Actions
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4451486Z Prepare workflow directory
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4796712Z Prepare all required actions
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.4852800Z Getting action download info
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:41.9068945Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.1641112Z Complete job name: Docker build & smoke tests
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2643104Z ##[group]Run actions/checkout@v4
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2644577Z with:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2645040Z   repository: Alan45678/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2646290Z   token: ***
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2646756Z   ssh-strict: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2647141Z   ssh-user: git
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2647543Z   persist-credentials: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2648558Z   clean: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2649018Z   sparse-checkout-cone-mode: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2649505Z   fetch-depth: 1
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2650526Z   fetch-tags: false
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2650922Z   show-progress: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2651332Z   lfs: false
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2652812Z   submodules: false
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2653770Z   set-safe-directory: true
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.2654718Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3835570Z Syncing repository: Alan45678/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3838045Z ##[group]Getting Git version info
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3839229Z Working directory is '/home/runner/work/hash-tool/hash-tool'
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3840980Z [command]/usr/bin/git version
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3968542Z git version 2.53.0
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.3995740Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4010900Z Temporarily overriding HOME='/home/runner/work/_temp/31224110-034c-4d5d-884d-e095e5b8a2db' before making global git config changes
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4013356Z Adding repository directory to the temporary git global config as a safe directory
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4025240Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4073200Z Deleting the contents of '/home/runner/work/hash-tool/hash-tool'
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4076434Z ##[group]Initializing the repository
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4080480Z [command]/usr/bin/git init /home/runner/work/hash-tool/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4247356Z hint: Using 'master' as the name for the initial branch. This default branch name
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4248963Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4249920Z hint: to use in all of your new repositories, which will suppress this warning,
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4250615Z hint: call:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4251014Z hint:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4252050Z hint: 	git config --global init.defaultBranch <name>
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4253233Z hint:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4253837Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4255394Z hint: 'development'. The just-created branch can be renamed via this command:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4256640Z hint:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4257326Z hint: 	git branch -m <name>
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4258060Z hint:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4259088Z hint: Disable this message with "git config set advice.defaultBranchName false"
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4260823Z Initialized empty Git repository in /home/runner/work/hash-tool/hash-tool/.git/
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4268941Z [command]/usr/bin/git remote add origin https://github.com/Alan45678/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4310974Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4312390Z ##[group]Disabling automatic garbage collection
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4316532Z [command]/usr/bin/git config --local gc.auto 0
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4348088Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4349274Z ##[group]Setting up auth
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4356249Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4389581Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4896050Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.4930659Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5179733Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5231966Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5510281Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5553652Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5554854Z ##[group]Fetching the repository
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:42.5567181Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d5a6769891a3f86952c0d1c315921912e64d1251:refs/remotes/origin/master
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1295023Z From https://github.com/Alan45678/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1296725Z  * [new ref]         d5a6769891a3f86952c0d1c315921912e64d1251 -> origin/master
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1338650Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1341446Z ##[group]Determining the checkout info
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1343167Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1344823Z [command]/usr/bin/git sparse-checkout disable
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1396274Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1426034Z ##[group]Checking out the ref
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1431313Z [command]/usr/bin/git checkout --progress --force -B master refs/remotes/origin/master
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1545057Z Reset branch 'master'
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1546675Z branch 'master' set up to track 'origin/master'.
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1555726Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1595076Z [command]/usr/bin/git log -1 --format=%H
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1618781Z d5a6769891a3f86952c0d1c315921912e64d1251
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1830272Z ##[group]Run docker build -t hash_tool .
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1831798Z [36;1mdocker build -t hash_tool .[0m
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1885202Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.1886209Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9954834Z #0 building with "default" instance using docker driver
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9955294Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9955488Z #1 [internal] load build definition from Dockerfile
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9955999Z #1 transferring dockerfile: 2.38kB done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9956420Z #1 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9956583Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:43.9956810Z #2 [internal] load metadata for docker.io/library/alpine:3.19
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.2144539Z #2 ...
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.2144880Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.2145231Z #3 [auth] library/alpine:pull token for registry-1.docker.io
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.2145897Z #3 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.3646782Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.3647269Z #2 [internal] load metadata for docker.io/library/alpine:3.19
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.7405225Z #2 DONE 0.9s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8630176Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8632257Z #4 [internal] load .dockerignore
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8632824Z #4 transferring context: 527B done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8633304Z #4 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8633439Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8633560Z #5 [internal] load build context
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8633891Z #5 transferring context: 30.23kB done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8634170Z #5 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8634290Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8634738Z #6 [1/9] FROM docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8635950Z #6 resolve docker.io/library/alpine:3.19@sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8637012Z #6 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 0B / 3.42MB 0.1s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8637817Z #6 sha256:6baf43584bcb78f2e5847d1de515f23499913ac9f12bdf834811a3145eb11ca1 8.08kB / 8.08kB done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8638855Z #6 sha256:b58899f069c47216f6002a6850143dc6fae0d35eb8b0df9300bbe6327b9c2171 1.02kB / 1.02kB done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.8639750Z #6 sha256:83b2b6703a620bf2e001ab57f7adc414d891787b3c59859b1b62909e48dd2242 581B / 581B done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.9982839Z #6 sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 3.42MB / 3.42MB 0.1s done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:44.9984292Z #6 extracting sha256:17a39c0ba978cc27001e9c56a480f98106e1ab74bd56eb302f9fd4cf758ea43f 0.1s done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.1452044Z #6 DONE 0.2s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.1452314Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.1452897Z #7 [2/9] RUN apk add --no-cache       bash       jq       b3sum       coreutils       findutils     && rm -rf /var/cache/apk/*
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.1454070Z #7 0.145 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/main/x86_64/APKINDEX.tar.gz
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.3722935Z #7 0.222 fetch https://dl-cdn.alpinelinux.org/alpine/v3.19/community/x86_64/APKINDEX.tar.gz
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.4551947Z #7 0.455 (1/17) Installing libgcc (13.2.1_git20231014-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.6089023Z #7 0.460 (2/17) Installing b3sum (1.5.0-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.6089663Z #7 0.609 (3/17) Installing ncurses-terminfo-base (6.4_p20231125-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7113475Z #7 0.615 (4/17) Installing libncursesw (6.4_p20231125-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7114049Z #7 0.622 (5/17) Installing readline (8.2.1-r2)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7114469Z #7 0.626 (6/17) Installing bash (5.2.21-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7114993Z #7 0.642 Executing bash-5.2.21-r0.post-install
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7115538Z #7 0.645 (7/17) Installing coreutils-env (9.4-r2)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7116175Z #7 0.649 (8/17) Installing coreutils-fmt (9.4-r2)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7116767Z #7 0.652 (9/17) Installing coreutils-sha512sum (9.4-r2)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7117387Z #7 0.655 (10/17) Installing libacl (2.3.1-r4)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7118000Z #7 0.657 (11/17) Installing libattr (2.5.1-r5)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7118548Z #7 0.659 (12/17) Installing skalibs (2.14.0.1-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7119125Z #7 0.663 (13/17) Installing utmps-libs (0.1.2.2-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7120042Z #7 0.665 (14/17) Installing coreutils (9.4-r2)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7120614Z #7 0.684 (15/17) Installing findutils (4.9.0-r5)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7121160Z #7 0.690 (16/17) Installing oniguruma (6.9.9-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7121963Z #7 0.696 (17/17) Installing jq (1.7.1-r0)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7122448Z #7 0.704 Executing busybox-1.36.1-r20.trigger
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.7122900Z #7 0.711 OK: 13 MiB in 32 packages
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.8305068Z #7 DONE 0.8s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.8308953Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.8309579Z #8 [3/9] WORKDIR /app
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:45.8322246Z #8 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0079078Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0079592Z #9 [4/9] COPY runner.sh           ./runner.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0083739Z #9 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0083929Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0084149Z #10 [5/9] COPY src/integrity.sh    ./src/integrity.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0084661Z #10 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0084839Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0085043Z #11 [6/9] COPY src/lib/report.sh   ./src/lib/report.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0085500Z #11 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0085673Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0085914Z #12 [7/9] RUN chmod +x runner.sh src/integrity.sh src/lib/report.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.0086416Z #12 DONE 0.1s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.1667217Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.1667715Z #13 [8/9] COPY docker/entrypoint.sh /entrypoint.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3195051Z #13 DONE 0.0s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3195284Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3195422Z #14 [9/9] RUN chmod +x /entrypoint.sh
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3195789Z #14 DONE 0.1s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3195938Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3196048Z #15 exporting to image
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:46.3196334Z #15 exporting layers
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0450323Z #15 exporting layers 0.9s done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0843898Z #15 writing image sha256:1039a62b9b03456f11f00690e2734f0e09993c46363d756b0df50cdbd1844f2a done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0844802Z #15 naming to docker.io/library/hash_tool done
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0845246Z #15 DONE 0.9s
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0971163Z ##[group]Run docker run --rm hash_tool version
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.0971778Z [36;1mdocker run --rm hash_tool version[0m
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.1022563Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.1022796Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.2890813Z hash_tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.2905095Z   b3sum : b3sum 1.5.0
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.2917911Z   jq    : jq-1.7.1
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.2918348Z   bash  : 5.2.21(1)-release
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.3669953Z ##[group]Run docker run --rm hash_tool help
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.3670436Z [36;1mdocker run --rm hash_tool help[0m
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.3721021Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.3721269Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5207514Z hash_tool - Vérification d'intégrité BLAKE3
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5208189Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5208628Z Usage :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5210223Z   docker run [--rm] [-v ...] hash_tool <commande> [arguments...]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5210752Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5210876Z Commandes :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5211345Z   compute <dossier> <base.b3>       Calcule les hashes d'un dossier
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5212841Z   verify  <base.b3> [dossier]       Vérifie l'intégrité
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5213457Z   compare <ancienne.b3> <nouvelle.b3>  Compare deux bases
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5214235Z   runner  [pipeline.json]           Exécute un pipeline (défaut : /pipelines/pipeline.json)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5215478Z   shell                             Lance un shell bash interactif (debug)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5216121Z   help                              Affiche cette aide
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5216377Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5216586Z Options globales (à placer avant la commande) :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5217027Z   --quiet                           Supprime la sortie terminal
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5217332Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5217478Z Volumes conventionnels :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5218042Z   /data        -> données à hacher        (-v /mes/donnees:/data)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5218591Z   /bases       -> fichiers .b3            (-v /mes/bases:/bases)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5219411Z   /pipelines   -> fichiers pipeline.json  (-v /chemin/pipeline.json:/pipelines/pipeline.json)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5220456Z   /resultats   -> résultats               (-v /mes/resultats:/resultats)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5220940Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5221094Z Variable d'environnement :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5221983Z   RESULTATS_DIR  Dossier de résultats (défaut dans le conteneur : /resultats)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5222605Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5222756Z Exemples :
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5222997Z   # Calculer les hashes de /data, stocker dans /bases
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5223286Z   docker run --rm \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5223586Z     -v /mes/donnees:/data:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5223811Z     -v /mes/bases:/bases \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5224481Z     hash_tool compute /data /bases/hashes_$(date +%Y-%m-%d).b3
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5224742Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5224917Z   # Vérifier depuis le dossier d'origine
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5225307Z   docker run --rm \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5225498Z     -v /mes/donnees:/data:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5225744Z     -v /mes/bases:/bases:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5226133Z     -v /mes/resultats:/resultats \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5226425Z     hash_tool verify /bases/hashes_2024-01-15.b3 /data
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5226733Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5226887Z   # Comparer deux snapshots
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5227259Z   docker run --rm \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5227598Z     -v /mes/bases:/bases:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5228017Z     -v /mes/resultats:/resultats \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5228582Z     hash_tool compare /bases/hashes_2024-01-15.b3 /bases/hashes_2024-02-01.b3
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5229007Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5229108Z   # Pipeline complet depuis un fichier JSON
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5229360Z   docker run --rm \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5229713Z     -v /mes/donnees:/data:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5230039Z     -v /mes/bases:/bases \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5230289Z     -v /mes/resultats:/resultats \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5230835Z     -v /chemin/vers/pipeline.json:/pipelines/pipeline.json:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5231338Z     hash_tool runner
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5231971Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5232136Z   # Mode silencieux (CI/cron)
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5232505Z   docker run --rm \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5232849Z     -v /mes/donnees:/data:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5233248Z     -v /mes/bases:/bases:ro \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5233628Z     -v /mes/resultats:/resultats \
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5233958Z     hash_tool --quiet verify /bases/hashes.b3 /data
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5234647Z 
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5949145Z ##[group]Run docker run --rm hash_tool check-env
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.5949509Z [36;1mdocker run --rm hash_tool check-env[0m
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.6001399Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.6001865Z ##[endgroup]
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.7506581Z ERREUR : commande inconnue : 'check-env'
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.7512231Z Lancer 'docker run hash_tool help' pour la liste des commandes.
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.8223700Z ##[error]Process completed with exit code 1.
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.8336553Z Post job cleanup.
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9288413Z [command]/usr/bin/git version
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9324911Z git version 2.53.0
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9369002Z Temporarily overriding HOME='/home/runner/work/_temp/a38635f3-4dab-4abf-835c-00ebde046f67' before making global git config changes
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9370381Z Adding repository directory to the temporary git global config as a safe directory
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9383242Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/hash-tool/hash-tool
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9419446Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9455325Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9696851Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9717953Z http.https://github.com/.extraheader
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9730356Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9761993Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:47.9994037Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:48.0026595Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Docker build & smoke tests	UNKNOWN STEP	2026-02-27T14:56:48.0379633Z Cleaning up orphan processes
