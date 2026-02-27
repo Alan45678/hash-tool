@@ -182,10 +182,13 @@
 
 
 
-
 #!/usr/bin/env bash
+# src/lib/ui.sh - Logique d'interface : affichage terminal, ETA, progression
 
-# Initialisation sécurisée de la sortie
+# == Primitives de communication ================================================
+
+# Initialisation de la sortie terminal sécurisée
+# On utilise stdout par défaut en CI pour éviter les erreurs de périphérique
 if [ -t 1 ] && [ -c /dev/tty ] && [ -w /dev/tty ]; then
   _TTY_OUT=/dev/tty
 else
@@ -201,9 +204,17 @@ say() {
   (( QUIET )) || echo "$@"
 }
 
+# == Progression et ETA =========================================================
+
 ui_progress_callback() {
   (( QUIET )) && return 0
-  local i="$1" total_files="$2" bytes_done="$3" total_bytes="$4" eta_seconds="$5"
+
+  local i="$1"
+  local total_files="$2"
+  local bytes_done="$3"
+  local total_bytes="$4"
+  local eta_seconds="$5"
+
   local prefix=""
   [ "$_TTY_OUT" = "/dev/tty" ] && prefix="\r"
 
@@ -215,6 +226,7 @@ ui_progress_callback() {
       "$i" "$total_files" > "$_TTY_OUT"
   fi
   
+  # Flush périodique en CI pour voir l'avancement dans les logs GitHub
   if [ "$_TTY_OUT" = "/dev/stdout" ] && (( i % 50 == 0 )); then
     echo "" > "$_TTY_OUT"
   fi
@@ -229,15 +241,26 @@ ui_progress_clear() {
   fi
 }
 
+# == Affichage des résultats de vérification ====================================
+
 ui_show_verify_result() {
-  local statut="$1" nb_ok="$2" nb_fail="$3" lines_fail="$4" lines_err="$5" outdir="$6"
+  local statut="$1"
+  local nb_ok="$2"
+  local nb_fail="$3"
+  local lines_fail="$4"
+  local lines_err="$5"
+  local outdir="$6"
 
   if [ "$statut" = "OK" ]; then
     say "Vérification OK - $nb_ok fichiers intègres."
   else
     say ""
     say "████████████████████████████████████████"
-    [ "$statut" = "ERREUR" ] && say "  ERREUR lors de la vérification" || say "  ECHEC : $nb_fail fichier(s) corrompu(s) ou manquant(s)"
+    if [ "$statut" = "ERREUR" ]; then
+      say "  ERREUR lors de la vérification"
+    else
+      say "  ECHEC : $nb_fail fichier(s) corrompu(s) ou manquant(s)"
+    fi
     say "████████████████████████████████████████"
     say ""
     [ -n "$lines_fail" ] && say "$lines_fail"
@@ -247,18 +270,30 @@ ui_show_verify_result() {
 
   say "Résultats dans : $outdir"
   say "  recap.txt"
-  # Correction ici : on utilise un if classique pour éviter les codes de retour erronés
+  
+  # Utilisation d'un bloc if au lieu de && pour éviter de retourner un code 1 au shell
   if (( nb_fail > 0 )) || [ -n "$lines_err" ]; then
     say "  failed.txt"
   fi
 }
 
+# == Affichage des résultats de comparaison =====================================
+
 ui_show_compare_result() {
-  local nb_mod="$1" nb_dis="$2" nb_nou="$3" outdir="$4"
+  local nb_mod="$1"
+  local nb_dis="$2"
+  local nb_nou="$3"
+  local outdir="$4"
+
   say "Résultats enregistrés dans : $outdir"
   say "  recap.txt     - modifiés: $nb_mod, disparus: $nb_dis, nouveaux: $nb_nou"
-  say "  modifies.b3   - $nb_mod fichiers"
-  say "  disparus.txt  - $nb_dis fichiers"
-  say "  nouveaux.txt  - $nb_nou fichiers"
+  
+  # On n'affiche les fichiers de détails que s'ils sont pertinents
+  # Cela évite que les tests s'attendent à voir des fichiers qui n'existent pas sur le disque
+  if (( nb_mod > 0 )); then say "  modifies.b3   - $nb_mod fichiers"; fi
+  if (( nb_dis > 0 )); then say "  disparus.txt  - $nb_dis fichiers"; fi
+  if (( nb_nou > 0 )); then say "  nouveaux.txt  - $nb_nou fichiers"; fi
+  
+  # Le rapport HTML est normalement toujours produit par core_compare
   say "  report.html   - rapport visuel"
 }
