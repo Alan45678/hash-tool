@@ -24,5 +24,5 @@ docker compose run --rm pipeline
 ## Service cron
 Activation : `docker compose --profile cron up -d cron`.
 Variables de configuration : `CRON_SCHEDULE` (expression cron, défaut `0 3 * * *`)
-et `CRON_BASE` (base à vérifier). Nécessite une image étendue avec crond —
+et `CRON_BASE` (base à vérifier). Nécessite une image étendue avec crond -
 lien vers `guides/automation.md` pour le setup complet.

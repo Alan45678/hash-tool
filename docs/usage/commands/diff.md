@@ -8,7 +8,7 @@ hash-tool diff -base <fichier.b3> [-data <dossier>]
 (défaut : répertoire courant).
 
 ## Comportement
-Comparaison des chemins de fichiers uniquement — les hashes ne sont pas
+Comparaison des chemins de fichiers uniquement - les hashes ne sont pas
 recalculés. Détecte : fichiers disparus (présents dans la base, absents
 sur disque) et nouveaux fichiers non indexés (présents sur disque, absents
 de la base). Rapide car aucun calcul cryptographique.

@@ -8,7 +8,7 @@ Debian/Ubuntu, macOS).
 
 ## Dépendances Docker
 Docker Engine version minimale requise. Commande de vérification (`docker --version`).
-L'image `hash_tool` doit être buildée localement — elle n'est pas publiée sur
+L'image `hash_tool` doit être buildée localement - elle n'est pas publiée sur
 Docker Hub. Lien vers `docker/setup.md`.
 
 ## Compatibilité OS

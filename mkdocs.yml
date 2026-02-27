@@ -79,9 +79,9 @@ nav:
 
   - Tutoriels:
     - Vue d'ensemble: tutorials/index.md
-    - "T1 — Premier audit": tutorials/01-premier-audit.md
-    - "T2 — Vérifier une migration": tutorials/02-migration.md
-    - "T3 — Automatiser avec un pipeline": tutorials/03-automatisation.md
+    - "T1 - Premier audit": tutorials/01-premier-audit.md
+    - "T2 - Vérifier une migration": tutorials/02-migration.md
+    - "T3 - Automatiser avec un pipeline": tutorials/03-automatisation.md
 
   - Utilisation:
     - Interface CLI: usage/cli.md

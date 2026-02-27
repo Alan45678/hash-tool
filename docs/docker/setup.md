@@ -8,7 +8,7 @@ Taille de l'image produite : ~15 Mo (base Alpine 3.19).
 
 ## Dépendances installées
 Liste des packages Alpine installés : bash, jq, b3sum (depuis community),
-coreutils, findutils. Aucun binaire téléchargé depuis GitHub — tout depuis
+coreutils, findutils. Aucun binaire téléchargé depuis GitHub - tout depuis
 `apk`. Justification de ce choix (fiabilité, reproductibilité).
 
 ## Entrypoint

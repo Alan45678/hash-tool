@@ -1,4 +1,4 @@
-# Troubleshooting — Installation
+# Troubleshooting - Installation
 
 ## `b3sum` introuvable en natif
 **Symptôme** : `check-env` retourne `[KO] b3sum introuvable`.
@@ -12,7 +12,7 @@
 
 ## `bash` version insuffisante (< 4)
 **Symptôme** : erreurs de syntaxe bash au lancement, `check-env` signale la version.
-**Cause fréquente** : macOS — bash système = 3.x (Apple distribue bash 3.2 pour
+**Cause fréquente** : macOS - bash système = 3.x (Apple distribue bash 3.2 pour
 des raisons de licence GPLv2).
 **Diagnostic** : `bash --version`
 **Solution** : `brew install bash`, puis utiliser `/opt/homebrew/bin/bash`.
@@ -27,6 +27,6 @@ FAT32/NTFS (ignorent les bits de permission Unix).
 
 ## Image Docker absente
 **Symptôme** : `[--] Image Docker 'hash_tool' absente` dans `check-env`.
-**Cause** : image non buildée — elle n'est pas publiée sur Docker Hub.
+**Cause** : image non buildée - elle n'est pas publiée sur Docker Hub.
 **Solution** : `docker build -t hash_tool .` depuis la racine du dépôt.
 Erreur fréquente : lancer le build depuis un sous-dossier (Dockerfile introuvable).

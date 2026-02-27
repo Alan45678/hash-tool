@@ -10,7 +10,7 @@ Les chemins sont relatifs au répertoire de travail au moment du `compute`.
 Convention de préfixe `./` ou préfixe de sous-dossier selon la commande
 utilisée. Impact direct sur `verify` : le répertoire de travail au moment
 du `verify` doit être cohérent avec celui du `compute`. C'est la source
-d'erreur la plus fréquente — lien vers `troubleshooting/execution.md`.
+d'erreur la plus fréquente - lien vers `troubleshooting/execution.md`.
 
 ## `.gitignore` et `.dockerignore`
 Ce qui est exclu et pourquoi :

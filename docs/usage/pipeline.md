@@ -4,7 +4,7 @@
 Schéma JSON complet : objet racine `pipeline` contenant un tableau d'opérations.
 Champs obligatoires par type d'opération. Champs optionnels (`options`, `meta`,
 `description`). Deux formats coexistants : champ `op` (format historique)
-vs champ `type` (format amélioré) — ne pas mélanger dans un même fichier.
+vs champ `type` (format amélioré) - ne pas mélanger dans un même fichier.
 
 ## Opérations supportées
 Description de chaque opération avec ses champs spécifiques :

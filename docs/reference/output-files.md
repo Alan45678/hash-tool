@@ -9,7 +9,7 @@ brut, lisible par un script. Toujours produit, même si tout est OK.
 
 ## `modifies.b3`
 Fichiers présents dans les deux bases avec un hash différent. Format identique
-au `.b3` standard — peut être relu par b3sum. Contient les deux lignes
+au `.b3` standard - peut être relu par b3sum. Contient les deux lignes
 (ancienne et nouvelle) pour chaque fichier modifié, permettant de voir les
 deux hashes. Absent ou vide si aucun fichier modifié.
 

@@ -1,4 +1,4 @@
-# Guide — Automatisation et planification
+# Guide - Automatisation et planification
 
 ## Vérification planifiée en cron Linux
 Exemple de crontab pour lancer `hash-tool verify` chaque nuit à 3h.
@@ -12,7 +12,7 @@ sortie non-zéro pour envoyer une alerte (mail, notification).
 Activation du profil `cron` dans `docker-compose.yml` :
 `docker compose --profile cron up -d cron`. Configuration via variables
 d'environnement `CRON_SCHEDULE` et `CRON_BASE`. Note : le service `cron`
-utilise l'image standard — crond doit être ajouté (Dockerfile étendu
+utilise l'image standard - crond doit être ajouté (Dockerfile étendu
 ou image dérivée). Instructions de build de l'image étendue.
 
 ## Intégration CI/CD

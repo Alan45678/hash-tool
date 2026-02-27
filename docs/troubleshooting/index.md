@@ -19,6 +19,6 @@ Convention utilisée dans toutes les pages : **Symptôme** -> **Cause probable**
 
 ## Diagnostic de premier niveau
 Commandes à lancer systématiquement avant d'ouvrir une issue :
-1. `hash-tool version` — confirme que le script est accessible et exécutable
-2. `hash-tool check-env` — état de toutes les dépendances
-3. `head -3 <fichier.b3>` — inspecte le préfixe des chemins dans la base
+1. `hash-tool version` - confirme que le script est accessible et exécutable
+2. `hash-tool check-env` - état de toutes les dépendances
+3. `head -3 <fichier.b3>` - inspecte le préfixe des chemins dans la base

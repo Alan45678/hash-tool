@@ -1,8 +1,8 @@
-# Troubleshooting — Docker
+# Troubleshooting - Docker
 
 ## Volumes montés mais fichiers non trouvés dans le conteneur
 **Symptôme** : `compute` ou `verify` retourne "dossier introuvable".
-**Cause** : chemin hôte relatif passé à `-v` — Docker exige des chemins absolus.
+**Cause** : chemin hôte relatif passé à `-v` - Docker exige des chemins absolus.
 **Diagnostic** : `docker run --rm -v <chemin>:/data hash_tool shell` puis `ls /data`.
 **Solution** : `docker run -v $(pwd)/mon_dossier:/data ...` ou chemin absolu explicite.
 
@@ -16,12 +16,12 @@ dossier hôte (moins recommandé).
 ## `/data` monté en `:ro` mais `compute` échoue à écrire la base
 **Symptôme** : `Permission denied` sur l'écriture du `.b3`.
 **Cause** : tentative d'écrire la base dans `/data` monté en lecture seule.
-**Solution** : séparer les volumes — données dans `-v .../data:/data:ro`,
+**Solution** : séparer les volumes - données dans `-v .../data:/data:ro`,
 bases dans `-v .../bases:/bases` (lecture/écriture). La base s'écrit dans `/bases`.
 
 ## Fallback Docker non déclenché alors que b3sum est absent
 **Symptôme** : `check-env` signale `EXEC_MODE=none` alors que Docker est installé.
-**Cause** : `_docker_available()` vérifie `docker image inspect hash_tool` —
+**Cause** : `_docker_available()` vérifie `docker image inspect hash_tool` -
 si l'image n'est pas buildée localement, le fallback ne s'active pas.
 **Solution** : `docker build -t hash_tool .`
 

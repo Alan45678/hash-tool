@@ -1,4 +1,4 @@
-# Guide — Volumes VeraCrypt
+# Guide - Volumes VeraCrypt
 
 ## Contexte
 Vérification d'intégrité sur des volumes chiffrés VeraCrypt montés sous

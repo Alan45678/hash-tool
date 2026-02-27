@@ -9,7 +9,7 @@ Tableau des options avec description, obligatoire/optionnel et valeur par défau
 ## Comportement
 Lecture et affichage du sidecar `.meta.json` si présent. Comparaison hash par hash
 entre la base et l'état actuel du dossier. Les chemins dans la base sont utilisés
-tels quels — le répertoire de travail au moment du `verify` doit être cohérent
+tels quels - le répertoire de travail au moment du `verify` doit être cohérent
 avec celui du `compute`. Fichiers de résultats écrits dans `RESULTATS_DIR`.
 
 ## Interprétation des résultats

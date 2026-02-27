@@ -6,9 +6,9 @@ Quatre volumes utilisés par le conteneur :
 `/pipelines` (fichiers `pipeline.json`), `/resultats` (sorties).
 
 ## Règles de montage
-`/data` : monter en lecture seule (`:ro`) — le conteneur ne doit jamais
-modifier les données source. `/bases` : lecture/écriture — les `.b3`
-et sidecars sont écrits ici. `/resultats` : lecture/écriture — résultats
+`/data` : monter en lecture seule (`:ro`) - le conteneur ne doit jamais
+modifier les données source. `/bases` : lecture/écriture - les `.b3`
+et sidecars sont écrits ici. `/resultats` : lecture/écriture - résultats
 `verify` et `compare` écrits ici. `/pipelines` : lecture seule suffisante.
 
 ## Mapping par commande
