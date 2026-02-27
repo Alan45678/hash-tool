@@ -52,10 +52,10 @@ RUN chmod +x /entrypoint.sh
 
 # == Volumes ==================================================================
 #
-# /data       → données à hacher (montage en lecture seule recommandé)
-# /bases      → fichiers .b3 (lecture/écriture)
-# /pipelines  → fichiers pipeline.json
-# /resultats  → résultats compare/verify
+# /data       -> données à hacher (montage en lecture seule recommandé)
+# /bases      -> fichiers .b3 (lecture/écriture)
+# /pipelines  -> fichiers pipeline.json
+# /resultats  -> résultats compare/verify
 #
 VOLUME ["/data", "/bases", "/pipelines", "/resultats"]
 

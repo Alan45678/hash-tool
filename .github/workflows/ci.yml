@@ -114,6 +114,6 @@ jobs:
             -e RESULTATS_DIR=/resultats \
             hash_tool verify /bases/test.b3 /data
 
-      - name: Entrypoint - commande inconnue → exit non-zéro
+      - name: Entrypoint - commande inconnue -> exit non-zéro
         run: |
           docker run --rm hash_tool commande_inexistante && exit 1 || true

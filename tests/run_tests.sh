@@ -169,8 +169,8 @@ run_tests() {
   echo "T10 - Chemin absolu vs relatif"
   find "$WORKDIR/data" -type f -print0 | sort -z | xargs -0 b3sum > base_absolu.b3
   find ./data          -type f -print0 | sort -z | xargs -0 b3sum > base_relatif.b3
-  assert_contains     "base absolue → chemin absolu"   "  /"      "$(head -1 base_absolu.b3)"
-  assert_contains     "base relative → chemin relatif" "\./data/" "$(head -1 base_relatif.b3)"
+  assert_contains     "base absolue -> chemin absolu"   "  /"      "$(head -1 base_absolu.b3)"
+  assert_contains     "base relative -> chemin relatif" "\./data/" "$(head -1 base_relatif.b3)"
   assert_not_contains "bases non interchangeables"     "$(head -1 base_absolu.b3)" "$(head -1 base_relatif.b3)"
   echo ""
 
@@ -256,7 +256,7 @@ run_tests() {
   rm -f "data/<script>.txt" "data/a&b.txt"
   echo ""
 
-  echo "T17 - Compare sans différence → report.html affiche IDENTIQUES"
+  echo "T17 - Compare sans différence -> report.html affiche IDENTIQUES"
   bash "$INTEGRITY" compute ./data base_t17a.b3 >/dev/null 2>&1
   bash "$INTEGRITY" compute ./data base_t17b.b3 >/dev/null 2>&1
   bash "$INTEGRITY" compare base_t17a.b3 base_t17b.b3 >/dev/null 2>&1
@@ -293,7 +293,7 @@ run_tests() {
   local t19_exit=0
   bash "$INTEGRITY" compute ./data base_t19.b3 >/dev/null 2>&1 || t19_exit=$?
   if [ "$t19_exit" -eq 0 ]; then
-    pass "T19 compute avec lien symbolique → exit 0"
+    pass "T19 compute avec lien symbolique -> exit 0"
     # Documente si le lien est suivi ou ignoré
     if grep -q "lien_alpha" base_t19.b3 2>/dev/null; then
       pass "T19 lien symbolique : suivi (inclus dans .b3)"
@@ -301,12 +301,12 @@ run_tests() {
       pass "T19 lien symbolique : ignoré (absent du .b3) - comportement à documenter"
     fi
   else
-    fail "T19 compute avec lien symbolique → exit $t19_exit (plantage)"
+    fail "T19 compute avec lien symbolique -> exit $t19_exit (plantage)"
   fi
   rm -f "data/lien_alpha.txt"
   echo ""
 
-  echo "T20 - verify avec dossier source inexistant → exit 1"
+  echo "T20 - verify avec dossier source inexistant -> exit 1"
   local out_t20; out_t20=$(bash "$INTEGRITY" verify base_t01.b3 /dossier/source/totalement/inexistant 2>&1 || true)
   assert_contains "T20 ERREUR si dossier source inexistant" "ERREUR" "$out_t20"
   # Doit être différent de T14 qui testait un dossier passé comme argument optionnel

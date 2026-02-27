@@ -165,7 +165,7 @@ run_compare_legacy() {
     mkdir -p "$resultats_dir"
     local resultats_abs
     resultats_abs="$(cd "$resultats_dir" && pwd)"
-    echo "    → résultats dans : $resultats_abs"
+    echo "    -> résultats dans : $resultats_abs"
     RESULTATS_DIR="$resultats_abs" "$INTEGRITY" compare "$base_a" "$base_b"
   else
     "$INTEGRITY" compare "$base_a" "$base_b"
@@ -190,8 +190,8 @@ run_compute_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== COMPUTE : $input ==="
-  [ -n "$desc" ] && echo "    → $desc"
-  [ -n "$comment" ] && echo "    → meta: $comment"
+  [ -n "$desc" ] && echo "    -> $desc"
+  [ -n "$comment" ] && echo "    -> meta: $comment"
 
   [ -d "$input" ] || die "Bloc #$((i+1)) compute : dossier source introuvable : $input"
 
@@ -221,7 +221,7 @@ run_compute_extended() {
         comment:    $comment,
         parameters: { directory: $dir, hash_algo: "blake3", nb_files: $nb }
       }' > "${b3_path}.meta.json"
-    echo "    → sidecar : ${b3_path}.meta.json"
+    echo "    -> sidecar : ${b3_path}.meta.json"
   fi
 }
 
@@ -236,7 +236,7 @@ run_verify_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== VERIFY : $input ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
 
   [ -d "$input" ] || die "Bloc #$((i+1)) verify : dossier source introuvable : $input"
   [ -f "$base" ]  || die "Bloc #$((i+1)) verify : base .b3 introuvable : $base"
@@ -263,7 +263,7 @@ run_compare_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== COMPARE : $(basename "$ref_base") vs $(basename "$input") ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
 
   [ -f "$ref_base" ] || die "Bloc #$((i+1)) compare : référence introuvable : $ref_base"
   [ -f "$input" ]    || die "Bloc #$((i+1)) compare : base courante introuvable : $input"
@@ -275,7 +275,7 @@ run_compare_extended() {
     mkdir -p "$output_dir"
     local output_abs
     output_abs="$(cd "$output_dir" && pwd)"
-    echo "    → résultats dans : $output_abs"
+    echo "    -> résultats dans : $output_abs"
     # shellcheck disable=SC2086
     RESULTATS_DIR="$output_abs" "$INTEGRITY" $quiet_flag compare "$ref_base" "$input"
   else
@@ -293,7 +293,7 @@ run_list_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== LIST : $input_dir ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
 
   find "$input_dir" -maxdepth 2 -name "*.b3" -type f | sort | while IFS= read -r f; do
     local nb; nb=$(wc -l < "$f" 2>/dev/null || echo "?")
@@ -310,7 +310,7 @@ run_diff_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== DIFF : $(basename "$input") vs $ref_dir ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
   [ -f "$input" ]  || die "Bloc #$((i+1)) diff : base introuvable : $input"
   [ -d "$ref_dir" ] || die "Bloc #$((i+1)) diff : dossier introuvable : $ref_dir"
 
@@ -340,7 +340,7 @@ run_stats_extended() {
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
 
   echo "=== STATS : $(basename "$input") ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
   [ -f "$input" ] || die "Bloc #$((i+1)) stats : base introuvable : $input"
 
   local nb; nb=$(wc -l < "$input")
@@ -353,7 +353,7 @@ run_checkenv_extended() {
   local desc
   desc=$(jq -r --argjson i "$i" '.pipeline[$i].description // empty' "$CONFIG" 2>/dev/null || true)
   echo "=== CHECK-ENV ==="
-  [ -n "$desc" ] && echo "    → $desc"
+  [ -n "$desc" ] && echo "    -> $desc"
   command -v b3sum &>/dev/null && echo "  b3sum : OK" || echo "  b3sum : KO"
   command -v jq    &>/dev/null && echo "  jq    : OK" || echo "  jq    : KO"
 }

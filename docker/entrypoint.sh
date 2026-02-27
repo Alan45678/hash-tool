@@ -40,10 +40,10 @@ Options globales (à placer avant la commande) :
   --quiet                           Supprime la sortie terminal
 
 Volumes conventionnels :
-  /data        → données à hacher        (-v /mes/donnees:/data)
-  /bases       → fichiers .b3            (-v /mes/bases:/bases)
-  /pipelines   → fichiers pipeline.json  (-v /chemin/pipeline.json:/pipelines/pipeline.json)
-  /resultats   → résultats               (-v /mes/resultats:/resultats)
+  /data        -> données à hacher        (-v /mes/donnees:/data)
+  /bases       -> fichiers .b3            (-v /mes/bases:/bases)
+  /pipelines   -> fichiers pipeline.json  (-v /chemin/pipeline.json:/pipelines/pipeline.json)
+  /resultats   -> résultats               (-v /mes/resultats:/resultats)
 
 Variable d'environnement :
   RESULTATS_DIR  Dossier de résultats (défaut dans le conteneur : /resultats)

@@ -153,7 +153,7 @@ EOF
     echo ""
 
     # == TP06 : compute - source absente ======================================
-    echo "TP06 - Compute : source absente → erreur"
+    echo "TP06 - Compute : source absente -> erreur"
     local cfg_absent
     cfg_absent=$(write_config <<EOF
 {
@@ -195,7 +195,7 @@ EOF
     echo ""
 
     # == TP09 : verify - base absente =========================================
-    echo "TP09 - Verify : base .b3 absente → erreur"
+    echo "TP09 - Verify : base .b3 absente -> erreur"
     local cfg_verify_bad
     cfg_verify_bad=$(write_config <<EOF
 {
@@ -273,7 +273,7 @@ EOF
     echo ""
 
     # == TP11 : compare - base_a absente ======================================
-    echo "TP11 - Compare : base_a absente → erreur"
+    echo "TP11 - Compare : base_a absente -> erreur"
     local cfg_compare_bad
     cfg_compare_bad=$(write_config <<EOF
 {

@@ -112,40 +112,40 @@ echo "========================================"
 echo "  T_CORE01 - core_assert_b3_valid"
 echo "========================================"
 
-# CU01 : fichier absent → exit 1
-assert_exit_nonzero "CU01 fichier absent → exit 1" \
+# CU01 : fichier absent -> exit 1
+assert_exit_nonzero "CU01 fichier absent -> exit 1" \
   _run_core core_assert_b3_valid "/tmp/inexistant_$$.b3"
 
-# CU02 : répertoire passé → exit 1
-assert_exit_nonzero "CU02 répertoire au lieu de fichier → exit 1" \
+# CU02 : répertoire passé -> exit 1
+assert_exit_nonzero "CU02 répertoire au lieu de fichier -> exit 1" \
   _run_core core_assert_b3_valid "$WORKDIR"
 
-# CU03 : fichier vide → exit 1
+# CU03 : fichier vide -> exit 1
 _cu03="$WORKDIR/vide.b3"; touch "$_cu03"
-assert_exit_nonzero "CU03 fichier vide → exit 1" \
+assert_exit_nonzero "CU03 fichier vide -> exit 1" \
   _run_core core_assert_b3_valid "$_cu03"
 
-# CU04 : format invalide (ligne sans hash) → exit 1
+# CU04 : format invalide (ligne sans hash) -> exit 1
 _cu04="$WORKDIR/bad_format.b3"; echo "ligne_sans_format_b3sum" > "$_cu04"
-assert_exit_nonzero "CU04 format invalide → exit 1" \
+assert_exit_nonzero "CU04 format invalide -> exit 1" \
   _run_core core_assert_b3_valid "$_cu04"
 
-# CU05 : une seule ligne valide → exit 0
+# CU05 : une seule ligne valide -> exit 0
 _cu05="$WORKDIR/valid_single.b3"
 printf '%064d  ./fichier.txt\n' 0 > "$_cu05"
-assert_exit_zero "CU05 une ligne valide → exit 0" \
+assert_exit_zero "CU05 une ligne valide -> exit 0" \
   _run_core core_assert_b3_valid "$_cu05"
 
-# CU06 : plusieurs lignes toutes valides → exit 0
+# CU06 : plusieurs lignes toutes valides -> exit 0
 _cu06="$WORKDIR/valid_multi.b3"
 { printf '%064d  ./alpha.txt\n' 0; printf '%064d  ./beta.txt\n' 1; } > "$_cu06"
-assert_exit_zero "CU06 plusieurs lignes valides → exit 0" \
+assert_exit_zero "CU06 plusieurs lignes valides -> exit 0" \
   _run_core core_assert_b3_valid "$_cu06"
 
-# CU07 : lignes mixtes valides/invalides → exit 1
+# CU07 : lignes mixtes valides/invalides -> exit 1
 _cu07="$WORKDIR/mixed.b3"
 { printf '%064d  ./alpha.txt\n' 0; echo "ligne_invalide"; } > "$_cu07"
-assert_exit_nonzero "CU07 lignes mixtes → exit 1" \
+assert_exit_nonzero "CU07 lignes mixtes -> exit 1" \
   _run_core core_assert_b3_valid "$_cu07"
 
 # CU08 : label personnalisé transmis au message d'erreur
@@ -155,19 +155,19 @@ assert_contains "CU08 label personnalisé dans message d'erreur" "MON_LABEL" "$_
 # CU09 : hash avec lettres minuscules (format b3sum réel)
 _cu09="$WORKDIR/real_hash.b3"
 printf 'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890  ./x.txt\n' > "$_cu09"
-assert_exit_zero "CU09 hash lettres minuscules réel → exit 0" \
+assert_exit_zero "CU09 hash lettres minuscules réel -> exit 0" \
   _run_core core_assert_b3_valid "$_cu09"
 
-# CU10 : chemin avec espace dans la ligne valide → exit 0
+# CU10 : chemin avec espace dans la ligne valide -> exit 0
 _cu10="$WORKDIR/space_path.b3"
 printf '%064d  ./fichier avec espace.txt\n' 0 > "$_cu10"
-assert_exit_zero "CU10 chemin avec espace → exit 0" \
+assert_exit_zero "CU10 chemin avec espace -> exit 0" \
   _run_core core_assert_b3_valid "$_cu10"
 
-# CU11 : chemin avec caractères spéciaux HTML → exit 0
+# CU11 : chemin avec caractères spéciaux HTML -> exit 0
 _cu11="$WORKDIR/html_chars.b3"
 printf '%064d  ./<script>.txt\n' 0 > "$_cu11"
-assert_exit_zero "CU11 chemin avec <> → exit 0" \
+assert_exit_zero "CU11 chemin avec <> -> exit 0" \
   _run_core core_assert_b3_valid "$_cu11"
 
 # == T_CORE02 - core_assert_target_valid =========================================
@@ -177,35 +177,35 @@ echo "========================================"
 echo "  T_CORE02 - core_assert_target_valid"
 echo "========================================"
 
-# CU12 : chemin inexistant → exit 1
-assert_exit_nonzero "CU12 chemin inexistant → exit 1" \
+# CU12 : chemin inexistant -> exit 1
+assert_exit_nonzero "CU12 chemin inexistant -> exit 1" \
   _run_core core_assert_target_valid "/chemin/totalement/inexistant_$$"
 
-# CU13 : fichier régulier passé (pas un dossier) → exit 1
+# CU13 : fichier régulier passé (pas un dossier) -> exit 1
 _cu13_f="$WORKDIR/un_fichier.txt"; touch "$_cu13_f"
-assert_exit_nonzero "CU13 fichier régulier (pas dossier) → exit 1" \
+assert_exit_nonzero "CU13 fichier régulier (pas dossier) -> exit 1" \
   _run_core core_assert_target_valid "$_cu13_f"
 
-# CU14 : dossier vide (aucun fichier) → exit 1
+# CU14 : dossier vide (aucun fichier) -> exit 1
 _cu14_d="$WORKDIR/dossier_vide"; mkdir -p "$_cu14_d"
-assert_exit_nonzero "CU14 dossier vide → exit 1" \
+assert_exit_nonzero "CU14 dossier vide -> exit 1" \
   _run_core core_assert_target_valid "$_cu14_d"
 
-# CU15 : dossier avec un fichier → exit 0
+# CU15 : dossier avec un fichier -> exit 0
 _cu15_d="$WORKDIR/dossier_un_fichier"; mkdir -p "$_cu15_d"
 echo "contenu" > "$_cu15_d/f.txt"
-assert_exit_zero "CU15 dossier avec fichier → exit 0" \
+assert_exit_zero "CU15 dossier avec fichier -> exit 0" \
   _run_core core_assert_target_valid "$_cu15_d"
 
-# CU16 : dossier avec sous-dossiers uniquement (pas de fichiers réguliers) → exit 1
+# CU16 : dossier avec sous-dossiers uniquement (pas de fichiers réguliers) -> exit 1
 _cu16_d="$WORKDIR/dossier_sous_dir"; mkdir -p "$_cu16_d/sub"
-assert_exit_nonzero "CU16 dossier sans fichiers réguliers → exit 1" \
+assert_exit_nonzero "CU16 dossier sans fichiers réguliers -> exit 1" \
   _run_core core_assert_target_valid "$_cu16_d"
 
-# CU17 : dossier avec fichiers dans sous-dossiers → exit 0
+# CU17 : dossier avec fichiers dans sous-dossiers -> exit 0
 _cu17_d="$WORKDIR/dossier_sub_files"; mkdir -p "$_cu17_d/sub"
 echo "contenu" > "$_cu17_d/sub/f.txt"
-assert_exit_zero "CU17 dossier avec fichiers dans sous-dossiers → exit 0" \
+assert_exit_zero "CU17 dossier avec fichiers dans sous-dossiers -> exit 0" \
   _run_core core_assert_target_valid "$_cu17_d"
 
 # == T_CORE03 - core_compute =====================================================
@@ -317,13 +317,13 @@ echo "delta"   > "$_cv_dir/delta.txt"
 _cv_b3="$WORKDIR/verify_base.b3"
 ( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
 
-# CU28 : tous les fichiers intègres → exit 0, STATUS=OK
+# CU28 : tous les fichiers intègres -> exit 0, STATUS=OK
 ( cd "$_cv_dir" && core_verify "$_cv_b3" )
 _cu28_exit=$?
 assert_numeric_eq "CU28 exit 0 si tout OK" 0 "$_cu28_exit"
 assert_equals "CU28 STATUS=OK" "OK" "$CORE_VERIFY_STATUS"
 
-# CU29 : un fichier corrompu → exit 1, STATUS=ECHEC
+# CU29 : un fichier corrompu -> exit 1, STATUS=ECHEC
 echo "corrompu" > "$_cv_dir/beta.txt"
 _cu29_exit=0
 ( cd "$_cv_dir" && core_verify "$_cv_b3" ) || _cu29_exit=$?
@@ -345,7 +345,7 @@ echo "alpha" > "$_cv_dir/alpha.txt"
 echo "beta"  > "$_cv_dir/beta.txt"
 ( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
 
-# CU31 : fichier supprimé → exit 1, chemin dans LINES_FAIL
+# CU31 : fichier supprimé -> exit 1, chemin dans LINES_FAIL
 rm "$_cv_dir/gamma.txt"
 _cu31_exit=0
 ( cd "$_cv_dir" && core_verify "$_cv_b3" ) || _cu31_exit=$?
@@ -397,7 +397,7 @@ _run_compare() {
   core_compare "$old_b3" "$new_b3" "$outdir"
 }
 
-# CU36 : bases identiques → tout à 0
+# CU36 : bases identiques -> tout à 0
 _cu36_d="$WORKDIR/cu36"; mkdir -p "$_cu36_d"
 echo "a" > "$_cu36_d/a.txt"; echo "b" > "$_cu36_d/b.txt"
 _cu36_old="$WORKDIR/cu36_old.b3"; _cu36_new="$WORKDIR/cu36_new.b3"
@@ -548,7 +548,7 @@ else
   fail "CU47 fichiers tmp résiduels détectés ($((tmp_after - tmp_before)))"
 fi
 
-# CU48 : outdir absent → comportement défini (mkdir requis par l'appelant)
+# CU48 : outdir absent -> comportement défini (mkdir requis par l'appelant)
 _cu48_nonexist="$WORKDIR/cu48_outdir_nonexist"
 _cu48_exit=0
 core_compare "$_cu36_old" "$_cu36_new" "$_cu48_nonexist" 2>/dev/null || _cu48_exit=$?
@@ -575,7 +575,7 @@ _cu49_result=$(core_make_result_dir "$_cu49_b3" "$_cu_res_root")
 [ -d "$_cu49_result" ] && pass "CU49 dossier créé" || fail "CU49 dossier absent"
 assert_contains "CU49 nom contient 'resultats_hashes'" "resultats_hashes" "$_cu49_result"
 
-# CU50 : anti-collision - dossier existant → suffixe horodaté
+# CU50 : anti-collision - dossier existant -> suffixe horodaté
 # Le dossier résultats_hashes existe déjà depuis CU49
 _cu50_result=$(core_make_result_dir "$_cu49_b3" "$_cu_res_root")
 if [ "$_cu50_result" != "$_cu49_result" ]; then
@@ -585,27 +585,27 @@ else
 fi
 [ -d "$_cu50_result" ] && pass "CU50 nouveau dossier existe" || fail "CU50 nouveau dossier absent"
 
-# CU51 : deux appels successifs → deux dossiers distincts
+# CU51 : deux appels successifs -> deux dossiers distincts
 _cu51_b3="$WORKDIR/autre.b3"; touch "$_cu51_b3"
 _cu51_r1=$(core_make_result_dir "$_cu51_b3" "$_cu_res_root")
 sleep 1
 _cu51_r2=$(core_make_result_dir "$_cu51_b3" "$_cu_res_root")
 if [ "$_cu51_r1" != "$_cu51_r2" ]; then
-  pass "CU51 deux appels → deux dossiers distincts"
+  pass "CU51 deux appels -> deux dossiers distincts"
 else
-  fail "CU51 deux appels → même dossier (collision)"
+  fail "CU51 deux appels -> même dossier (collision)"
 fi
 
 # CU52 : nom sans extension .b3
 _cu52_b3="$WORKDIR/base"; touch "$_cu52_b3"
 _cu52_result=$(core_make_result_dir "$_cu52_b3" "$_cu_res_root")
-assert_contains "CU52 nom sans extension → resultats_base" "resultats_base" "$_cu52_result"
+assert_contains "CU52 nom sans extension -> resultats_base" "resultats_base" "$_cu52_result"
 
-# CU53 : nom avec chemin imbriqué → basename only
+# CU53 : nom avec chemin imbriqué -> basename only
 _cu53_b3="/chemin/vers/hashes.b3"
 # On ne crée pas ce fichier - on teste seulement la logique de nommage
 _cu53_result=$(core_make_result_dir "$_cu53_b3" "$_cu_res_root")
-assert_contains "CU53 chemin imbriqué → resultats_hashes" "resultats_hashes" "$_cu53_result"
+assert_contains "CU53 chemin imbriqué -> resultats_hashes" "resultats_hashes" "$_cu53_result"
 # Ne doit pas contenir le chemin complet
 assert_not_contains "CU53 pas de chemin absolu dans le nom" "/chemin/vers/" "$_cu53_result"
 

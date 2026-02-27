@@ -257,11 +257,11 @@ core_verify() {
 #   CORE_COMPARE_NB_NOU  - entier : nombre de nouveaux fichiers
 #
 # Algorithme :
-#   1. Conversion "<hash>  <chemin>" → "<chemin>\t<hash>" via awk (offset fixe 64+2)
+#   1. Conversion "<hash>  <chemin>" -> "<chemin>\t<hash>" via awk (offset fixe 64+2)
 #      Robuste aux chemins avec espaces : le séparateur est le tab, pas l'espace
 #   2. sort par chemin (clé 1 uniquement)
-#   3. join inner sur le chemin → identifie les modifiés (hashes différents)
-#   4. comm -23 / -13 sur les chemins → disparus et nouveaux
+#   3. join inner sur le chemin -> identifie les modifiés (hashes différents)
+#   4. comm -23 / -13 sur les chemins -> disparus et nouveaux
 #
 # Effets de bord :
 #   - Écrit $3/modifies.b3, $3/disparus.txt, $3/nouveaux.txt

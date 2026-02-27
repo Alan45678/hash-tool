@@ -79,7 +79,7 @@ _require_native_or_die() {
 }
 
 # Argument parser : extrait les options nommées et les positionne dans des variables
-# Usage : _parse_args "$@"  → positionne OPT_* variables
+# Usage : _parse_args "$@"  -> positionne OPT_* variables
 _parse_args() {
   OPT_DATA=""
   OPT_BASE=""
@@ -145,7 +145,7 @@ _sidecar_write() {
   echo "Sidecar : $sidecar_path"
 }
 
-# _sidecar_read <b3_path>  →  affiche le sidecar si présent
+# _sidecar_read <b3_path>  ->  affiche le sidecar si présent
 _sidecar_read() {
   local b3_path="$1"
   local sidecar_path="${b3_path}.meta.json"
@@ -344,7 +344,7 @@ cmd_list() {
       local comment date
       comment=$(jq -r '.comment // empty' "${f}.meta.json" 2>/dev/null || true)
       date=$(jq -r '.date // empty' "${f}.meta.json" 2>/dev/null || true)
-      [ -n "$comment" ] && printf "  %s→ %s (%s)\n" "   " "$comment" "$date"
+      [ -n "$comment" ] && printf "  %s-> %s (%s)\n" "   " "$comment" "$date"
     fi
   done < <(find "$dir" -maxdepth 2 -name "*.b3" -type f -print0 | sort -z)
 
@@ -495,9 +495,9 @@ cmd_check_env() {
   echo "  Mode d'exécution sélectionné : $(_bold "$EXEC_MODE")"
 
   case "$EXEC_MODE" in
-    native) _green "  → Exécution native active" ;;
-    docker) _yellow "  → Exécution Docker active (fallback)" ;;
-    none)   _red    "  → Aucun environnement disponible - impossible d'exécuter" ;;
+    native) _green "  -> Exécution native active" ;;
+    docker) _yellow "  -> Exécution Docker active (fallback)" ;;
+    none)   _red    "  -> Aucun environnement disponible - impossible d'exécuter" ;;
   esac
 }
 
