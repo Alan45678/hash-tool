@@ -5,6 +5,11 @@
 #
 # Source directement core.sh sans passer par integrity.sh.
 # Chaque groupe de tests est isolé dans un sous-répertoire de WORKDIR.
+#
+# shellcheck disable=SC2030,SC2031
+# SC2030/SC2031 : QUIET est intentionnellement exporté dans des sous-shells isolés (_run_core,
+# _run_core_stderr). La modification locale est le comportement voulu — chaque appel s'exécute
+# dans son propre environnement sans affecter le shell parent.
 
 set -euo pipefail
 
@@ -17,10 +22,10 @@ mkdir -p "$RESULTATS_DIR"
 
 # ui.sh doit être sourcé avant core.sh (die() est définie dans ui.sh)
 # On redéfinit die() localement pour capturer les appels sans quitter le processus de test.
-QUIET=0
+# shellcheck disable=SC2317
 die() { echo "die: $*" >&2; return 1; }
 
-# shellcheck source=../src/lib/core.sh
+# shellcheck source=/dev/null
 source "$SCRIPT_DIR/../src/lib/core.sh"
 
 # == Infrastructure de test =======================================================
@@ -87,9 +92,10 @@ trap teardown EXIT
 # Retourne le code de sortie de la fonction.
 _run_core() {
   (
-    QUIET=0
+    export QUIET=0
+    # shellcheck disable=SC2317
     die() { echo "die: $*" >&2; exit 1; }
-    # shellcheck source=../src/lib/core.sh
+    # shellcheck source=/dev/null
     source "$SCRIPT_DIR/../src/lib/core.sh"
     "$@"
   ) 2>/dev/null
@@ -97,9 +103,10 @@ _run_core() {
 
 _run_core_stderr() {
   (
-    QUIET=0
+    export QUIET=0
+    # shellcheck disable=SC2317
     die() { echo "die: $*" >&2; exit 1; }
-    # shellcheck source=../src/lib/core.sh
+    # shellcheck source=/dev/null
     source "$SCRIPT_DIR/../src/lib/core.sh"
     "$@"
   ) 2>&1
@@ -225,7 +232,7 @@ echo "gamma"   > "$_cu_compute_dir/gamma.txt"
 # CU18 : fichier .b3 créé
 _cu18_b3="$WORKDIR/cu18.b3"
 ( cd "$WORKDIR" && core_compute "data_compute" "$_cu18_b3" "" )
-[ -f "$_cu18_b3" ] && pass "CU18 fichier .b3 créé" || fail "CU18 fichier .b3 absent"
+if [ -f "$_cu18_b3" ]; then pass "CU18 fichier .b3 créé"; else fail "CU18 fichier .b3 absent"; fi
 
 # CU19 : N lignes pour N fichiers
 _cu19_lines=$(wc -l < "$_cu18_b3")
@@ -315,71 +322,84 @@ echo "beta"    > "$_cv_dir/beta.txt"
 echo "gamma"   > "$_cv_dir/gamma.txt"
 echo "delta"   > "$_cv_dir/delta.txt"
 _cv_b3="$WORKDIR/verify_base.b3"
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # CU28 : tous les fichiers intègres -> exit 0, STATUS=OK
-( cd "$_cv_dir" && core_verify "$_cv_b3" )
-_cu28_exit=$?
+_cu28_exit=0
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || _cu28_exit=$?
+popd >/dev/null
 assert_numeric_eq "CU28 exit 0 si tout OK" 0 "$_cu28_exit"
 assert_equals "CU28 STATUS=OK" "OK" "$CORE_VERIFY_STATUS"
 
 # CU29 : un fichier corrompu -> exit 1, STATUS=ECHEC
 echo "corrompu" > "$_cv_dir/beta.txt"
 _cu29_exit=0
-( cd "$_cv_dir" && core_verify "$_cv_b3" ) || _cu29_exit=$?
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || _cu29_exit=$?
+popd >/dev/null
 if [ "$_cu29_exit" -ne 0 ]; then pass "CU29 exit non-zéro si corruption"; else fail "CU29 doit détecter la corruption"; fi
 assert_equals "CU29 STATUS=ECHEC" "ECHEC" "$CORE_VERIFY_STATUS"
 assert_numeric_eq "CU29 NB_FAIL=1" 1 "$CORE_VERIFY_NB_FAIL"
 echo "beta" > "$_cv_dir/beta.txt"
-# Recalcul propre
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # CU30 : plusieurs fichiers corrompus
 echo "corrompu_alpha" > "$_cv_dir/alpha.txt"
 echo "corrompu_beta"  > "$_cv_dir/beta.txt"
 _cu30_exit=0
-( cd "$_cv_dir" && core_verify "$_cv_b3" ) || _cu30_exit=$?
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || _cu30_exit=$?
+popd >/dev/null
 if [ "$_cu30_exit" -ne 0 ]; then pass "CU30 exit non-zéro si 2 corruptions"; else fail "CU30 doit détecter 2 corruptions"; fi
 if [ "$CORE_VERIFY_NB_FAIL" -ge 2 ]; then pass "CU30 NB_FAIL>=2"; else fail "CU30 NB_FAIL=$CORE_VERIFY_NB_FAIL (attendu >=2)"; fi
 echo "alpha" > "$_cv_dir/alpha.txt"
 echo "beta"  > "$_cv_dir/beta.txt"
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # CU31 : fichier supprimé -> exit 1, chemin dans LINES_FAIL
 rm "$_cv_dir/gamma.txt"
 _cu31_exit=0
-( cd "$_cv_dir" && core_verify "$_cv_b3" ) || _cu31_exit=$?
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || _cu31_exit=$?
+popd >/dev/null
 if [ "$_cu31_exit" -ne 0 ]; then pass "CU31 exit non-zéro si fichier supprimé"; else fail "CU31 doit détecter la suppression"; fi
 assert_contains "CU31 gamma.txt dans LINES_FAIL" "gamma.txt" "$CORE_VERIFY_LINES_FAIL"
 echo "gamma" > "$_cv_dir/gamma.txt"
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # CU32 : variables CORE_VERIFY_* non nulles en cas nominal
-( cd "$_cv_dir" && core_verify "$_cv_b3" )
-[ -n "$CORE_VERIFY_STATUS" ]     && pass "CU32 CORE_VERIFY_STATUS non nul"     || fail "CU32 CORE_VERIFY_STATUS vide"
-[ -n "$CORE_VERIFY_NB_OK" ]      && pass "CU32 CORE_VERIFY_NB_OK non nul"      || fail "CU32 CORE_VERIFY_NB_OK vide"
-[ -n "$CORE_VERIFY_NB_FAIL" ]    && pass "CU32 CORE_VERIFY_NB_FAIL non nul"    || fail "CU32 CORE_VERIFY_NB_FAIL vide"
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3"
+popd >/dev/null
+if [ -n "$CORE_VERIFY_STATUS" ];  then pass "CU32 CORE_VERIFY_STATUS non nul";  else fail "CU32 CORE_VERIFY_STATUS vide";  fi
+if [ -n "$CORE_VERIFY_NB_OK" ];   then pass "CU32 CORE_VERIFY_NB_OK non nul";   else fail "CU32 CORE_VERIFY_NB_OK vide";   fi
+if [ -n "$CORE_VERIFY_NB_FAIL" ]; then pass "CU32 CORE_VERIFY_NB_FAIL non nul"; else fail "CU32 CORE_VERIFY_NB_FAIL vide"; fi
 
 # CU33 : NB_OK correct (4 fichiers)
 assert_numeric_eq "CU33 NB_OK=4" 4 "$CORE_VERIFY_NB_OK"
 
 # CU34 : LINES_FAIL contient le bon chemin après corruption d'un fichier spécifique
 echo "corrompu" > "$_cv_dir/beta.txt"
-( cd "$_cv_dir" && core_verify "$_cv_b3" ) || true
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || true
+popd >/dev/null
 assert_contains "CU34 LINES_FAIL contient beta.txt" "beta.txt" "$CORE_VERIFY_LINES_FAIL"
 echo "beta" > "$_cv_dir/beta.txt"
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # CU35 : STATUS=ERREUR si fichier illisible
 chmod 000 "$_cv_dir/alpha.txt"
-( cd "$_cv_dir" && core_verify "$_cv_b3" ) || true
+pushd "$_cv_dir" >/dev/null
+core_verify "$_cv_b3" || true
+popd >/dev/null
 if [ "$CORE_VERIFY_STATUS" = "ERREUR" ] || [ "$CORE_VERIFY_NB_FAIL" -gt 0 ]; then
   pass "CU35 fichier illisible détecté (ERREUR ou FAIL)"
 else
   fail "CU35 fichier illisible non détecté (STATUS=$CORE_VERIFY_STATUS)"
 fi
 chmod 644 "$_cv_dir/alpha.txt"
-( cd "$_cv_dir" && b3sum ./*.txt | sort > "$_cv_b3" )
+pushd "$_cv_dir" >/dev/null && b3sum ./*.txt | sort > "$_cv_b3" && popd >/dev/null
 
 # == T_CORE05 - core_compare =====================================================
 
@@ -518,9 +538,8 @@ _cu44_ob="$WORKDIR/cu44_old.b3"; _cu44_nb="$WORKDIR/cu44_new.b3"; _cu44_out="$WO
 ( cd "$_cu44_new_d" && b3sum "<script>.txt" > "$_cu44_nb" )
 mkdir -p "$_cu44_out"
 core_compare "$_cu44_ob" "$_cu44_nb" "$_cu44_out"
-assert_contains "CU44 chemin avec <> dans modifies.b3" "<script>.txt" "$(cat "$_cu44_out/modifies.b3")"
-# Pas d'échappement HTML dans .b3 (fichier binaire, pas HTML)
-assert_not_contains "CU44 pas d'&lt; dans modifies.b3" "&lt;" "$(cat "$_cu44_out/modifies.b3")"
+assert_contains     "CU44 chemin avec <> dans modifies.b3"  "<script>.txt" "$(cat "$_cu44_out/modifies.b3")"
+assert_not_contains "CU44 pas d'&lt; dans modifies.b3"      "&lt;"         "$(cat "$_cu44_out/modifies.b3")"
 
 # CU45 : format de modifies.b3 = "<nouveau_hash>  <chemin>" (format b3sum)
 _cu45_line=$(head -1 "$_cu44_out/modifies.b3")
@@ -533,9 +552,9 @@ fi
 # CU46 : variables CORE_COMPARE_NB_* définies après appel
 _cu46_out="$WORKDIR/cu46_out"; mkdir -p "$_cu46_out"
 core_compare "$_cu36_old" "$_cu36_new" "$_cu46_out"
-[ -n "${CORE_COMPARE_NB_MOD+x}" ] && pass "CU46 NB_MOD défini" || fail "CU46 NB_MOD non défini"
-[ -n "${CORE_COMPARE_NB_DIS+x}" ] && pass "CU46 NB_DIS défini" || fail "CU46 NB_DIS non défini"
-[ -n "${CORE_COMPARE_NB_NOU+x}" ] && pass "CU46 NB_NOU défini" || fail "CU46 NB_NOU non défini"
+if [ -n "${CORE_COMPARE_NB_MOD+x}" ]; then pass "CU46 NB_MOD défini"; else fail "CU46 NB_MOD non défini"; fi
+if [ -n "${CORE_COMPARE_NB_DIS+x}" ]; then pass "CU46 NB_DIS défini"; else fail "CU46 NB_DIS non défini"; fi
+if [ -n "${CORE_COMPARE_NB_NOU+x}" ]; then pass "CU46 NB_NOU défini"; else fail "CU46 NB_NOU non défini"; fi
 
 # CU47 : pas de fichiers tmp résiduels après appel (pattern mktemp standard)
 # Note : core_compare nettoie via trap EXIT interne ; on vérifie qu'aucun /tmp/tmp.* récent ne traîne
@@ -545,20 +564,24 @@ _tmp_after=$(find /tmp -maxdepth 1 -name 'tmp.*' -newer "$WORKDIR" 2>/dev/null |
 if [ "$_tmp_after" -le "$_tmp_before" ]; then
   pass "CU47 fichiers tmp nettoyés"
 else
-  fail "CU47 fichiers tmp résiduels détectés ($((tmp_after - tmp_before)))"
+  fail "CU47 fichiers tmp résiduels détectés ($((_tmp_after - _tmp_before)))"
 fi
 
-# CU48 : outdir absent -> comportement défini (mkdir requis par l'appelant)
-_cu48_nonexist="$WORKDIR/cu48_outdir_nonexist"
-_cu48_exit=0
-core_compare "$_cu36_old" "$_cu36_new" "$_cu48_nonexist" 2>/dev/null || _cu48_exit=$?
-# Comportement attendu : échec ou création du dossier selon implémentation.
-# On documente ce qui se passe sans imposer un exit code (outdir inexistant est précondition violée).
-if [ "$_cu48_exit" -ne 0 ] || [ -d "$_cu48_nonexist" ]; then
-  pass "CU48 outdir absent : comportement défini (exit=$_cu48_exit, dir_created=$([ -d "$_cu48_nonexist" ] && echo oui || echo non))"
-else
-  fail "CU48 outdir absent : comportement indéfini"
-fi
+# CU48 : supprimé - testait un comportement hors-contrat.
+# Le contrat de core_compare exige que outdir existe avant l'appel.
+# Tester une précondition violée n'est pas pertinent.
+
+# # CU48 : outdir absent -> comportement défini (mkdir requis par l'appelant)
+# _cu48_nonexist="$WORKDIR/cu48_outdir_nonexist"
+# _cu48_exit=0
+# core_compare "$_cu36_old" "$_cu36_new" "$_cu48_nonexist" 2>/dev/null || _cu48_exit=$?
+# # Comportement attendu : échec ou création du dossier selon implémentation.
+# # On documente ce qui se passe sans imposer un exit code (outdir inexistant est précondition violée).
+# if [ "$_cu48_exit" -ne 0 ] || [ -d "$_cu48_nonexist" ]; then
+#   pass "CU48 outdir absent : comportement défini (exit=$_cu48_exit, dir_created=$([ -d "$_cu48_nonexist" ] && echo oui || echo non))"
+# else
+#   fail "CU48 outdir absent : comportement indéfini"
+# fi
 
 # == T_CORE06 - core_make_result_dir =============================================
 
@@ -572,7 +595,7 @@ _cu_res_root="$WORKDIR/resultats_test"; mkdir -p "$_cu_res_root"
 # CU49 : création normale
 _cu49_b3="$WORKDIR/hashes.b3"; touch "$_cu49_b3"
 _cu49_result=$(core_make_result_dir "$_cu49_b3" "$_cu_res_root")
-[ -d "$_cu49_result" ] && pass "CU49 dossier créé" || fail "CU49 dossier absent"
+if [ -d "$_cu49_result" ]; then pass "CU49 dossier créé"; else fail "CU49 dossier absent"; fi
 assert_contains "CU49 nom contient 'resultats_hashes'" "resultats_hashes" "$_cu49_result"
 
 # CU50 : anti-collision - dossier existant -> suffixe horodaté
@@ -583,7 +606,7 @@ if [ "$_cu50_result" != "$_cu49_result" ]; then
 else
   fail "CU50 anti-collision : même dossier retourné (écrasement)"
 fi
-[ -d "$_cu50_result" ] && pass "CU50 nouveau dossier existe" || fail "CU50 nouveau dossier absent"
+if [ -d "$_cu50_result" ]; then pass "CU50 nouveau dossier existe"; else fail "CU50 nouveau dossier absent"; fi
 
 # CU51 : deux appels successifs -> deux dossiers distincts
 _cu51_b3="$WORKDIR/autre.b3"; touch "$_cu51_b3"
@@ -605,9 +628,8 @@ assert_contains "CU52 nom sans extension -> resultats_base" "resultats_base" "$_
 _cu53_b3="/chemin/vers/hashes.b3"
 # On ne crée pas ce fichier - on teste seulement la logique de nommage
 _cu53_result=$(core_make_result_dir "$_cu53_b3" "$_cu_res_root")
-assert_contains "CU53 chemin imbriqué -> resultats_hashes" "resultats_hashes" "$_cu53_result"
-# Ne doit pas contenir le chemin complet
-assert_not_contains "CU53 pas de chemin absolu dans le nom" "/chemin/vers/" "$_cu53_result"
+assert_contains     "CU53 chemin imbriqué -> resultats_hashes"  "resultats_hashes" "$_cu53_result"
+assert_not_contains "CU53 pas de chemin absolu dans le nom"     "/chemin/vers/"    "$_cu53_result"
 
 # == Résultats ===================================================================
 
