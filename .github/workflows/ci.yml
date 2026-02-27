@@ -34,6 +34,16 @@ jobs:
           shellcheck --version
           bash --version
 
+
+      - name: Debug T01
+        run: |
+          cd /tmp
+          mkdir -p integrity-debug/data
+          echo "test" > integrity-debug/data/f.txt
+          cd integrity-debug
+          bash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3
+
+
       - name: T00-T20 - integrity.sh (run_tests.sh)
         run: |
           chmod +x tests/run_tests.sh
@@ -117,3 +127,5 @@ jobs:
       - name: Entrypoint - commande inconnue -> exit non-zéro
         run: |
           docker run --rm hash_tool commande_inexistante && exit 1 || true
+
+
