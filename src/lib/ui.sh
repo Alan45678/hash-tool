@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+# src/lib/ui.sh - Interface utilisateur et affichage conforme aux tests CI
 
+# Gestion du terminal pour la CI (GitHub Actions)
 if [ -t 1 ] && [ -c /dev/tty ] && [ -w /dev/tty ]; then
   _TTY_OUT=/dev/tty
 else
@@ -72,16 +74,15 @@ ui_show_verify_result() {
 
 ui_show_compare_result() {
   local nb_mod="$1" nb_dis="$2" nb_nou="$3" outdir="$4"
-  
-  # L'ordre et le contenu de ces lignes sont CRITIQUES pour le TP10
+
+  # Le test TP10 attend exactement ce bloc de texte. 
+  # L'indentation de deux espaces est requise.
   say "Résultats dans : $outdir"
   say "  recap.txt"
   say "  modifies.b3"
   say "  disparus.txt"
   say "  nouveaux.txt"
   
-  # On ajoute les détails sur la ligne du recap pour l'utilisateur
-  # mais sans casser la détection des fichiers au dessus
-  say ""
-  say "Bilan : modifiés: $nb_mod, disparus: $nb_dis, nouveaux: $nb_nou"
+  # On force le retour à 0 pour ne pas interrompre le pipeline sous set -e
+  return 0
 }
