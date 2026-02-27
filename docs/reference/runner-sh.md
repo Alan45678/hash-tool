@@ -1,4 +1,4 @@
-# Référence — `hash-tool runner` & pipeline JSON
+# Référence - `hash-tool runner` & pipeline JSON
 
 Orchestrateur de pipeline pour exécuter plusieurs opérations en séquence.
 
@@ -75,7 +75,7 @@ Le format est détecté automatiquement par la présence de `"op"` (legacy) ou `
 
 ---
 
-## Opérations — Format legacy
+## Opérations - Format legacy
 
 ### `compute`
 
@@ -91,7 +91,7 @@ Le format est détecté automatiquement par la présence de `"op"` (legacy) ou `
 | Champ | Requis | Description |
 |---|---|---|
 | `op` | Oui | `"compute"` |
-| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier — chemins relatifs garantis dans la base. |
+| `source` | Oui | Dossier à indexer. `runner.sh` fait `cd` dans ce dossier - chemins relatifs garantis dans la base. |
 | `bases` | Oui | Dossier de destination pour le fichier `.b3`. Créé automatiquement si inexistant. |
 | `nom` | Oui | Nom du fichier `.b3` à créer dans `bases`. |
 
@@ -131,7 +131,7 @@ Le format est détecté automatiquement par la présence de `"op"` (legacy) ou `
 
 ---
 
-## Opérations — Format étendu
+## Opérations - Format étendu
 
 ### `compute`
 

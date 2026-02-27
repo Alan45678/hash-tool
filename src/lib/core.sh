@@ -153,9 +153,14 @@ core_compute() {
       t_now=$(date +%s)
       elapsed=$(( t_now - t_start ))
       if (( bytes_done > 0 && elapsed > 0 )); then
+        # shellcheck disable=SC2034  # remaining : réservé pour usage futur (affichage temps restant)
         local speed remaining
         speed=$(( bytes_done / elapsed ))
-        (( speed > 0 )) && eta_seconds=$(( (total_bytes - bytes_done) / speed )) || eta_seconds=0
+        if (( speed > 0 )); then
+          eta_seconds=$(( (total_bytes - bytes_done) / speed ))
+        else
+          eta_seconds=0
+        fi
       fi
       "$callback" "$i" "$total_files" "$bytes_done" "$total_bytes" "$eta_seconds"
     fi
@@ -191,28 +196,40 @@ core_verify() {
   local raw exit_code
   raw=$(b3sum --check "$hashfile" 2>&1) && exit_code=0 || exit_code=$?
 
+  # Variables de sortie lues par l'appelant (integrity.sh) - pas des variables locales
+  # shellcheck disable=SC2034
   CORE_VERIFY_RAW="$raw"
+  # shellcheck disable=SC2034
   CORE_VERIFY_LINES_OK=$(echo    "$raw" | grep ': OK$'    || true)
+  # shellcheck disable=SC2034
   CORE_VERIFY_LINES_FAIL=$(echo  "$raw" | grep ': FAILED' || true)
+  # shellcheck disable=SC2034
   CORE_VERIFY_LINES_ERR=$(echo   "$raw" | grep -Ev ': (OK|FAILED)' | grep -v '^$' || true)
 
   if [ -n "$CORE_VERIFY_LINES_OK" ]; then
+    # shellcheck disable=SC2034
     CORE_VERIFY_NB_OK=$(echo "$CORE_VERIFY_LINES_OK" | grep -c '^')
   else
+    # shellcheck disable=SC2034
     CORE_VERIFY_NB_OK=0
   fi
 
   if [ -n "$CORE_VERIFY_LINES_FAIL" ]; then
+    # shellcheck disable=SC2034
     CORE_VERIFY_NB_FAIL=$(echo "$CORE_VERIFY_LINES_FAIL" | grep -c '^')
   else
+    # shellcheck disable=SC2034
     CORE_VERIFY_NB_FAIL=0
   fi
 
   if [ -n "$CORE_VERIFY_LINES_ERR" ]; then
+    # shellcheck disable=SC2034
     CORE_VERIFY_STATUS="ERREUR"
   elif (( CORE_VERIFY_NB_FAIL > 0 )); then
+    # shellcheck disable=SC2034
     CORE_VERIFY_STATUS="ECHEC"
   else
+    # shellcheck disable=SC2034
     CORE_VERIFY_STATUS="OK"
   fi
 
@@ -281,8 +298,12 @@ core_compare() {
   # Nouveaux fichiers : dans new, pas dans old
   comm -13 <(cut -f1 "$tmp_old") <(cut -f1 "$tmp_new") > "${outdir}/nouveaux.txt"
 
+  # Variables de sortie lues par l'appelant (integrity.sh)
+  # shellcheck disable=SC2034
   CORE_COMPARE_NB_MOD=$(wc -l < "${outdir}/modifies.b3")
+  # shellcheck disable=SC2034
   CORE_COMPARE_NB_DIS=$(wc -l < "${outdir}/disparus.txt")
+  # shellcheck disable=SC2034
   CORE_COMPARE_NB_NOU=$(wc -l < "${outdir}/nouveaux.txt")
 
   rm -f "$tmp_old" "$tmp_new"

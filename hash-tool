@@ -497,7 +497,7 @@ cmd_check_env() {
   case "$EXEC_MODE" in
     native) _green "  → Exécution native active" ;;
     docker) _yellow "  → Exécution Docker active (fallback)" ;;
-    none)   _red    "  → Aucun environnement disponible — impossible d'exécuter" ;;
+    none)   _red    "  → Aucun environnement disponible - impossible d'exécuter" ;;
   esac
 }
 
@@ -597,7 +597,7 @@ hash-tool diff -base <fichier.b3> [-data <dossier>]
 
   Affiche les différences entre une base d'empreintes et l'état actuel
   d'un dossier (fichiers disparus, nouveaux fichiers non indexés).
-  Ne recalcule pas les hashes — uniquement comparaison des chemins.
+  Ne recalcule pas les hashes - uniquement comparaison des chemins.
 
   Options :
     -base <fichier.b3>  Base de référence (requis).

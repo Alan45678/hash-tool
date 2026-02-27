@@ -90,23 +90,23 @@ Sortie attendue :
 | 4. Inspecter | `hash-tool diff -base ./bases/hashes_dossier.b3 -data ./dossier` | Contrôle rapide (sans recalcul) |
 | 5. Pipeline | `hash-tool runner -pipeline ./pipelines/pipeline-amelioree.json` | Automatisation multi-étapes |
 
-### Exemple concret — archivage sur disque externe
+### Exemple concret - archivage sur disque externe
 
 ```bash
 # Disque monté sur /mnt/archive
 
-# 1. Première indexation — données saines à J0
+# 1. Première indexation - données saines à J0
 hash-tool compute \
   -data /mnt/archive \
   -save /mnt/c/bases \
   -meta "Snapshot initial archive 2024-01-15"
 
-# 2. Vérification après chaque session — J+30, J+90, etc.
+# 2. Vérification après chaque session - J+30, J+90, etc.
 hash-tool verify \
   -base /mnt/c/bases/hashes_archive.b3 \
   -data /mnt/archive
 
-# 3. Après ajout de fichiers — voir ce qui a changé sans recalculer
+# 3. Après ajout de fichiers - voir ce qui a changé sans recalculer
 hash-tool diff \
   -base /mnt/c/bases/hashes_archive.b3 \
   -data /mnt/archive
@@ -125,7 +125,7 @@ hash-tool compare \
 
 ---
 
-## Sidecar file — métadonnées associées aux bases
+## Sidecar file - métadonnées associées aux bases
 
 Chaque `compute` génère automatiquement un fichier `.meta.json` à côté du `.b3` :
 
@@ -176,11 +176,11 @@ Chaque opération `verify` ou `compare` produit un dossier horodaté dans `~/int
     └── report.html    ← rapport visuel autonome
 ```
 
-Ouvrir `report.html` directement dans un navigateur — aucune connexion requise, aucun serveur.
+Ouvrir `report.html` directement dans un navigateur - aucune connexion requise, aucun serveur.
 
 ---
 
-## Docker — démarrage rapide
+## Docker - démarrage rapide
 
 Si les dépendances ne peuvent pas être installées sur l'hôte, `hash-tool` détecte Docker automatiquement et l'utilise en fallback :
 
