@@ -1,65 +1,129 @@
-Docker build & smoke tests	Smoke test - compute via volume	﻿2026-02-27T20:07:56.5003955Z ##[group]Run mkdir -p /tmp/testdata /tmp/testbases
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5004381Z [36;1mmkdir -p /tmp/testdata /tmp/testbases[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5004717Z [36;1mecho "contenu alpha" > /tmp/testdata/alpha.txt[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005322Z [36;1mecho "contenu beta"  > /tmp/testdata/beta.txt[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005599Z [36;1mdocker run --rm \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5005823Z [36;1m  -v /tmp/testdata:/data:ro \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006076Z [36;1m  -v /tmp/testbases:/bases \[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006358Z [36;1m  hash_tool compute /data /bases/test.b3[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5006734Z [36;1m# Vérifie que le fichier .b3 est produit et non vide[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5007202Z [36;1m[ -s /tmp/testbases/test.b3 ] || (echo "ERREUR : test.b3 vide ou absent" && exit 1)[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5007714Z [36;1mecho "test.b3 produit : $(wc -l < /tmp/testbases/test.b3) ligne(s)"[0m
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5059395Z shell: /usr/bin/bash -e {0}
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.5059630Z ##[endgroup]
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6480919Z grep: unrecognized option: z
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6516545Z BusyBox v1.36.1 (2025-08-05 16:46:20 UTC) multi-call binary.
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6516996Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6517453Z Usage: grep [-HhnlLoqvsrRiwFE] [-m N] [-A|B|C N] { PATTERN | -e PATTERN... | -f FILE... } [FILE]...
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518108Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518265Z Search for PATTERN in FILEs (or stdin)
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518697Z 
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6518889Z 	-H	Add 'filename:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6520017Z 	-h	Do not add 'filename:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6520478Z 	-n	Add 'line_no:' prefix
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6521038Z 	-l	Show only names of files that match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6521559Z 	-L	Show only names of files that don't match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522028Z 	-c	Show only count of matching lines
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522457Z 	-o	Show only the matching part of line
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6522952Z 	-q	Quiet. Return 0 if PATTERN is found, 1 otherwise
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6523982Z 	-v	Select non-matching lines
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6524414Z 	-s	Suppress open and read errors
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6525070Z 	-r	Recurse
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6525490Z 	-R	Recurse and dereference symlinks
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6603967Z 	-i	Ignore case
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6604334Z 	-w	Match whole words only
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6605223Z 	-x	Match whole lines only
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6605985Z 	-F	PATTERN is a literal (not regexp)
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6606801Z 	-E	PATTERN is an extended regexp
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6609327Z 	-m N	Match up to N times per file
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6609757Z 	-A N	Print N lines of trailing context
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6610265Z 	-B N	Print N lines of leading context
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6610699Z 	-C N	Same as '-A N -B N'
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6611053Z 	-e PTRN	Pattern to match
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6611406Z 	-f FILE	Read pattern from file
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.6612407Z ERREUR : Le dossier /data ne contient aucun fichier régulier - rien à hacher.
-Docker build & smoke tests	Smoke test - compute via volume	2026-02-27T20:07:56.7181894Z ##[error]Process completed with exit code 1.
-Tests (ubuntu-22.04)	Debug T01	﻿2026-02-27T20:08:15.4824131Z ##[group]Run cd /tmp
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4824586Z [36;1mcd /tmp[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4824815Z [36;1mmkdir -p integrity-debug/data[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825089Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825367Z [36;1mcd integrity-debug[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4825746Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4850233Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.4850510Z ##[endgroup]
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.5052962Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
-Tests (ubuntu-22.04)	Debug T01	2026-02-27T20:08:15.5069672Z ##[error]Process completed with exit code 1.
-Tests (ubuntu-24.04)	Debug T01	﻿2026-02-27T20:08:01.9610636Z ##[group]Run cd /tmp
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9610934Z [36;1mcd /tmp[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611146Z [36;1mmkdir -p integrity-debug/data[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611427Z [36;1mecho "test" > integrity-debug/data/f.txt[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9611703Z [36;1mcd integrity-debug[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9612100Z [36;1mbash /home/runner/work/hash-tool/hash-tool/src/integrity.sh compute ./data base.b3[0m
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9664235Z shell: /usr/bin/bash -e {0}
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9664544Z ##[endgroup]
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9951572Z /home/runner/work/hash-tool/hash-tool/src/lib/ui.sh: line 91: /dev/tty: No such device or address
-Tests (ubuntu-24.04)	Debug T01	2026-02-27T20:08:01.9968043Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:12:22.1406394Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1406787Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1407076Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1443342Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1443571Z ##[endgroup]
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1590639Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1590903Z ========================================
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1591255Z   runner.sh - suite de tests
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1591545Z   Workdir : /tmp/integrity-pipeline-test.JTqiMS
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1591841Z ========================================
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1592029Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1592134Z TP00 - Permissions integrity.sh
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1592606Z [0;32m  PASS[0m - integrity.sh est exécutable
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1592820Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1592951Z TP01 - JSON invalide : erreur propre sans stacktrace jq
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1832018Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1848981Z [0;32m  PASS[0m - pas de stacktrace jq
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1849419Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.1849519Z TP02 - .pipeline absent
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.2305642Z [0;32m  PASS[0m - ERREUR si .pipeline absent
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.2306116Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.2306287Z TP03 - Champ 'nom' manquant dans compute
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.3953500Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.3969828Z [0;32m  PASS[0m - champ 'nom' mentionné
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.3970087Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.3970219Z TP04 - Opération inconnue
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.5013833Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.5030546Z [0;32m  PASS[0m - nom de l'op dans l'erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.5030817Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.5030960Z TP05 - Compute : cd correct, chemins relatifs dans la base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7195888Z [0;32m  PASS[0m - base hashes_a.b3 créée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7239222Z [0;32m  PASS[0m - chemin relatif (./) dans base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7255500Z [0;32m  PASS[0m - pas de chemin absolu dans base
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7271650Z [0;32m  PASS[0m - 3 fichiers indexés
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7271996Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.7272160Z TP06 - Compute : source absente -> erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.8917054Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.8918130Z [0;32m  PASS[0m - pas de base créée si source KO
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.8918498Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:22.8918864Z TP07 - Verify : répertoire de travail correct, vérification OK
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.0871922Z [0;32m  PASS[0m - verify OK
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.0888387Z [0;32m  PASS[0m - aucun FAILED
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.0913949Z [0;32m  PASS[0m - recap.txt produit
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.0914574Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.0914743Z TP08 - Verify : corruption détectée
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.2874287Z [0;32m  PASS[0m - ECHEC détecté
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.2874621Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.2874794Z TP09 - Verify : base .b3 absente -> erreur
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.4310142Z [0;32m  PASS[0m - ERREUR si base absente
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.4310542Z 
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.4310855Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
+Tests (ubuntu-22.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:23.8845694Z ##[error]Process completed with exit code 1.
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	﻿2026-02-27T20:12:18.9685276Z ##[group]Run chmod +x tests/run_tests_pipeline.sh
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9685660Z [36;1mchmod +x tests/run_tests_pipeline.sh[0m
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9686257Z [36;1mcd tests && ./run_tests_pipeline.sh[0m
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9734676Z shell: /usr/bin/bash -e {0}
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9734921Z ##[endgroup]
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9896482Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9896851Z ========================================
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9897279Z   runner.sh - suite de tests
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9897571Z   Workdir : /tmp/integrity-pipeline-test.8vKKwC
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9897880Z ========================================
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9898061Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9898157Z TP00 - Permissions integrity.sh
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9898551Z [0;32m  PASS[0m - integrity.sh est exécutable
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9899445Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9899694Z TP01 - JSON invalide : erreur propre sans stacktrace jq
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9981890Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9999006Z [0;32m  PASS[0m - pas de stacktrace jq
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9999416Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:18.9999556Z TP02 - .pipeline absent
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0127877Z [0;32m  PASS[0m - ERREUR si .pipeline absent
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0128170Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0461166Z TP03 - Champ 'nom' manquant dans compute
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0461707Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0478817Z [0;32m  PASS[0m - champ 'nom' mentionné
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0479129Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0479270Z TP04 - Opération inconnue
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0715587Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0734209Z [0;32m  PASS[0m - nom de l'op dans l'erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0734689Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.0734931Z TP05 - Compute : cd correct, chemins relatifs dans la base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1472107Z [0;32m  PASS[0m - base hashes_a.b3 créée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1516531Z [0;32m  PASS[0m - chemin relatif (./) dans base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1535734Z [0;32m  PASS[0m - pas de chemin absolu dans base
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1556746Z [0;32m  PASS[0m - 3 fichiers indexés
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1557110Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1557370Z TP06 - Compute : source absente -> erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1894245Z [0;32m  PASS[0m - ERREUR signalée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1894870Z [0;32m  PASS[0m - pas de base créée si source KO
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1895238Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.1895626Z TP07 - Verify : répertoire de travail correct, vérification OK
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.2568588Z [0;32m  PASS[0m - verify OK
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.2586020Z [0;32m  PASS[0m - aucun FAILED
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.2617258Z [0;32m  PASS[0m - recap.txt produit
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.2617879Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.2618144Z TP08 - Verify : corruption détectée
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3295681Z [0;32m  PASS[0m - ECHEC détecté
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3296929Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3297118Z TP09 - Verify : base .b3 absente -> erreur
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3603410Z [0;32m  PASS[0m - ERREUR si base absente
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3603770Z 
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.3604227Z TP10 - Compare : fichiers de résultats produits (sans champ resultats)
+Tests (ubuntu-24.04)	TP01-TP12 - pipeline (run_tests_pipeline.sh)	2026-02-27T20:12:19.5130947Z ##[error]Process completed with exit code 1.
+Docker build & smoke tests	Smoke test - verify via volume	﻿2026-02-27T20:12:09.7993874Z ##[group]Run docker run --rm \
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7994202Z [36;1mdocker run --rm \[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7994450Z [36;1m  -v /tmp/testdata:/data:ro \[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7994736Z [36;1m  -v /tmp/testbases:/bases:ro \[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7995033Z [36;1m  -v /tmp/testresultats:/resultats \[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7995317Z [36;1m  -e RESULTATS_DIR=/resultats \[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.7995603Z [36;1m  hash_tool verify /bases/test.b3 /data[0m
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.8048533Z shell: /usr/bin/bash -e {0}
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.8048786Z ##[endgroup]
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9577748Z --- Métadonnées (sidecar) ---
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9617458Z {
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9617800Z   "created_by": "2.0.0",
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9618204Z   "date": "2026-02-27T20:12:09Z",
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9618603Z   "comment": "",
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9618937Z   "parameters": {
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9619310Z     "directory": "/data",
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9619679Z     "hash_algo": "blake3",
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9620019Z     "nb_files": 2
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9620413Z   }
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9620676Z }
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9620972Z -----------------------------
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9786169Z Vérification OK - 2 fichiers intègres.
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9786919Z Résultats dans : /resultats/resultats_test
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:09.9787421Z   recap.txt
+Docker build & smoke tests	Smoke test - verify via volume	2026-02-27T20:12:10.0503023Z ##[error]Process completed with exit code 1.

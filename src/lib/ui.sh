@@ -182,14 +182,10 @@
 
 
 
+
 #!/usr/bin/env bash
-# src/lib/ui.sh - Logique d'interface : affichage terminal, ETA, progression
 
-# == Primitives de communication ================================================
-
-# Initialisation de la sortie terminal sécurisée
-# Si /dev/tty est disponible et scriptable, on l'utilise pour la progression.
-# Sinon (CI, Docker, Pipe), on se rabat sur stdout (descripteur 1).
+# Initialisation sécurisée de la sortie
 if [ -t 1 ] && [ -c /dev/tty ] && [ -w /dev/tty ]; then
   _TTY_OUT=/dev/tty
 else
@@ -205,19 +201,9 @@ say() {
   (( QUIET )) || echo "$@"
 }
 
-# == Progression et ETA =========================================================
-
 ui_progress_callback() {
   (( QUIET )) && return 0
-
-  local i="$1"
-  local total_files="$2"
-  local bytes_done="$3"
-  local total_bytes="$4"
-  local eta_seconds="$5"
-
-  # En mode CI (stdout), on évite le \r pour ne pas polluer les logs
-  # ou on laisse le système de log gérer le retour chariot.
+  local i="$1" total_files="$2" bytes_done="$3" total_bytes="$4" eta_seconds="$5"
   local prefix=""
   [ "$_TTY_OUT" = "/dev/tty" ] && prefix="\r"
 
@@ -229,16 +215,13 @@ ui_progress_callback() {
       "$i" "$total_files" > "$_TTY_OUT"
   fi
   
-  # Si on est sur stdout (CI), on ajoute un saut de ligne tous les 10 fichiers 
-  # pour éviter une ligne infinie dans les logs GitHub Actions
-  if [ "$_TTY_OUT" = "/dev/stdout" ] && (( i % 10 == 0 )); then
+  if [ "$_TTY_OUT" = "/dev/stdout" ] && (( i % 50 == 0 )); then
     echo "" > "$_TTY_OUT"
   fi
 }
 
 ui_progress_clear() {
   (( QUIET )) && return 0
-  # On n'efface la ligne que si on est sur un vrai terminal
   if [ "$_TTY_OUT" = "/dev/tty" ]; then
     printf "\r%*s\r" 40 "" > "$_TTY_OUT"
   else
@@ -246,26 +229,15 @@ ui_progress_clear() {
   fi
 }
 
-# == Affichage des résultats de vérification ====================================
-
 ui_show_verify_result() {
-  local statut="$1"
-  local nb_ok="$2"
-  local nb_fail="$3"
-  local lines_fail="$4"
-  local lines_err="$5"
-  local outdir="$6"
+  local statut="$1" nb_ok="$2" nb_fail="$3" lines_fail="$4" lines_err="$5" outdir="$6"
 
   if [ "$statut" = "OK" ]; then
     say "Vérification OK - $nb_ok fichiers intègres."
   else
     say ""
     say "████████████████████████████████████████"
-    if [ "$statut" = "ERREUR" ]; then
-      say "  ERREUR lors de la vérification"
-    else
-      say "  ECHEC : $nb_fail fichier(s) corrompu(s) ou manquant(s)"
-    fi
+    [ "$statut" = "ERREUR" ] && say "  ERREUR lors de la vérification" || say "  ECHEC : $nb_fail fichier(s) corrompu(s) ou manquant(s)"
     say "████████████████████████████████████████"
     say ""
     [ -n "$lines_fail" ] && say "$lines_fail"
@@ -275,15 +247,14 @@ ui_show_verify_result() {
 
   say "Résultats dans : $outdir"
   say "  recap.txt"
-  { (( nb_fail > 0 )) || [ -n "$lines_err" ]; } && say "  failed.txt"
+  # Correction ici : on utilise un if classique pour éviter les codes de retour erronés
+  if (( nb_fail > 0 )) || [ -n "$lines_err" ]; then
+    say "  failed.txt"
+  fi
 }
 
 ui_show_compare_result() {
-  local nb_mod="$1"
-  local nb_dis="$2"
-  local nb_nou="$3"
-  local outdir="$4"
-
+  local nb_mod="$1" nb_dis="$2" nb_nou="$3" outdir="$4"
   say "Résultats enregistrés dans : $outdir"
   say "  recap.txt     - modifiés: $nb_mod, disparus: $nb_dis, nouveaux: $nb_nou"
   say "  modifies.b3   - $nb_mod fichiers"
