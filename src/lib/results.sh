@@ -38,9 +38,9 @@ results_write_verify() {
 
   # recap.txt
   {
-    echo "════════════════════════════════════════"
+    echo "========================================"
     echo "  STATUT : $statut"
-    echo "════════════════════════════════════════"
+    echo "========================================"
     echo ""
     echo "Commande  : integrity.sh verify $(basename "$hashfile")"
     echo "Date      : $(date)"
@@ -60,9 +60,9 @@ results_write_verify() {
   # failed.txt
   if (( nb_fail > 0 )) || [ -n "$lines_err" ]; then
     {
-      echo "════════════════════════════════════════"
+      echo "========================================"
       echo "  FICHIERS EN ECHEC"
-      echo "════════════════════════════════════════"
+      echo "========================================"
       echo ""
       [ -n "$lines_fail" ] && echo "$lines_fail"
       if [ -n "$lines_err" ]; then
