@@ -22,6 +22,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Restaurer les bits exécutables
+        run: |
+          chmod +x src/integrity.sh
+          chmod +x runner.sh
+          chmod +x hash-tool
+          chmod +x src/lib/*.sh
+          chmod +x docker/entrypoint.sh
+          chmod +x tests/run_tests.sh
+          chmod +x tests/run_tests_core.sh
+          chmod +x tests/run_tests_pipeline.sh
+
       - name: Installer les dépendances
         run: |
           sudo apt-get update -qq
@@ -79,6 +90,8 @@ jobs:
           name: test-results-${{ matrix.os }}
           path: /tmp/integrity-test*/
           retention-days: 7
+
+
 
   # ===========================================================================
   # Tests Docker
