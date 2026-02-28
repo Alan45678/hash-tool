@@ -227,6 +227,7 @@ core_verify() {
     elif [ "$CORE_VERIFY_NB_FAIL" -gt 0 ]; then
       CORE_VERIFY_STATUS="ECHEC"
     else
+      # shellcheck disable=SC2034
       CORE_VERIFY_STATUS="OK"
     fi
 
