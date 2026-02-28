@@ -223,15 +223,12 @@ core_verify() {
   fi
 
   if [ -n "$CORE_VERIFY_LINES_ERR" ]; then
-    # shellcheck disable=SC2034
-    CORE_VERIFY_STATUS="ERREUR"
-  elif (( CORE_VERIFY_NB_FAIL > 0 )); then
-    # shellcheck disable=SC2034
-    CORE_VERIFY_STATUS="ECHEC"
-  else
-    # shellcheck disable=SC2034
-    CORE_VERIFY_STATUS="OK"
-  fi
+      CORE_VERIFY_STATUS="ERREUR"
+    elif [ "$CORE_VERIFY_NB_FAIL" -gt 0 ]; then
+      CORE_VERIFY_STATUS="ECHEC"
+    else
+      CORE_VERIFY_STATUS="OK"
+    fi
 
   return $exit_code
 }

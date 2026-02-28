@@ -150,7 +150,7 @@ ui_show_verify_result() {
 
   say "Résultats dans : $outdir"
   say "  recap.txt"
-  (( nb_fail > 0 )) || [ -n "$lines_err" ] && say "  failed.txt"
+  if [ "$nb_fail" -gt 0 ] || [ -n "$lines_err" ]; then say "  failed.txt"; fi
 }
 
 # ui_show_compare_result <nb_mod> <nb_dis> <nb_nou> <outdir>
