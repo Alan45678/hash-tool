@@ -1,5 +1,25 @@
 # Troubleshooting - Docker
 
+## Exécution Docker lente sur WSL2
+
+**Symptôme** : `compute` sur quelques fichiers prend plusieurs secondes, 
+sur 1000+ fichiers c'est inutilisable.
+
+**Cause** : trois facteurs cumulés :
+- Overhead de démarrage du conteneur (~1-2s par appel)
+- `b3sum` appelé une fois par fichier (pas en batch)
+- Accès aux volumes WSL2 via un pont réseau lent
+
+**Solution recommandée** : installer les dépendances nativement dans WSL2.
+`hash-tool` bascule automatiquement en mode natif si `b3sum` et `jq` sont disponibles.
+
+\`\`\`bash
+sudo apt-get install -y jq
+sudo wget https://github.com/BLAKE3-team/BLAKE3/releases/latest/download/b3sum_linux_x64_musl \
+  -O /usr/local/bin/b3sum
+sudo chmod +x /usr/local/bin/b3sum
+\`\`\`
+
 ## Volumes montés mais fichiers non trouvés dans le conteneur
 **Symptôme** : `compute` ou `verify` retourne "dossier introuvable".
 **Cause** : chemin hôte relatif passé à `-v` - Docker exige des chemins absolus.
