@@ -9,7 +9,7 @@ et ne nécessite pas Docker.
 
 | Dépendance | Version minimale | Rôle |
 |---|---|---|
-| `bash` | 4.0 | Interpréteur — bash 3.x (macOS système) est incompatible |
+| `bash` | 4.0 | Interpréteur - bash 3.x (macOS système) est incompatible |
 | `b3sum` | toute version récente | Calcul des empreintes BLAKE3 |
 | `jq` | 1.6 | Lecture et écriture des sidecars `.meta.json` |
 
@@ -66,7 +66,7 @@ sudo chmod +x /usr/local/bin/b3sum
 
 !!! tip "WSL2 : privilégier le mode natif"
     Le mode Docker sur WSL2 est fonctionnel mais lent (overhead conteneur + pont réseau).
-    Installer `b3sum` et `jq` nativement — `hash-tool` bascule automatiquement en mode natif.
+    Installer `b3sum` et `jq` nativement - `hash-tool` bascule automatiquement en mode natif.
 
 ---
 
@@ -78,7 +78,7 @@ NAS Synology, environnement restrictif, ou machine sans droits d'installation.
 | Dépendance | Version minimale | Rôle |
 |---|---|---|
 | `docker` | 20.10 | Moteur de conteneurs |
-| image `hash_tool` | — | Image buildée localement (non publiée sur Docker Hub) |
+| image `hash_tool` | - | Image buildée localement (non publiée sur Docker Hub) |
 
 ### Vérification
 
@@ -89,7 +89,7 @@ docker image inspect hash_tool   # doit retourner des infos sur l'image
 
 ### Build de l'image
 
-L'image n'est pas publiée sur Docker Hub — elle doit être buildée depuis les sources :
+L'image n'est pas publiée sur Docker Hub - elle doit être buildée depuis les sources :
 
 ```bash
 cd /chemin/vers/hash-tool
@@ -118,7 +118,7 @@ docker build --platform linux/arm64 -t hash_tool:arm64 .
     cd ~
     git clone <url> hash-tool
 
-    # Incorrect — volumes non montés
+    # Incorrect - volumes non montés
     cd /mnt/c/Users/moi/Desktop
     git clone <url> hash-tool
     ```
@@ -134,7 +134,7 @@ docker build --platform linux/arm64 -t hash_tool:arm64 .
 | Alpine Linux 3.18+ | ✓ | ✓ | b3sum via dépôt community |
 | macOS 13+ | ✓ | ✓ | bash via brew obligatoire |
 | Windows WSL2 | ✓ | ✓ (lent) | Projet dans `/home/`, pas `/mnt/c/` |
-| NAS Synology (ARM64) | — | ✓ | Build `--platform linux/arm64` |
+| NAS Synology (ARM64) | - | ✓ | Build `--platform linux/arm64` |
 | Raspberry Pi (ARM64) | ✓ | ✓ | b3sum binaire ARM64 requis |
 
 ---
@@ -143,9 +143,9 @@ docker build --platform linux/arm64 -t hash_tool:arm64 .
 
 `hash-tool` détecte automatiquement le mode au démarrage :
 
-1. **Natif** : si `b3sum`, `jq` et `src/integrity.sh` sont disponibles → mode natif
-2. **Docker** : si l'image `hash_tool` est présente → mode Docker
-3. **Erreur** : aucun mode disponible → message d'erreur explicite
+1. **Natif** : si `b3sum`, `jq` et `src/integrity.sh` sont disponibles -> mode natif
+2. **Docker** : si l'image `hash_tool` est présente -> mode Docker
+3. **Erreur** : aucun mode disponible -> message d'erreur explicite
 
 ```bash
 # Vérifier le mode sélectionné

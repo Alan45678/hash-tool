@@ -17,7 +17,7 @@ x-volumes:
   resultats: &vol-resultats /chemin/vers/resultats   # résultats compare/verify
 ```
 
-C'est le **seul endroit à modifier** — tous les services référencent ces chemins
+C'est le **seul endroit à modifier** - tous les services référencent ces chemins
 via les ancres YAML (`*vol-data`, `*vol-bases`, etc.).
 
 ### Exemples de chemins selon l'environnement
@@ -30,7 +30,7 @@ via les ancres YAML (`*vol-data`, `*vol-bases`, etc.).
 | NAS Synology | `/volume1/données` |
 
 !!! warning "WSL2"
-    Ne pas utiliser les chemins `/mnt/c/...` — Docker Desktop ne monte pas
+    Ne pas utiliser les chemins `/mnt/c/...` - Docker Desktop ne monte pas
     correctement les chemins Windows comme volumes. Utiliser le filesystem Linux
     natif (`/home/...`).
 
@@ -38,7 +38,7 @@ via les ancres YAML (`*vol-data`, `*vol-bases`, etc.).
 
 ## Services
 
-### `integrity` — commandes unitaires
+### `integrity` - commandes unitaires
 
 Service principal pour `compute`, `verify` et `compare`.
 
@@ -55,7 +55,7 @@ docker compose run --rm integrity compare /bases/old.b3 /bases/new.b3
 
 Volumes montés : `/data` (`:ro`), `/bases`, `/resultats`.
 
-### `pipeline` — exécution runner.sh
+### `pipeline` - exécution runner.sh
 
 Service dédié à l'exécution d'un pipeline JSON complet.
 
@@ -68,7 +68,7 @@ Le fichier `pipeline.json` doit être placé dans le dossier mappé sur `/pipeli
 
 Volumes montés : `/data` (`:ro`), `/bases`, `/pipelines`, `/resultats`.
 
-### `cron` — vérification périodique
+### `cron` - vérification périodique
 
 Service optionnel, désactivé par défaut (profil `cron`).
 
@@ -104,7 +104,7 @@ docker compose build
 docker build -t hash_tool .
 ```
 
-Les deux sont équivalents — `docker-compose.yml` référence le même `Dockerfile`.
+Les deux sont équivalents - `docker-compose.yml` référence le même `Dockerfile`.
 
 ---
 
@@ -116,12 +116,12 @@ Les deux sont équivalents — `docker-compose.yml` référence le même `Docker
 | Image | Référencée dans `docker-compose.yml` | À spécifier à chaque commande |
 | Cas d'usage | Usage régulier sur un poste fixe | Usage ponctuel, CI, scripts |
 
-En CI, `docker run` avec les volumes explicites est préférable — pas de dépendance
+En CI, `docker run` avec les volumes explicites est préférable - pas de dépendance
 à `docker-compose.yml` ni aux chemins locaux.
 
 ---
 
-## Exemple complet — workflow audit
+## Exemple complet - workflow audit
 
 ```bash
 # 1. Configurer les chemins dans docker-compose.yml (une seule fois)

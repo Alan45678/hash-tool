@@ -8,7 +8,7 @@
 #
 # shellcheck disable=SC2030,SC2031
 # SC2030/SC2031 : QUIET est intentionnellement exporté dans des sous-shells isolés (_run_core,
-# _run_core_stderr). La modification locale est le comportement voulu — chaque appel s'exécute
+# _run_core_stderr). La modification locale est le comportement voulu - chaque appel s'exécute
 # dans son propre environnement sans affecter le shell parent.
 
 set -euo pipefail

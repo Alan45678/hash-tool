@@ -30,12 +30,12 @@ Sidecar : hashes.b3.meta.json
 
 Deux fichiers sont produits :
 
-- **`hashes.b3`** — une ligne par fichier, au format `<hash_blake3>  <chemin_relatif>` :
+- **`hashes.b3`** - une ligne par fichier, au format `<hash_blake3>  <chemin_relatif>` :
   ```
   3b2e4f... ./rapport-2024.pdf
   a91c7d... ./données/export.csv
   ```
-- **`hashes.b3.meta.json`** — métadonnées de contexte (date, dossier, nombre de fichiers) :
+- **`hashes.b3.meta.json`** - métadonnées de contexte (date, dossier, nombre de fichiers) :
   ```json
   {
     "created_by": "2.0.0",
@@ -52,7 +52,7 @@ Deux fichiers sont produits :
 !!! note "Répertoire de travail"
     Les chemins dans `hashes.b3` sont relatifs au répertoire courant au moment du `compute`.
     Le `verify` doit être lancé depuis le même répertoire. C'est la source d'erreur la plus
-    fréquente — voir [Troubleshooting](../troubleshooting/execution.md).
+    fréquente - voir [Troubleshooting](../troubleshooting/execution.md).
 
 !!! tip "Ajouter un commentaire"
     Un commentaire libre peut être stocké dans le sidecar pour documenter le contexte :

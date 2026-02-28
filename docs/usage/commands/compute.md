@@ -50,7 +50,7 @@ Option globale applicable :
 
 ### `<base.b3>`
 
-Fichier texte, une ligne par fichier indexé. Compatible avec la sortie native de `b3sum` —
+Fichier texte, une ligne par fichier indexé. Compatible avec la sortie native de `b3sum` -
 il peut être relu directement par `b3sum --check`.
 
 ```
@@ -95,8 +95,8 @@ Les bases sans sidecar sont pleinement utilisables par toutes les commandes.
 
 | Code | Signification |
 |---|---|
-| `0` | Succès — base créée et sidecar généré |
-| `1` | Erreur — dossier introuvable, dossier vide, `<base.b3>` est un dossier, erreur `b3sum` |
+| `0` | Succès - base créée et sidecar généré |
+| `1` | Erreur - dossier introuvable, dossier vide, `<base.b3>` est un dossier, erreur `b3sum` |
 
 ---
 
@@ -111,7 +111,7 @@ Les bases sans sidecar sont pleinement utilisables par toutes les commandes.
 
     Le `verify` doit donc être lancé depuis `/home/user/projet` pour que les chemins
     correspondent. C'est la source d'erreur la plus fréquente.
-    Voir [Troubleshooting — chemins relatifs](../../troubleshooting/execution.md).
+    Voir [Troubleshooting - chemins relatifs](../../troubleshooting/execution.md).
 
 ---
 
@@ -164,7 +164,7 @@ docker run --rm \
   hash_tool compute /data /bases/hashes.b3 "Audit mensuel"
 ```
 
-Le volume `/data` est monté en lecture seule (`:ro`) — le conteneur ne modifie jamais
+Le volume `/data` est monté en lecture seule (`:ro`) - le conteneur ne modifie jamais
 les données source. La base est écrite dans `/bases`.
 
 ---
@@ -187,7 +187,7 @@ Le deuxième argument pointe vers un dossier existant. Le fichier `.b3` de sorti
 
 ## Voir aussi
 
-- [verify](verify.md) — vérifier l'intégrité contre une base existante
-- [compare](compare.md) — comparer deux bases
-- [Formats de fichiers](../../reference/file-formats.md) — structure détaillée du `.b3`
-- [Fichier sidecar](../../reference/sidecar.md) — schéma complet du `.meta.json`
+- [verify](verify.md) - vérifier l'intégrité contre une base existante
+- [compare](compare.md) - comparer deux bases
+- [Formats de fichiers](../../reference/file-formats.md) - structure détaillée du `.b3`
+- [Fichier sidecar](../../reference/sidecar.md) - schéma complet du `.meta.json`

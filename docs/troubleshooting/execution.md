@@ -1,7 +1,7 @@
-# Troubleshooting — Exécution
+# Troubleshooting - Exécution
 
 Problèmes rencontrés lors de l'exécution de `compute`, `verify` et `compare`.
-Pour chaque problème : **Symptôme** → **Cause** → **Diagnostic** → **Solution**.
+Pour chaque problème : **Symptôme** -> **Cause** -> **Diagnostic** -> **Solution**.
 
 ---
 
@@ -22,7 +22,7 @@ head -3 hashes.b3
 ```
 
 Si les chemins commencent par `./data/fichier.txt` mais que tu es dans `/home/user/data`,
-`b3sum` cherche `./data/fichier.txt` depuis `/home/user/data/` — soit
+`b3sum` cherche `./data/fichier.txt` depuis `/home/user/data/` - soit
 `/home/user/data/data/fichier.txt`, qui n'existe pas.
 
 ```bash
@@ -55,13 +55,13 @@ enregistré lors du compute.
 **Symptôme** : le fichier `.b3` est créé mais contient 0 ligne, ou un nombre
 anormalement bas de fichiers.
 
-**Cause 1 — dossier vide** : le dossier cible ne contient aucun fichier régulier
+**Cause 1 - dossier vide** : le dossier cible ne contient aucun fichier régulier
 (uniquement des sous-dossiers vides, ou aucun fichier).
 
-**Cause 2 — permissions insuffisantes** : certains fichiers ne sont pas lisibles
+**Cause 2 - permissions insuffisantes** : certains fichiers ne sont pas lisibles
 par l'utilisateur courant. `b3sum` les ignore silencieusement.
 
-**Cause 3 — fichiers cachés** : `find` inclut les fichiers cachés (`.git/`, `.DS_Store`).
+**Cause 3 - fichiers cachés** : `find` inclut les fichiers cachés (`.git/`, `.DS_Store`).
 Si le dossier est un dépôt git, les objets dans `.git/` sont indexés.
 
 **Diagnostic** :
@@ -106,7 +106,7 @@ Exemple :
 - `hashes_source.b3` : chemins du type `./data/fichier.txt` (compute depuis `/srv`)
 - `hashes_dest.b3` : chemins du type `./fichier.txt` (compute depuis `/srv/data`)
 
-Aucun chemin ne correspond — tous les fichiers apparaissent comme "disparus" dans l'une
+Aucun chemin ne correspond - tous les fichiers apparaissent comme "disparus" dans l'une
 et "nouveaux" dans l'autre, et donc "modifiés" si les hashes matchent par accident.
 
 **Diagnostic** :
@@ -139,7 +139,7 @@ bash src/integrity.sh compare hashes_source.b3 hashes_dest.b3
 **Symptôme** : la sortie affiche `Vérification OK - N fichiers intègres` mais le code
 de sortie est `1`.
 
-**Cause** : bug connu dans les versions antérieures à `2.0.1` — l'expression arithmétique
+**Cause** : bug connu dans les versions antérieures à `2.0.1` - l'expression arithmétique
 `(( nb_fail > 0 ))` dans `ui.sh` retourne exit code 1 quand `nb_fail=0` sous `set -e`,
 ce qui tue le processus après l'affichage.
 
@@ -152,7 +152,7 @@ grep "version\|VERSION" src/integrity.sh
 ```
 
 **Solution** : mettre à jour vers la version corrigée. Le fix est dans `src/lib/ui.sh`,
-fonction `ui_show_verify_result` — remplacer :
+fonction `ui_show_verify_result` - remplacer :
 
 ```bash
 # Avant (bugué)
@@ -171,7 +171,7 @@ if [ "$nb_fail" -gt 0 ] || [ -n "$lines_err" ]; then say "  failed.txt"; fi
 | `0` | `compute` | Base créée avec succès |
 | `0` | `verify` | Tous les fichiers intègres |
 | `0` | `compare` | Comparaison effectuée (même si des différences existent) |
-| `1` | `compute` | Erreur — dossier introuvable, vide, ou b3sum en échec |
+| `1` | `compute` | Erreur - dossier introuvable, vide, ou b3sum en échec |
 | `1` | `verify` | Anomalie détectée **ou** erreur technique |
 | `1` | `compare` | Erreur technique uniquement (différences = exit 0) |
 
@@ -183,7 +183,7 @@ if [ "$nb_fail" -gt 0 ] || [ -n "$lines_err" ]; then say "  failed.txt"; fi
     exit_code=$?
     if [ $exit_code -ne 0 ]; then
         statut=$(grep "STATUT" ~/integrity_resultats/resultats_hashes/recap.txt)
-        echo "Exit $exit_code — $statut"
+        echo "Exit $exit_code - $statut"
         # STATUT : ECHEC  -> corruption détectée (comportement attendu)
         # STATUT : ERREUR -> erreur technique (base invalide, b3sum absent...)
     fi
@@ -203,7 +203,7 @@ En revanche, les arguments passés au shell doivent être quotés :
 # Correct
 bash src/integrity.sh compute "./mon dossier" "ma base.b3"
 
-# Incorrect — le shell splitte sur les espaces
+# Incorrect - le shell splitte sur les espaces
 bash src/integrity.sh compute ./mon dossier ma base.b3
 ```
 
@@ -230,8 +230,8 @@ importants (> 100 000 fichiers), privilégier Docker sur une machine avec un SSD
 
 ## Voir aussi
 
-- [Troubleshooting — Installation](installation.md)
-- [Troubleshooting — Docker](docker.md)
-- [Troubleshooting — Pipeline](pipeline.md)
-- [Troubleshooting — Résultats](results.md)
-- [Formats de fichiers](../reference/file-formats.md) — structure du `.b3` et impact sur les chemins
+- [Troubleshooting - Installation](installation.md)
+- [Troubleshooting - Docker](docker.md)
+- [Troubleshooting - Pipeline](pipeline.md)
+- [Troubleshooting - Résultats](results.md)
+- [Formats de fichiers](../reference/file-formats.md) - structure du `.b3` et impact sur les chemins

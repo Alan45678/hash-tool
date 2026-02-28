@@ -36,9 +36,9 @@ Option globale applicable :
    la vérification. Les chemins relatifs dans la base sont résolus depuis ce dossier.
 5. **Vérification** : `b3sum --check <base.b3>` recalcule chaque empreinte et compare.
    Trois catégories de résultats :
-   - `OK` — hash identique, fichier intègre
-   - `FAILED` — hash différent, contenu modifié
-   - Erreur — fichier inaccessible ou disparu
+   - `OK` - hash identique, fichier intègre
+   - `FAILED` - hash différent, contenu modifié
+   - Erreur - fichier inaccessible ou disparu
 6. **Fichiers de résultats** : écrits dans `$RESULTATS_DIR/resultats_<nom_base>/`.
    Si ce dossier existe déjà (run précédent), un horodatage est ajouté au nom pour éviter
    l'écrasement.
@@ -49,7 +49,7 @@ Option globale applicable :
 
 Les résultats sont toujours écrits dans le dossier de résultats, même si tout est OK.
 
-### `recap.txt` — toujours produit
+### `recap.txt` - toujours produit
 
 Synthèse de l'opération :
 
@@ -80,7 +80,7 @@ OK        : 145
 FAILED    : 2  <- voir failed.txt
 ```
 
-### `failed.txt` — produit uniquement en cas d'anomalie
+### `failed.txt` - produit uniquement en cas d'anomalie
 
 Liste des fichiers en échec avec leur statut :
 
@@ -105,7 +105,7 @@ d'un run précédent dans le même dossier).
 
 | Code | Signification |
 |---|---|
-| `0` | Intégrité confirmée — tous les fichiers sont intègres |
+| `0` | Intégrité confirmée - tous les fichiers sont intègres |
 | `1` | Anomalie détectée (fichiers modifiés ou disparus) **ou** erreur d'exécution |
 
 !!! warning "Distinction anomalie / erreur"
@@ -139,7 +139,7 @@ d'un run précédent dans le même dossier).
     bash src/integrity.sh verify /bases/hashes.b3 /home/user/projet
     ```
 
-    Voir [Troubleshooting — chemins relatifs](../../troubleshooting/execution.md).
+    Voir [Troubleshooting - chemins relatifs](../../troubleshooting/execution.md).
 
 ---
 
@@ -240,7 +240,7 @@ Utiliser un chemin absolu pour éviter toute ambiguïté.
 
 ## Voir aussi
 
-- [compute](compute.md) — calculer une base d'empreintes
-- [compare](compare.md) — comparer deux bases
-- [Fichiers de résultats](../../reference/output-files.md) — description complète de `recap.txt` et `failed.txt`
-- [Troubleshooting — exécution](../../troubleshooting/execution.md) — problèmes de chemins relatifs
+- [compute](compute.md) - calculer une base d'empreintes
+- [compare](compare.md) - comparer deux bases
+- [Fichiers de résultats](../../reference/output-files.md) - description complète de `recap.txt` et `failed.txt`
+- [Troubleshooting - exécution](../../troubleshooting/execution.md) - problèmes de chemins relatifs

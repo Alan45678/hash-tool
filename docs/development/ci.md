@@ -21,7 +21,7 @@ push / pull_request
 
 ## Job : `tests`
 
-Tourne en parallèle sur **ubuntu-22.04** et **ubuntu-24.04** (`fail-fast: false` — les deux
+Tourne en parallèle sur **ubuntu-22.04** et **ubuntu-24.04** (`fail-fast: false` - les deux
 contextes vont jusqu'au bout indépendamment).
 
 ### Steps
@@ -36,7 +36,7 @@ sudo apt-get install -y b3sum jq shellcheck
 b3sum --version && jq --version && shellcheck --version && bash --version
 ```
 
-**3. Debug T01** — smoke test minimal hors suite de tests :
+**3. Debug T01** - smoke test minimal hors suite de tests :
 ```bash
 cd /tmp && mkdir -p integrity-debug/data
 echo "test" > integrity-debug/data/f.txt
@@ -45,17 +45,17 @@ bash .../src/integrity.sh compute ./data base.b3
 ```
 Permet d'identifier les erreurs d'environnement avant de lancer les suites complètes.
 
-**4. T00-T20 — `run_tests.sh`**
+**4. T00-T20 - `run_tests.sh`**
 
 Tests fonctionnels de `integrity.sh` : compute, verify, compare, options CLI,
 gestion d'erreurs. Lancé avec `bash -x` et `head -200` pour limiter la sortie.
 
-**5. TP01-TP12 — `run_tests_pipeline.sh`**
+**5. TP01-TP12 - `run_tests_pipeline.sh`**
 
 Tests du pipeline JSON via `runner.sh` : JSON invalide, champs manquants, opérations
 inconnues, compute/verify/compare en pipeline, champ `resultats` personnalisé.
 
-**6. CU01-CU53 — `run_tests_core.sh`**
+**6. CU01-CU53 - `run_tests_core.sh`**
 
 Tests unitaires de `src/lib/core.sh` : `core_compute`, `core_verify`, `core_compare`,
 gestion des variables `CORE_VERIFY_*`, cas limites.
@@ -89,19 +89,19 @@ fondamentales fonctionnent en mode conteneur.
 docker build -t hash_tool .
 ```
 
-**Smoke test — version**
+**Smoke test - version**
 
 ```bash
 docker run --rm hash_tool version
 ```
 
-**Smoke test — help**
+**Smoke test - help**
 
 ```bash
 docker run --rm hash_tool help
 ```
 
-**Smoke test — compute via volume**
+**Smoke test - compute via volume**
 
 ```bash
 mkdir -p /tmp/testdata /tmp/testbases
@@ -116,7 +116,7 @@ docker run --rm \
 
 Vérifie que le fichier `.b3` est produit et non vide sur l'hôte.
 
-**Smoke test — verify via volume**
+**Smoke test - verify via volume**
 
 ```bash
 docker run --rm \
@@ -127,7 +127,7 @@ docker run --rm \
   hash_tool verify /bases/test.b3 /data
 ```
 
-**Commande inconnue → exit non-zéro**
+**Commande inconnue -> exit non-zéro**
 
 ```bash
 docker run --rm hash_tool commande_inexistante && exit 1 || true
@@ -147,7 +147,7 @@ pip install mkdocs mkdocs-material
 mkdocs gh-deploy --force
 ```
 
-Déploie la documentation sur la branche `gh-pages` → GitHub Pages.
+Déploie la documentation sur la branche `gh-pages` -> GitHub Pages.
 Ne se déclenche pas sur les branches de feature ni les pull requests.
 
 ---
@@ -187,7 +187,7 @@ docker run --rm hash_tool help
 
 1. Ajouter le cas dans la suite concernée (`run_tests.sh`, `run_tests_pipeline.sh` ou `run_tests_core.sh`)
 2. Vérifier localement avec `make test`
-3. Pusher — la CI valide sur les deux OS
+3. Pusher - la CI valide sur les deux OS
 
 Pour un nouveau script de test indépendant, ajouter un step dans `ci.yml` en suivant
-la convention existante (`chmod +x` → `cd tests && ./mon_script.sh`).
+la convention existante (`chmod +x` -> `cd tests && ./mon_script.sh`).

@@ -43,93 +43,93 @@ cd tests && bash run_tests_pipeline.sh
 make lint
 ```
 
-Lance ShellCheck sur tous les scripts. Aucun avertissement toléré — tout warning
+Lance ShellCheck sur tous les scripts. Aucun avertissement toléré - tout warning
 est traité comme une erreur bloquante.
 
 ---
 
 ## Suites de tests
 
-### `run_tests.sh` — Tests fonctionnels (T00-T20)
+### `run_tests.sh` - Tests fonctionnels (T00-T20)
 
 Tests de `integrity.sh` en exécution directe. Couvre :
 
 
-- `T00` — Permissions : `integrity.sh` est exécutable
+- `T00` - Permissions : `integrity.sh` est exécutable
 
-- `T01` — `compute` : base créée, chemins relatifs corrects, nb fichiers correct
+- `T01` - `compute` : base créée, chemins relatifs corrects, nb fichiers correct
 
-- `T02` — `compute` : dossier cible inexistant → erreur
+- `T02` - `compute` : dossier cible inexistant -> erreur
 
-- `T03` — `compute` : dossier vide → erreur
+- `T03` - `compute` : dossier vide -> erreur
 
-- `T04` — `verify` : vérification OK, exit 0
+- `T04` - `verify` : vérification OK, exit 0
 
-- `T05` — `verify` : corruption détectée, exit 1
+- `T05` - `verify` : corruption détectée, exit 1
 
-- `T06` — `verify` : base absente → erreur
+- `T06` - `verify` : base absente -> erreur
 
-- `T07` — `compare` : fichiers de résultats produits
+- `T07` - `compare` : fichiers de résultats produits
 
-- `T08` — `compare` : bases identiques → 0 différences
+- `T08` - `compare` : bases identiques -> 0 différences
 
-- `T09` — `compare` : base absente → erreur
+- `T09` - `compare` : base absente -> erreur
 
-- `T10` — `verify` : argument `[dossier]` explicite
+- `T10` - `verify` : argument `[dossier]` explicite
 
-- `T11` — Sidecar : écrit lors du compute, relu lors du verify
+- `T11` - Sidecar : écrit lors du compute, relu lors du verify
 
-- `T12` — Mode `--quiet` : aucune sortie terminal
+- `T12` - Mode `--quiet` : aucune sortie terminal
 
-### `run_tests_core.sh` — Tests unitaires (CU01-CU53)
+### `run_tests_core.sh` - Tests unitaires (CU01-CU53)
 
 Tests des fonctions de `src/lib/core.sh` en isolation. Couvre :
 
 
-- `CU01-CU10` — `core_compute` : hachage correct, ordre déterministe, chemins relatifs
+- `CU01-CU10` - `core_compute` : hachage correct, ordre déterministe, chemins relatifs
 
-- `CU11-CU20` — `core_verify` : variables `CORE_VERIFY_*` positionnées correctement
+- `CU11-CU20` - `core_verify` : variables `CORE_VERIFY_*` positionnées correctement
 
-- `CU21-CU30` — `core_verify` : compteurs OK/FAIL, statuts OK/ECHEC/ERREUR
+- `CU21-CU30` - `core_verify` : compteurs OK/FAIL, statuts OK/ECHEC/ERREUR
 
-- `CU31-CU40` — `core_compare` : détection modifiés/disparus/nouveaux
+- `CU31-CU40` - `core_compare` : détection modifiés/disparus/nouveaux
 
-- `CU41-CU50` — `core_sidecar_write` / `core_sidecar_read` : JSON correct
+- `CU41-CU50` - `core_sidecar_write` / `core_sidecar_read` : JSON correct
 
-- `CU51-CU53` — `core_make_result_dir` : horodatage si conflit de nom
+- `CU51-CU53` - `core_make_result_dir` : horodatage si conflit de nom
 
-### `run_tests_pipeline.sh` — Tests d'intégration (TP00-TP12)
+### `run_tests_pipeline.sh` - Tests d'intégration (TP00-TP12)
 
 Tests de `runner.sh` avec des pipelines JSON construits à la volée. Couvre :
 
 
-- `TP00` — Permissions : `integrity.sh` est exécutable
+- `TP00` - Permissions : `integrity.sh` est exécutable
 
-- `TP01` — JSON invalide → erreur propre sans stacktrace jq
+- `TP01` - JSON invalide -> erreur propre sans stacktrace jq
 
-- `TP02` — Fichier `.pipeline` absent → erreur
+- `TP02` - Fichier `.pipeline` absent -> erreur
 
-- `TP03` — Champ `nom` manquant dans compute → erreur avec mention du champ
+- `TP03` - Champ `nom` manquant dans compute -> erreur avec mention du champ
 
-- `TP04` — Opération inconnue → erreur avec nom de l'opération
+- `TP04` - Opération inconnue -> erreur avec nom de l'opération
 
-- `TP05` — `compute` : répertoire de travail correct, chemins relatifs dans la base
+- `TP05` - `compute` : répertoire de travail correct, chemins relatifs dans la base
 
-- `TP06` — `compute` : source absente → erreur, pas de base créée
+- `TP06` - `compute` : source absente -> erreur, pas de base créée
 
-- `TP07` — `verify` : répertoire de travail correct, vérification OK
+- `TP07` - `verify` : répertoire de travail correct, vérification OK
 
-- `TP08` — `verify` : corruption détectée
+- `TP08` - `verify` : corruption détectée
 
-- `TP09` — `verify` : base `.b3` absente → erreur
+- `TP09` - `verify` : base `.b3` absente -> erreur
 
-- `TP10` — `compare` : fichiers de résultats produits (sans champ `resultats`)
+- `TP10` - `compare` : fichiers de résultats produits (sans champ `resultats`)
 
-- `TP10b` — `compare` : champ `resultats` personnalisé dans `pipeline.json`
+- `TP10b` - `compare` : champ `resultats` personnalisé dans `pipeline.json`
 
-- `TP11` — `compare` : `base_a` absente → erreur
+- `TP11` - `compare` : `base_a` absente -> erreur
 
-- `TP12` — Pipeline complet : `compute × 2` + `verify` + `compare`
+- `TP12` - Pipeline complet : `compute × 2` + `verify` + `compare`
 
 ---
 
@@ -191,7 +191,7 @@ fi
 ### Bonnes pratiques
 
 
-- Chaque test crée ses données dans un dossier temporaire (`mktemp -d`) — pas dans `examples/`
+- Chaque test crée ses données dans un dossier temporaire (`mktemp -d`) - pas dans `examples/`
 
 - Nettoyer avec `trap "rm -rf $tmpdir" EXIT`
 

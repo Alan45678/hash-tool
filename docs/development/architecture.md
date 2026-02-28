@@ -156,7 +156,7 @@ hash-tool compute -data ./data -save ./bases
 
 ## Conventions de code
 
-**Bash strict mode** — tous les scripts commencent par `set -euo pipefail`.
+**Bash strict mode** - tous les scripts commencent par `set -euo pipefail`.
 
 !!! warning "Arithmétique sous set -e"
 
@@ -175,7 +175,7 @@ hash-tool compute -data ./data -save ./bases
 
 - Variables globales exportées : `MAJUSCULES` (ex. `CORE_VERIFY_STATUS`, `QUIET`)
 
-**Contrats de fonction** — chaque fonction dans `src/lib/` documente en tête :
+**Contrats de fonction** - chaque fonction dans `src/lib/` documente en tête :
 
 
 - Contrat d'entrée (arguments, préconditions)
@@ -184,7 +184,7 @@ hash-tool compute -data ./data -save ./bases
 
 - Effets de bord (fichiers écrits, variables modifiées dans le scope appelant)
 
-**Répertoire de travail** — les chemins dans les `.b3` sont relatifs au répertoire
+**Répertoire de travail** - les chemins dans les `.b3` sont relatifs au répertoire
 
 de travail au moment du `compute`. `integrity.sh` résout les chemins en absolu
 avant tout `cd` pour éviter les invalidations.
