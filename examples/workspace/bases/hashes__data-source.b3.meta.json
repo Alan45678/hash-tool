@@ -1,0 +1,11 @@
+{
+  "created_by": "hash-tool v2.0.0",
+  "date": "2026-02-28T14:03:28Z",
+  "comment": "hash de 14h59",
+  "parameters": {
+    "directory": "/media/veracrypt1/partition_laptop/divers/config ordinateur/2 en cours -- 2025-00-00 -- backup/d11 installation/hash_tool/examples/workspace/_data-source",
+    "hash_algo": "blake3",
+    "readonly": true,
+    "nb_files": 4
+  }
+}
