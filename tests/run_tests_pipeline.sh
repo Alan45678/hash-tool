@@ -231,7 +231,7 @@ EOF
 }
 EOF
 )
-    bash "$RUNNER" "$cfg_compare" >/dev/null 2>&1
+    bash "$RUNNER" "$cfg_compare" >/dev/null 2>&1 || true
     local outdir_tp10; outdir_tp10=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists "recap.txt"    "${outdir_tp10}/recap.txt"
     assert_file_exists "modifies.b3"  "${outdir_tp10}/modifies.b3"
@@ -257,13 +257,13 @@ EOF
 }
 EOF
 )
-    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
+    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1 || true
     local outdir_custom; outdir_custom=$(find "${custom_dir}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | sort | tail -1)
     assert_file_exists "rapport dans dossier custom"            "${outdir_custom}/recap.txt"
     assert_file_exists "report.html dans dossier custom"        "${outdir_custom}/report.html"
     # Vérifier que le dossier par défaut n'a PAS reçu ce résultat
     local nb_before; nb_before=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | wc -l)
-    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1
+    bash "$RUNNER" "$cfg_compare_custom" >/dev/null 2>&1 || true
     local nb_after; nb_after=$(find "${RESULTATS_DIR}" -maxdepth 1 -type d -name "resultats_hashes_a*" 2>/dev/null | wc -l)
     if [ "$nb_before" -eq "$nb_after" ]; then
         pass "champ resultats isolé : RESULTATS_DIR par défaut non pollué"
