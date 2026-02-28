@@ -180,7 +180,7 @@ _run_docker_integrity() {
   case "${args[0]}" in
     compute)
       volumes+=(-v "${args[1]}:/data:ro" -v "$(dirname "${args[2]}"):/bases")
-      set -- compute /data "$(basename "${args[2]}")"
+      set -- compute /data "/bases/$(basename "${args[2]}")"
       ;;
     verify)
       local base_dir; base_dir="$(dirname "${args[1]}")"
@@ -249,18 +249,21 @@ cmd_compute() {
 
   # 4. Exécution dans un sous-shell
   # On utilise des guillemets autour de "$OPT_DATA" et "$b3_file" pour gérer les espaces
+  local data_abs
+  data_abs="$(cd "$OPT_DATA" && pwd)"
   (
-    cd "$OPT_DATA" || exit 1
-    _run_integrity compute "." "$b3_file"
+    cd "$data_abs" || exit 1
+    _run_integrity compute "$data_abs" "$b3_file"
   )
 
   # 5. Écriture du Sidecar (Métadonnées)
   # On vérifie si le fichier .b3 a bien été créé avant d'écrire le sidecar
-  if [ -f "$b3_file" ]; then
+  if [ "$EXEC_MODE" = "native" ] && [ -f "$b3_file" ]; then
     local data_path_abs
     data_path_abs="$(realpath "$OPT_DATA")"
     _sidecar_write "$b3_file" "$data_path_abs" "$OPT_META"
   fi
+  # En mode Docker : sidecar déjà écrit par integrity.sh dans le conteneur
 }
 
 cmd_verify() {
