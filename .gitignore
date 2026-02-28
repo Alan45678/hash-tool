@@ -13,6 +13,7 @@ integrity_resultats/
 # == Fichiers temporaires ======================================================
 # Exclure les fichiers contenant le mot "temp" n'importe où dans le nom
 *temp*
+!reports/template.html
 
 *.tmp
 *.log
