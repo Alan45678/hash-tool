@@ -1,6 +1,7 @@
 # Troubleshooting - Installation
 
 ## `b3sum` introuvable en natif
+
 **Symptôme** : `check-env` retourne `[KO] b3sum introuvable`.
 **Cause** : absent des dépôts par défaut sur certaines distributions.
 **Solution par OS** :
@@ -11,6 +12,7 @@
 **Vérification** : `b3sum --version`
 
 ## `bash` version insuffisante (< 4)
+
 **Symptôme** : erreurs de syntaxe bash au lancement, `check-env` signale la version.
 **Cause fréquente** : macOS - bash système = 3.x (Apple distribue bash 3.2 pour
 des raisons de licence GPLv2).
@@ -19,6 +21,7 @@ des raisons de licence GPLv2).
 Ne pas remplacer `/bin/bash` système sur macOS.
 
 ## `hash-tool` non exécutable
+
 **Symptôme** : `Permission denied` ou `command not found`.
 **Cause** : `chmod +x` non appliqué, ou fichiers sur un système de fichiers
 FAT32/NTFS (ignorent les bits de permission Unix).
@@ -26,6 +29,7 @@ FAT32/NTFS (ignorent les bits de permission Unix).
 **Cas FAT/NTFS** : cloner le dépôt sur un système de fichiers natif Linux/ext4.
 
 ## Image Docker absente
+
 **Symptôme** : `[--] Image Docker 'hash_tool' absente` dans `check-env`.
 **Cause** : image non buildée - elle n'est pas publiée sur Docker Hub.
 **Solution** : `docker build -t hash_tool .` depuis la racine du dépôt.

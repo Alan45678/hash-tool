@@ -46,18 +46,22 @@ bash .../src/integrity.sh compute ./data base.b3
 Permet d'identifier les erreurs d'environnement avant de lancer les suites complètes.
 
 **4. T00-T20 — `run_tests.sh`**
+
 Tests fonctionnels de `integrity.sh` : compute, verify, compare, options CLI,
 gestion d'erreurs. Lancé avec `bash -x` et `head -200` pour limiter la sortie.
 
 **5. TP01-TP12 — `run_tests_pipeline.sh`**
+
 Tests du pipeline JSON via `runner.sh` : JSON invalide, champs manquants, opérations
 inconnues, compute/verify/compare en pipeline, champ `resultats` personnalisé.
 
 **6. CU01-CU53 — `run_tests_core.sh`**
+
 Tests unitaires de `src/lib/core.sh` : `core_compute`, `core_verify`, `core_compare`,
 gestion des variables `CORE_VERIFY_*`, cas limites.
 
 **7. ShellCheck**
+
 ```bash
 shellcheck src/integrity.sh runner.sh src/lib/core.sh src/lib/ui.sh \
            src/lib/report.sh src/lib/results.sh docker/entrypoint.sh \
@@ -66,6 +70,7 @@ shellcheck src/integrity.sh runner.sh src/lib/core.sh src/lib/ui.sh \
 Tout warning ShellCheck est traité comme une erreur bloquante.
 
 **8. Upload artefacts** (`if: always()`)
+
 Les résultats dans `/tmp/integrity-test*/` sont uploadés même en cas d'échec,
 avec une rétention de 7 jours. Permet d'inspecter les fichiers produits par les tests.
 
@@ -79,21 +84,25 @@ fondamentales fonctionnent en mode conteneur.
 ### Steps
 
 **Build**
+
 ```bash
 docker build -t hash_tool .
 ```
 
 **Smoke test — version**
+
 ```bash
 docker run --rm hash_tool version
 ```
 
 **Smoke test — help**
+
 ```bash
 docker run --rm hash_tool help
 ```
 
 **Smoke test — compute via volume**
+
 ```bash
 mkdir -p /tmp/testdata /tmp/testbases
 echo "contenu alpha" > /tmp/testdata/alpha.txt
@@ -104,9 +113,11 @@ docker run --rm \
   hash_tool compute /data /bases/test.b3
 [ -s /tmp/testbases/test.b3 ] || exit 1
 ```
+
 Vérifie que le fichier `.b3` est produit et non vide sur l'hôte.
 
 **Smoke test — verify via volume**
+
 ```bash
 docker run --rm \
   -v /tmp/testdata:/data:ro \
@@ -117,9 +128,11 @@ docker run --rm \
 ```
 
 **Commande inconnue → exit non-zéro**
+
 ```bash
 docker run --rm hash_tool commande_inexistante && exit 1 || true
 ```
+
 Vérifie que l'entrypoint rejette les commandes non reconnues.
 
 ---
@@ -149,6 +162,7 @@ make test    # reproduit les trois suites de tests
 ```
 
 Pour reproduire le job Docker :
+
 ```bash
 docker build -t hash_tool .
 docker run --rm hash_tool version
