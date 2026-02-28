@@ -1,33 +1,19 @@
-# hash_tool
+# hash-tool
 
 Outil CLI de vérification d'intégrité de fichiers par hachage BLAKE3.
 
 ## Présentation
 
-hash_tool permet de calculer, vérifier et comparer des empreintes cryptographiques (BLAKE3) sur des dossiers de fichiers. Il détecte les fichiers modifiés, disparus ou ajoutés entre deux états d'un même dossier.
+hash-tool permet de calculer, vérifier et comparer des empreintes cryptographiques (BLAKE3) sur des dossiers de fichiers. Il détecte les fichiers modifiés, disparus ou ajoutés entre deux états d'un même dossier.
 
-Fonctionne en mode natif (b3sum + bash) ou via Docker en fallback automatique.
+Fonctionne en mode natif (b3sum + bash) ou via Docker.
 
 ## Cas d'usage typiques
 
 - Audit d'intégrité avant archivage
 - Vérification après migration ou copie de données
-- Contrôle périodique de volumes chiffrés (VeraCrypt)
+- Contrôle périodique de données archivées 
 - Automatisation via pipeline JSON
-
-## Prérequis
-
-- bash >= 4, b3sum, jq (mode natif)
-- Docker (mode conteneur)
-
-## Installation rapide
-
-```bash
-git clone https://github.com/hash_tool/hash_tool
-cd hash_tool
-chmod +x hash-tool runner.sh src/integrity.sh
-./hash-tool check-env
-```
 
 ## Utilisation
 

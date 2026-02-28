@@ -1,4 +1,4 @@
-# hash_tool
+# hash-tool
 
 Outil CLI de vérification d'intégrité de fichiers par hachage **BLAKE3**.
 Calcule des empreintes cryptographiques sur un dossier, détecte toute modification
@@ -38,13 +38,13 @@ ultérieure, et compare deux états pour identifier précisément ce qui a chang
 
 ## Modes d'exécution
 
-hash_tool fonctionne dans deux modes — la détection est **automatique** :
+hash-tool fonctionne dans deux modes — la détection est **automatique** :
 
 **Mode natif** (recommandé) : `b3sum` et `jq` sont installés sur la machine.
-hash_tool appelle directement `src/integrity.sh`. Plus rapide, pas de dépendance Docker.
+hash-tool appelle directement `src/integrity.sh`. Plus rapide, pas de dépendance Docker.
 
-**Mode Docker** (fallback) : `b3sum` ou `jq` sont absents, mais l'image `hash_tool`
-est disponible. hash_tool construit les volumes et lance `docker run` automatiquement.
+**Mode Docker** (fallback) : `b3sum` ou `jq` sont absents, mais l'image `hash-tool`
+est disponible. hash-tool construit les volumes et lance `docker run` automatiquement.
 L'interface CLI reste identique dans les deux modes.
 
 ```bash
